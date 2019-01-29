@@ -1,0 +1,22 @@
+TMT-Integrator:
+  database: D:\2018-07-16-td-RefSeq.20180629_Human_ucsc_hg38_cpdbnr_mito_264contams.fasta               # process a ready-to-use database
+  output_path: D:\    # output path
+  combined_report_path: # The path of combined report
+  min_localization_prob: 0.9    # minimum phosphorylation probability
+  min_pep_thres: 0.9                 # minimum peptide probability
+  min_purity:0.5     # Minimum purity
+  min_intentsity:0.05     # Minimum MS1 intensity (%)  
+  groupby:1    # 0: gene; 1:Protein ID; 2: Peptide; 3: Phospho Site Location
+  best_psm:true     # selecting the best PSM
+  psm_level_norm:false     # normalization on psm level
+  outlier_removal:true     # using outlier removal or not
+  protein_level_norm:2     # normalization on protein level, options: 0:None, 1:MD, 2:GN
+  allow_overlabeling:true     # allow over labeling  
+  use_Ms1_intensity:true    # using MS1 intensity  
+  use_Top3_pep:true    # using top 3 intensive peptides
+  use_unique_pep:true    # using unique peptides
+  use_Phospho_pep:false    # using phospho peptides only (false for whole; true for phospho)
+  exclude_terms:sp|;tr|;   # exclude proteinID with these terms
+  used_mod:79.9663;   # used peptides with the modification
+  channel_num:10   # the number of TMT channels
+  reference_channel_tag:pool   # the tag used for identifying reference channel
