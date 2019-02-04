@@ -1,6 +1,6 @@
-TMT-Integrator:
-  database: D:\2018-07-16-td-RefSeq.20180629_Human_ucsc_hg38_cpdbnr_mito_264contams.fasta               # process a ready-to-use database
-  output_path: D:\    # output path
+TMT-Integrator (parameters marked with '(required)' need to be filled):
+  database: D:\2018-07-16-td-RefSeq.20180629_Human_ucsc_hg38_cpdbnr_mito_264contams.fasta               # process a ready-to-use database (required)
+  output_path: D:\    # output path (required)
   combined_report_path: # The path of combined report
   min_localization_prob: 0.9    # minimum phosphorylation probability
   min_pep_thres: 0.9                 # minimum peptide probability
