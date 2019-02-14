@@ -31,7 +31,11 @@ Interquartile range (IQR) algorithm: We compute the first quantile (Q1), the thi
 
 
 ## 5	Protein level normalization
-There are two protein level normalization methods in TMT-Integrator. The first method is called MD which we calculate the median log2 ratio of the ith sample (m0) and center the ratios in a sample by subtracting m0 from each ratio. The second method is called GN which, in addition to MD, we calculate the median deviation and median absolute deviation of centered values (m1 and m2), and scale all values to derive the final measure using the equation: yij''=(yij’/m2)xm1+m0, where yij is the log2 ratio in the ith group of the jth sample.                                                                                                      
+There are two protein level normalization methods in TMT-Integrator. The first method is called MD which we calculate the median log2 ratio of the ith sample (m0) and center the ratios in a sample by subtracting m0 from each ratio. The second method is called GN which, in addition to MD, we calculate the median deviation and median absolute deviation of centered values (m1 and m2), and scale all values to derive the final measure using the equation: yij''=(yij’/m2)xm1+m0, where yij is the log2 ratio in the ith group of the jth sample.                                                                           
+
+
+# How to Download
+Download the latest version [here](https://github.com/Nesvilab/TMT-Integrator/releases/latest)
 
 # Command
 `java -jar TMTIntegrator.jar TMTIntegrator.yaml PSM_Tables`
