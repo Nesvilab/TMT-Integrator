@@ -37,7 +37,8 @@ There are two protein level normalization methods in TMT-Integrator. The first m
 # How to Download
 Download the latest version [here](https://github.com/Nesvilab/TMT-Integrator/releases/latest)
 
-# Command
+
+# Commands
 `java -jar TMTIntegrator.jar TMTIntegrator.yaml PSM_Tables`
 
- `java -jar -Xmx16g TMTIntegrator.jar TMTIntegrator.yaml /*_psm.tsv`
+`java -jar -Xmx16g TMTIntegrator.jar TMTIntegrator.yaml /*_psm.tsv`
