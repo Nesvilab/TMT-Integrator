@@ -1,0 +1,4 @@
+theme: jekyll-theme-slate
+title: TMT-Integrator
+description: A tool integrates channel abundances from multiple TMT samples and exports a general report for downstream analysis.
+google_analytics: []
