@@ -9,13 +9,13 @@ There are five steps in TMT-Integrator, including (1) best PSM selection, (2) lo
 
 In order to have a good quantitation quality, we only include PSMs that pass the following criteria:
 
-- With TMT modification
-- Reference TMT channel intensity > 0
-- Precursor ion purity >= 50%
-- Summed (across all 10 channels) MS2 intensity >= 5% (2.5% for PHOSPHO)
-- keep the best (highest summed MS2 intensity) PSM only among all PSMs identifying the same peptide ion in the same sample/fraction (i.e. same LC-MS/MS run)
-- PSMs not mapping, as unique or razor peptides, to contaminant proteins (‘sp|…’ or ‘tr|…’ proteins in this dataset)
-- PSMs with phosphorylation (only for phospho data)
+* With TMT modification
+* Reference TMT channel intensity > 0
+* Precursor ion purity >= 50%
+* Summed (across all 10 channels) MS2 intensity >= 5% (2.5% for PHOSPHO)
+* keep the best (highest summed MS2 intensity) PSM only among all PSMs identifying the same peptide ion in the same sample/fraction (i.e. same LC-MS/MS run)
+* PSMs not mapping, as unique or razor peptides, to contaminant proteins (‘sp|…’ or ‘tr|…’ proteins in this dataset)
+* PSMs with phosphorylation (only for phospho data)
 
 
 ## 2	Log transform and normalization
