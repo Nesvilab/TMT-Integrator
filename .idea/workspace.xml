@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ArtifactsWorkspaceSettings">
+    <artifacts-to-build>
+      <artifact name="TMTIntegrator:jar" />
+    </artifacts-to-build>
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="a761aa9a-7bb1-4400-a742-276f82a44483" name="Default" comment="" />
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="CoverageDataManager">
+    <SUITE FILE_PATH="coverage/TMTIntegrator$TMTIntegrator.ic" NAME="TMTIntegrator Coverage Results" MODIFIED="1566759112575" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="idea" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" />
+    <SUITE FILE_PATH="coverage/TmtQuant$TmtQuant.ic" NAME="TmtQuant Coverage Results" MODIFIED="1528991256663" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="idea" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Class" />
+      </list>
+    </option>
+  </component>
+  <component name="ProjectId" id="1Vp0IGMj89CMxExJG0QKqzz4pl9" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showExcludedFiles" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">
+    <property name="GenerateAntBuildDialog.backupFiles" value="true" />
+    <property name="GenerateAntBuildDialog.enableUiFormCompile" value="true" />
+    <property name="GenerateAntBuildDialog.forceTargetJdk" value="true" />
+    <property name="GenerateAntBuildDialog.outputFileNameProperty" value="tmtintegrator" />
+    <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/../Backup/TMTIntegrator_20200822_stable/TMTIntegrator" />
+    <property name="project.structure.last.edited" value="Project" />
+    <property name="project.structure.proportion" value="0.15" />
+    <property name="project.structure.side.proportion" value="0.2" />
+    <property name="settings.editor.selected.configurable" value="editor.preferences.fonts.default" />
+  </component>
+  <component name="RunManager">
+    <configuration name="TMTIntegrator" type="Application" factoryName="Application">
+      <option name="MAIN_CLASS_NAME" value="TMTIntegrator" />
+      <module name="TMTIntegrator" />
+      <option name="PROGRAM_PARAMETERS" value="D:\Test_FFPE\tmt-i.yml D:\Test_FFPE\PTRC_Ovarian_FFPE_GLBL_bRP_TMT_Gr01_psm.tsv D:\Test_FFPE\PTRC_Ovarian_FFPE_GLBL_bRP_TMT_Gr02_psm.tsv D:\Test_FFPE\PTRC_Ovarian_FFPE_GLBL_bRP_TMT_Gr03_psm.tsv D:\Test_FFPE\PTRC_Ovarian_FFPE_GLBL_bRP_TMT_Gr04_psm.tsv D:\Test_FFPE\PTRC_Ovarian_FFPE_GLBL_bRP_TMT_Gr05_psm.tsv" />
+      <option name="VM_PARAMETERS" value="-Xmx40G" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration default="true" type="Application" factoryName="Application">
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration default="true" type="JUnit" factoryName="JUnit">
+      <option name="TEST_OBJECT" value="class" />
+      <option name="WORKING_DIRECTORY" value="%MODULE_WORKING_DIR%" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration default="true" type="TestNG">
+      <option name="TEST_OBJECT" value="CLASS" />
+      <option name="WORKING_DIRECTORY" value="%MODULE_WORKING_DIR%" />
+      <properties />
+      <listeners />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+  </component>
+  <component name="ServiceViewManager">
+    <option name="viewStates">
+      <list>
+        <serviceView>
+          <treeState>
+            <expand />
+            <select />
+          </treeState>
+        </serviceView>
+      </list>
+    </option>
+  </component>
+  <component name="SvnConfiguration">
+    <configuration />
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="a761aa9a-7bb1-4400-a742-276f82a44483" name="Default" comment="" />
+      <created>1525615810646</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1525615810646</updated>
+    </task>
+    <servers />
+  </component>
+  <component name="WindowStateProjectService">
+    <state x="223" y="71" width="1508" height="825" key="#com.intellij.execution.impl.EditConfigurationsDialog" timestamp="1598346985974">
+      <screen x="0" y="0" width="1536" height="824" />
+    </state>
+    <state x="223" y="71" key="#com.intellij.execution.impl.EditConfigurationsDialog/0.0.1536.824@0.0.1536.824" timestamp="1598346985974" />
+    <state width="489" height="450" key="DebuggerActiveHint" timestamp="1598171288184">
+      <screen x="0" y="0" width="1536" height="824" />
+    </state>
+    <state width="489" height="450" key="DebuggerActiveHint/0.0.1536.824@0.0.1536.824" timestamp="1598171288184" />
+    <state x="592" y="241" key="FileChooserDialogImpl" timestamp="1598168016138">
+      <screen x="0" y="0" width="1536" height="824" />
+    </state>
+    <state x="592" y="241" key="FileChooserDialogImpl/0.0.1536.824@0.0.1536.824" timestamp="1598168016138" />
+    <state width="1493" height="182" key="GridCell.Tab.0.bottom" timestamp="1598347698287">
+      <screen x="0" y="0" width="1536" height="824" />
+    </state>
+    <state width="1493" height="182" key="GridCell.Tab.0.bottom/0.0.1536.824@0.0.1536.824" timestamp="1598347698287" />
+    <state width="1493" height="182" key="GridCell.Tab.0.center" timestamp="1598347698287">
+      <screen x="0" y="0" width="1536" height="824" />
+    </state>
+    <state width="1493" height="182" key="GridCell.Tab.0.center/0.0.1536.824@0.0.1536.824" timestamp="1598347698287" />
+    <state width="1493" height="182" key="GridCell.Tab.0.left" timestamp="1598347698287">
+      <screen x="0" y="0" width="1536" height="824" />
+    </state>
+    <state width="1493" height="182" key="GridCell.Tab.0.left/0.0.1536.824@0.0.1536.824" timestamp="1598347698287" />
+    <state width="1493" height="182" key="GridCell.Tab.0.right" timestamp="1598347698287">
+      <screen x="0" y="0" width="1536" height="824" />
+    </state>
+    <state width="1493" height="182" key="GridCell.Tab.0.right/0.0.1536.824@0.0.1536.824" timestamp="1598347698287" />
+    <state width="1493" height="182" key="GridCell.Tab.1.bottom" timestamp="1598347698287">
+      <screen x="0" y="0" width="1536" height="824" />
+    </state>
+    <state width="1493" height="182" key="GridCell.Tab.1.bottom/0.0.1536.824@0.0.1536.824" timestamp="1598347698287" />
+    <state width="1493" height="182" key="GridCell.Tab.1.center" timestamp="1598347698287">
+      <screen x="0" y="0" width="1536" height="824" />
+    </state>
+    <state width="1493" height="182" key="GridCell.Tab.1.center/0.0.1536.824@0.0.1536.824" timestamp="1598347698287" />
+    <state width="1493" height="182" key="GridCell.Tab.1.left" timestamp="1598347698287">
+      <screen x="0" y="0" width="1536" height="824" />
+    </state>
+    <state width="1493" height="182" key="GridCell.Tab.1.left/0.0.1536.824@0.0.1536.824" timestamp="1598347698287" />
+    <state width="1493" height="182" key="GridCell.Tab.1.right" timestamp="1598347698287">
+      <screen x="0" y="0" width="1536" height="824" />
+    </state>
+    <state width="1493" height="182" key="GridCell.Tab.1.right/0.0.1536.824@0.0.1536.824" timestamp="1598347698287" />
+    <state x="190" y="50" key="new project wizard" timestamp="1589725821452">
+      <screen x="0" y="0" width="1536" height="824" />
+    </state>
+    <state x="190" y="50" key="new project wizard/0.0.1536.824@0.0.1536.824" timestamp="1589725821452" />
+  </component>
+  <component name="com.intellij.coverage.CoverageDataManagerImpl">
+    <SUITE FILE_PATH="coverage/TMTIntegrator$TMTIntegrator.ic" NAME="TMTIntegrator Coverage Results" MODIFIED="1589334570291" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="idea" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" />
+  </component>
+</project>
