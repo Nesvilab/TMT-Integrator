@@ -704,8 +704,8 @@ public class integrate
                     if(PepProb > MaxPepProb){
                         MaxPepProb = PepProb;
                     }
-                    if(!pepLi.contains(strAry[2])){
-                        pepLi.add(strAry[2]);
+                    if(!pepLi.contains(pi.peptide)){
+                        pepLi.add(pi.peptide);
                     }
                 }
                 //endregion
@@ -763,6 +763,7 @@ public class integrate
                 for(String ProtId : ProtIdLi){
                     ProtStr += ProtId+";";
                 }
+                ProtStr = ProtStr.substring(0, ProtStr.lastIndexOf(";"));
                 ggpStr = NumPsm +"\t"+ProtStr;
             }
             else if(groupBy==1){
@@ -773,6 +774,7 @@ public class integrate
                 for(String pep: pepLi){
                     pepStr+=pep+";";
                 }
+                pepStr=pepStr.substring(0,pepStr.lastIndexOf(";"));
                 ggpStr = ggpStr+"\t"+pepStr;
             }
             groupkey = (ggpStr!="") ? (groupkey+"\t"+ggpStr+"\t"+MaxPepProb) : groupkey+"\t"+MaxPepProb;
