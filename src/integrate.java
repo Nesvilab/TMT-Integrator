@@ -1,4 +1,3 @@
-import sun.reflect.generics.tree.Tree;
 
 import java.io.*;
 import java.lang.reflect.Array;
@@ -1073,8 +1072,9 @@ public class integrate
         }
         if(param.print_RefInt){
             for(String fName : param.fNameLi){
+                File f =new File(fName);
                 String[] tAry = param.TitleMap.get(fName).split("\t");
-                wr.write("\tRefInt_"+ tAry[param.ci.refIndexMap.get(fName)].replace(" Abundance",""));
+                wr.write("\tRefInt_"+ (param.add_Ref<0?tAry[param.ci.refIndexMap.get(fName)].replace(" Abundance",""):f.getName()));
             }
         }
         wr.newLine();

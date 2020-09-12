@@ -318,16 +318,15 @@ public class TMTIntegrator
 
         for(int i = 0; i < tAry.length; i++){
             if(tAry[i].contains(param.refTag)){
-                if(param.add_Ref>=0)
-                {
-                    param.ci.refIndexMap.put(fName,tAry.length);
-                }
-                else
-                {
-                    param.ci.refIndexMap.put(fName,i);
-                }
+                param.ci.refIndexMap.put(fName,i);
                 refexit = true;
             }
+            else if(param.add_Ref>=0)
+            {
+                param.ci.refIndexMap.put(fName,tAry.length-1);
+                refexit = true;
+            }
+
             if(tAry[i].equals("PeptideProphet Probability")){
                 param.ci.pepProbcIndex = i;
             }
@@ -526,6 +525,12 @@ public class TMTIntegrator
             String mapGenes = (param.ci.mapGeneIndex>=0) ? strAry[param.ci.mapGeneIndex]: "";
             double refInt = (param.add_Ref<0) ? Double.parseDouble(strAry[param.ci.refIndexMap.get(PsmF.getAbsolutePath())]) : 10000 ; //set up a random value to pass the criteria
             int ntt = Integer.parseInt(strAry[param.ci.numEnzyTermi]);
+
+            if(Psm.contains("01CPTAC_BCprospective_W_BI_20160911_BL_f01.05498.05498.6"))
+            {
+                System.out.println();
+            }
+
 
             boolean isAllowed = true;
             //region allow overlabeled
