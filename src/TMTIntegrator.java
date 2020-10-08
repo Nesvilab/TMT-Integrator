@@ -323,7 +323,7 @@ public class TMTIntegrator
             }
             else if(param.add_Ref>=0)
             {
-                param.ci.refIndexMap.put(fName,tAry.length-1);
+                param.ci.refIndexMap.put(fName,tAry.length);
                 refexit = true;
             }
 
@@ -526,12 +526,6 @@ public class TMTIntegrator
             double refInt = (param.add_Ref<0) ? Double.parseDouble(strAry[param.ci.refIndexMap.get(PsmF.getAbsolutePath())]) : 10000 ; //set up a random value to pass the criteria
             int ntt = Integer.parseInt(strAry[param.ci.numEnzyTermi]);
 
-            if(Psm.contains("01CPTAC_BCprospective_W_BI_20160911_BL_f01.05498.05498.6"))
-            {
-                System.out.println();
-            }
-
-
             boolean isAllowed = true;
             //region allow overlabeled
             if((!param.allow_overlabel) && (assignedMod.contains("S(229."))){
@@ -548,7 +542,7 @@ public class TMTIntegrator
             }
             else if (!param.allow_unlabeled && (assignedMod.contains("n(42.") || assignedMod.contains("n(229.") || assignedMod.contains(", 1S(229.")
                 || assignedMod.indexOf("1S(229.")==0 || assignedMod.contains("N-term(42.") || assignedMod.contains("N-term(229.")
-                || assignedMod.contains("N-term(144.1")))
+                || assignedMod.contains("N-term(144.1") || assignedMod.contains("9K(304.2") || assignedMod.contains("N-term(304.2")))
             {
                 labelflag=true;
             }

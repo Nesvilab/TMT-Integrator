@@ -685,10 +685,11 @@ public class integrate
         {
             TreeMap<String, ds_PsmInfo> fMap = gPsmMap.get(groupkey);
             TreeMap<String, double[]> fAbnMap = new TreeMap<String, double[]>();
-            String ggpStr = ""; //global gene/peptide string
+            //String ggpStr = ""; //global gene/peptide string
             List<String> ProtIdLi = new ArrayList<String>();
             int NumPsm = 0;
             double MaxPepProb = 0;
+            List<String> geneLi = new ArrayList<String>();
             List<String> pepLi = new ArrayList<String>();
             for(String fName : fMap.keySet())
             {
@@ -705,6 +706,9 @@ public class integrate
                     }
                     if(!pepLi.contains(pi.peptide)){
                         pepLi.add(pi.peptide);
+                    }
+                    if(!geneLi.contains(pi.gene)){
+                        geneLi.add(pi.gene);
                     }
                 }
                 //endregion
@@ -753,9 +757,16 @@ public class integrate
                         }
                     }
                 }
-                ggpStr = pi.gene;
+                //ggpStr = pi.gene;
                 //endregion
             }
+
+            String ggpStr = ""; //global gene/peptide string
+            for(String gene : geneLi)
+            {
+                ggpStr+=gene+";";
+            }
+            ggpStr=ggpStr.substring(0,ggpStr.lastIndexOf(";"));
 
             if(groupBy==0){
                 String ProtStr = "";
