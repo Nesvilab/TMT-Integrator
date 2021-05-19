@@ -3,10 +3,7 @@ import java.io.*;
 import java.lang.reflect.Array;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.TreeMap;
+import java.util.*;
 
 public class integrate
 {
@@ -321,6 +318,7 @@ public class integrate
                         //region Use MS1 intensity
                         if(param.ms1Int){
                             double Sum = 0;
+                            //int len = param.ci.abncIndex+param.channelNum;
                             for(int x=param.ci.abncIndex; x<strAry.length; x++){
                                 Sum += Double.parseDouble(strAry[x]);
                             }
@@ -696,6 +694,7 @@ public class integrate
                 ds_PsmInfo pi = fMap.get(fName);
                 double[] mAry = new double[TotLen]; //index=10 for SumAbn
                 double[][] Ratio2DAry = new double[pi.PsmLi.size()][PlexNum];
+                ds_Ratio[][] Obj2DAry = new ds_Ratio[pi.PsmLi.size()][PlexNum];
 
                 //region Get  Max. peptide probability and all peptide sequences
                 for(int i = 0; i < pi.PsmLi.size(); i++){
@@ -714,29 +713,53 @@ public class integrate
                 //endregion
 
                 //region Get ratios
-                for(int i = 0; i < pi.PsmLi.size(); i++)
+                if(param.aggregation_method==0)
                 {
-                    String[] strAry = pi.PsmLi.get(i).split("\t");
-                    for(int j=param.ci.abncIndex; j<strAry.length; j++){
-                        Ratio2DAry[i][j-param.ci.abncIndex] = Double.parseDouble(strAry[j]);
+                    for(int i = 0; i < pi.PsmLi.size(); i++)
+                    {
+                        String[] strAry = pi.PsmLi.get(i).split("\t");
+                        for(int j=param.ci.abncIndex; j<strAry.length; j++){
+                            Ratio2DAry[i][j-param.ci.abncIndex] = Double.parseDouble(strAry[j]);
+                        }
                     }
                 }
+                else if(param.aggregation_method==1)
+                {
+                    for(int i = 0; i < pi.PsmLi.size(); i++)
+                    {
+                        String[] strAry = pi.PsmLi.get(i).split("\t");
+                        for(int j=param.ci.abncIndex; j<strAry.length; j++)
+                        {
+                            ds_Ratio rObj = new ds_Ratio();
+                            rObj.preInt = Double.parseDouble(strAry[param.ci.ms1IntIndex]);
+                            rObj.ratio = Double.parseDouble(strAry[j]);
+                            Obj2DAry[i][j-param.ci.abncIndex] = rObj;
+                        }
+                    }
+                }
+
                 //endregion
 
                 //region Take median ratios
                 for(int j =0; j < PlexNum; j++)
                 {
-                    List<Double> tmpLi = new ArrayList<Double>();
-                    for (int i = 0; i< pi.PsmLi.size(); i++){
-                        if(Ratio2DAry[i][j] != -9999)
-                            tmpLi.add(Ratio2DAry[i][j]);
-                    }
-
-                    if(tmpLi.size()>0){
+                    if(param.aggregation_method==0)
+                    {
+                        List<Double> tmpLi = new ArrayList<Double>();
+                        for (int i = 0; i< pi.PsmLi.size(); i++){
+                            if(Ratio2DAry[i][j] != -9999)
+                                tmpLi.add(Ratio2DAry[i][j]);
+                        }
                         mAry[j] = TakeMedian(tmpLi);
                     }
-                    else{
-                        mAry[j] = -9999;
+                    else if(param.aggregation_method==1)
+                    {
+                        List<ds_Ratio> rObjLi = new ArrayList<ds_Ratio>();
+                        for (int i = 0; i< pi.PsmLi.size(); i++){
+                            if(Obj2DAry[i][j].ratio != -9999)
+                                rObjLi.add(Obj2DAry[i][j]);
+                        }
+                        mAry[j] = TakeWeightedMedian(rObjLi);
                     }
                 }
                 //endregion
@@ -1085,7 +1108,10 @@ public class integrate
             for(String fName : param.fNameLi){
                 File f =new File(fName);
                 String[] tAry = param.TitleMap.get(fName).split("\t");
-                wr.write("\tRefInt_"+ (param.add_Ref<0?tAry[param.ci.refIndexMap.get(fName)].replace(" Abundance",""):f.getName()));
+                //wr.write("\tRefInt_"+ (param.add_Ref<0?tAry[param.ci.refIndexMap.get(fName)].replace(" Abundance",""):f.getName()));
+
+                String fldstr=f.getParent().substring(f.getParent().lastIndexOf("\\")+1);
+                wr.write("\tRefInt_"+ (param.add_Ref<0?tAry[param.ci.refIndexMap.get(fName)].replace(" Abundance",""):fldstr));
             }
         }
         wr.newLine();
@@ -1282,6 +1308,82 @@ public class integrate
         return mValue;
     }
 
+    private static double TakeWeightedMedian(List<ds_Ratio> rObjLi)
+    {
+        double mValue = -9999;
+        if(rObjLi.size() == 0)
+        {
+            mValue = -9999;
+        }
+        else if(rObjLi.size() == 2)
+        {
+            mValue = (rObjLi.get(0).ratio + rObjLi.get(1).ratio)/2;
+        }
+        else
+        {
+            double sum=0;
+            double pow=1;
+            //1. Precursor Intensity^pow
+            for(int i=0; i<rObjLi.size(); i++)
+            {
+                rObjLi.get(i).weight = Math.pow(rObjLi.get(i).preInt, pow);
+                sum += rObjLi.get(i).weight;
+            }
+
+            //2. The normalization of weight
+            for(int i=0;i<rObjLi.size();i++)
+            {
+                rObjLi.get(i).weight = rObjLi.get(i).weight/sum;
+            }
+
+            //3. Sort ratios
+            Collections.sort(rObjLi, new Comparator<ds_Ratio>() {
+                @Override
+                public int compare(ds_Ratio r1, ds_Ratio r2) {
+                    return Double.compare(r1.ratio, r2.ratio);
+                }
+            });
+
+            //4. take the weighted median
+            int index=1;
+            while(index<rObjLi.size())
+            {
+                double w1 = 0;
+                double w2 = 0;
+                for(int i =0; i < index; i++)
+                {
+                    w1 += rObjLi.get(i).weight;
+                }
+                for(int i = index+1;i< rObjLi.size(); i++)
+                {
+                    w2 += rObjLi.get(i).weight;
+                }
+                if((w1<=0.5)&&(w2<=0.5))
+                {
+                    break;
+                }
+                index+=1;
+            }
+
+            if(rObjLi.size()==index)
+            {
+                Collections.sort(rObjLi, new Comparator<ds_Ratio>() {
+                    @Override
+                    public int compare(ds_Ratio r1, ds_Ratio r2) {
+                        return Double.compare(r1.weight, r2.weight);
+                    }
+                });
+                mValue = rObjLi.get(rObjLi.size()-1).ratio;
+            }
+            else
+            {
+                mValue=rObjLi.get(index).ratio;
+            }
+        }
+
+        return mValue;
+    }
+
     private static double Log2(double value)
     {
         return (Math.log(value)/Math.log(2));
@@ -1304,14 +1406,17 @@ public class integrate
     private static void GenerateSingleSite()
     {
         TreeMap<String, List<String>> keyMap = new TreeMap<String, List<String>>();
+        int location=5;
         //region Cluster keys based on the index
         for(String groupkey : gAbnMap.keySet()) {
             String[] strAry = groupkey.split("\t");
             String[] indAry = strAry[0].split("%");
             if(TryParseIInt(indAry[indAry.length-1])<0){
-                String[] sAry = indAry[indAry.length-1].split("S|T|Y");
+                //String[] sAry = indAry[indAry.length-1].split("S|T|Y");
+                String[] sAry = indAry[location].split(param.modAA);
                 for(int i=1; i<sAry.length; i++){
-                    String newgroupkey = indAry[0]+"%"+indAry[indAry.length-1].charAt(indAry[indAry.length-1].indexOf(sAry[i])-1)+sAry[i];
+                    //String newgroupkey = indAry[0]+"%"+indAry[indAry.length-1].charAt(indAry[indAry.length-1].indexOf(sAry[i])-1)+sAry[i];
+                    String newgroupkey = indAry[0]+"%"+indAry[location].charAt(indAry[location].indexOf(sAry[i])-1)+sAry[i];
                     if(keyMap.containsKey(newgroupkey)){
                         List<String> strLi = keyMap.get(newgroupkey);
                         strLi.add(groupkey);

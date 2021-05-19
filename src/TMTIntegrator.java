@@ -203,10 +203,24 @@ public class TMTIntegrator
                     }
                     else if(header.equals("mod_tag"))
                     {
-                        String[] strAry = value.split(",");
-                        for(int i=0;i<strAry.length;i++)
+                        if(value.equalsIgnoreCase("none"))
                         {
-                            param.modTagLi.add(strAry[i].trim());
+                            param.modTagLi.add(value);
+                        }
+                        else
+                        {
+                            String modAA="";
+                            String[] strAry = value.split(",");
+                            for(int i=0;i<strAry.length;i++)
+                            {
+                                param.modTagLi.add(strAry[i].trim());
+                                String AA=strAry[i].substring(strAry[i].indexOf('[')-1, strAry[i].indexOf('['));
+                                if(!modAA.contains(AA))
+                                {
+                                    modAA +=  AA+"|";
+                                }
+                            }
+                            param.modAA=modAA.substring(0,modAA.length()-1);
                         }
                     }
                     else if(header.equals("min_site_prob"))
@@ -240,6 +254,10 @@ public class TMTIntegrator
                     else if(header.equals("abn_type"))
                     {
                         param.abn_type = Integer.parseInt(value);
+                    }
+                    else if(header.equals("aggregation_method"))
+                    {
+                        param.aggregation_method = Integer.parseInt(value);
                     }
                 }
             }
@@ -316,14 +334,22 @@ public class TMTIntegrator
         String[] tAry = title.split("\t");
         boolean refexit = false;
 
+        int RefNum = 0;
+        for (String str : tAry) {
+            if (str.contains(param.refTag)) {
+                RefNum += 1;
+            }
+        }
+
         for(int i = 0; i < tAry.length; i++){
-            if(tAry[i].contains(param.refTag)){
-                param.ci.refIndexMap.put(fName,i);
+            if(param.add_Ref>=0)
+            {
+                param.ci.refIndexMap.put(fName,tAry.length+1);
                 refexit = true;
             }
-            else if(param.add_Ref>=0)
+            else if(tAry[i].contains(param.refTag))
             {
-                param.ci.refIndexMap.put(fName,tAry.length);
+                param.ci.refIndexMap.put(fName,i);
                 refexit = true;
             }
 
@@ -348,9 +374,9 @@ public class TMTIntegrator
             if(tAry[i].equals("Is Unique")){
                 param.ci.isUniquecIndex = i;
             }
-            if(tAry[i].equals("Is Used")){
-                param.ci.isUsedcIndex = i;
-            }
+//            if(tAry[i].equals("Is Used")){
+//                param.ci.isUsedcIndex = i;
+//            }
             if(tAry[i].equals("Retention")){
                 param.ci.rtIndex = i;
             }
@@ -393,6 +419,11 @@ public class TMTIntegrator
             System.out.println("TMT-Integrator can't find the reference channel. Please check if the reference tag is correctly defined in the parameter file.");
             System.exit(1);
         }
+        if(RefNum>1)
+        {
+            System.out.println("There are more than one reference tag in the column names. Please check if the reference tag is unique among all the column names.");
+            System.exit(1);
+        }
         if(param.ci.pepcIndex<0){
             System.out.println("TMT-Integrator can't find the 'Peptide' column. Please check if the column is in the psm tables.");
             System.exit(1);
@@ -425,10 +456,10 @@ public class TMTIntegrator
             System.out.println("TMT-Integrator can't find the 'Is Unique' column. Please check if the column is in the psm tables.");
             System.exit(1);
         }
-        if(param.ci.isUsedcIndex<0){
-            System.out.println("TMT-Integrator can't find the 'Is Used' column. Please check if the column is in the psm tables.");
-            System.exit(1);
-        }
+//        if(param.ci.isUsedcIndex<0){
+//            System.out.println("TMT-Integrator can't find the 'Is Used' column. Please check if the column is in the psm tables.");
+//            System.exit(1);
+//        }
         if(param.ci.rtIndex<0){
             System.out.println("TMT-Integrator can't find the 'Retention' column. Please check if the column is in the psm tables.");
             System.exit(1);
@@ -486,8 +517,13 @@ public class TMTIntegrator
             String[] strAry = line.split("\t");
 
             String NewPsm = ""; //Update isUsed = false
-            strAry[param.ci.isUsedcIndex] = "false";
-            for(int i=0; i<strAry.length;i++){
+            //strAry[param.ci.isUsedcIndex] = "false";
+            for(int i=0; i<param.ci.abncIndex;i++)
+            {
+                NewPsm+=strAry[i]+"\t";
+            }
+            NewPsm+="false\t";
+            for(int i=param.ci.abncIndex; i<strAry.length;i++){
                 NewPsm+=strAry[i]+"\t";
             }
 
@@ -502,6 +538,9 @@ public class TMTIntegrator
         }
         br.close();
         Collections.sort(TmtIntLi);
+
+        param.ci.isUsedcIndex=param.ci.abncIndex;
+        param.ci.abncIndex+=1;
         //endregion
 
         int TmtThresIndex = (int) Math.floor(AllPsmLi.size()*param.minPercent);
@@ -647,7 +686,7 @@ public class TMTIntegrator
                 for(int i=0; i<strAry.length;i++){
                     NewPsm+=strAry[i]+"\t";
                 }
-                NewPsm+=gene_category; //X
+                NewPsm+=gene_category;
 
                 String Key = fn+"_"+strAry[param.ci.peptideIndex]+"_"+strAry[param.ci.chargeIndex]+"_"+strAry[param.ci.pepMassIndex];
                 if(PsmMap.containsKey(Key)){
@@ -678,7 +717,7 @@ public class TMTIntegrator
                     for(int i=0; i<PsmLi.size();i++){
                         String[] strAry = PsmLi.get(i).split("\t");
                         //double TmtInt = Double.parseDouble(strAry[strAry.length-1]);
-                        double TmtInt = Double.parseDouble(strAry[strAry.length-2]); //X
+                        double TmtInt = Double.parseDouble(strAry[strAry.length-2]);
                         if(TmtInt>maxInt){
                             maxInt = TmtInt;
                             bestPsmIndex = i;
@@ -707,29 +746,30 @@ public class TMTIntegrator
             //endregion
         }
 
-        //region Write PsmF
+        //region Print PsmF
         String NewPath = PsmF.getAbsolutePath().replace(".tsv",".ti");
         //PsmF.delete();
         int PrintNum = param.ci.abncIndex + param.channelNum;
         BufferedWriter wr = new BufferedWriter(new FileWriter(NewPath));
         String[] tAry = title.split("\t");
-        for(int i = 0; i < PrintNum; i++){
+        for(int i = 0; i < (param.ci.abncIndex-1); i++){
+            wr.write(tAry[i] + "\t");
+        }
+        wr.write("Is Used (TMT-I)\t");
+        for(int i=param.ci.abncIndex-1; i<(PrintNum-1);i++)
+        {
             wr.write(tAry[i] + "\t");
         }
         if(param.add_Ref>=0)
         {
             wr.write("Virtual_Reference_"+PsmF.getParentFile().getName()+"\t");
-            //wr.write("Virtual_Reference_"+PsmF.getName()+"\t");
-            //param.ci.refcIndex = PrintNum;
             param.refTag = "Virtual_Reference";
         }
-        //wr.write("\tMapped Genes\tTMT Sum. Abund. \tGene Category"); //X
         wr.newLine();
         for(List<String> PsmLi : PsmMap.values()){
             for(String Psm : PsmLi){
                 String[] pAry = Psm.split("\t");
                 for(int i=0;i<PrintNum; i++){
-                    //for(int i=0;i<pAry.length; i++){  //X
                     wr.write(pAry[i]+"\t");
                 }
                 if(param.add_Ref>=0)

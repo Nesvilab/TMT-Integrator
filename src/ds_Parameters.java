@@ -32,6 +32,8 @@ public class ds_Parameters
     double max_pep_prob_thres=0;
     int min_ntt=0;
     int abn_type=0; //0: ratio-based; 1: raw-based
+    int aggregation_method=0; //psm aggregation, 0: median; 1: weighted-ratio
+    String modAA="";
 
     List<File> FileLi = new ArrayList<File>();
     List<String> fNameLi = new ArrayList<String>();
