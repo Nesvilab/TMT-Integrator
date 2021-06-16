@@ -44,8 +44,8 @@ TMT-Integrator is included in [FragPipe](https://fragpipe.nesvilab.org/). The la
 
 ## Use
 For most users, we recommend running TMT-Integrator through [FragPipe](https://fragpipe.nesvilab.org/) graphical user interface. See the TMT tutorials below, or other tutorials listed on the [FragPipe homepage](https://fragpipe.nesvilab.org/).
-- [Basic tutorial for TMT data](https://msfragger.nesvilab.org/tutorial_tmt.html)
-- [Tutorial for analyzing TMT data with multiple plexes](https://msfragger.nesvilab.org/tutorial_tmt-2plexes.html)
+- [Basic tutorial for TMT data](https://fragpipe.nesvilab.org/docs/tutorial_tmt.html)
+- [Tutorial for analyzing TMT data with multiple plexes](https://fragpipe.nesvilab.org/docs/tutorial_tmt-2plexes.html)
 
 
 For command line uses, see the Philosopher tutorials for running TMT analyses [step-by-step](https://github.com/Nesvilab/philosopher/wiki/Step-by-step-TMT-analysis) or with the [pipeline](https://github.com/Nesvilab/philosopher/wiki/Pipeline-mode-for-TMT-analysis) command. These examples can also be used to run the tool separately (note that both label-free/MS1 and isobaric quantification must be run prior to TMT-Integrator): 
