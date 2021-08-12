@@ -22,6 +22,9 @@ public class TMTIntegrator
         }
         else
         {
+            LoadParam(YamlFile); //Load & check parameters
+            LoadFasta(); //Load fast file
+
             for (int i = 1 ; i < args.length ; i++){
                 param.FileLi.add(new File(args[i]));
             }
@@ -29,11 +32,13 @@ public class TMTIntegrator
             for(int i=0;i<param.FileLi.size();i++)
             {
                 param.fNameLi.add(param.FileLi.get(i).getAbsolutePath());
+
+                ds_Index indObj = new ds_Index();
+                param.indMap.put(param.FileLi.get(i).getAbsolutePath(), indObj);
             }
             Collections.sort(param.fNameLi);
-            LoadParam(YamlFile); //Load parameters
 
-            LoadFasta(); //Load fast file
+            CheckPSMs(param.FileLi);//Check PSM tables
 
             long start = System.currentTimeMillis();
             NumberFormat formatter = new DecimalFormat("#0.00000");
@@ -45,9 +50,10 @@ public class TMTIntegrator
             long end1 = System.currentTimeMillis();
             System.out.println("UpdateColumns--- " + formatter.format((end1 - start) / (1000d * 60)) + " min.");
 
-            int gop = 4; //group options
+            int start_gop = (!param.geneflag) ? 0: 1;
+            int end_gop = (param.glycoflag)? 5: 4; //group options
             if(param.minSiteProb<0){//not ptm data
-                gop = 2;
+                end_gop = 2;
             }
             int nop = 2; //Normalization options
 
@@ -66,7 +72,7 @@ public class TMTIntegrator
                             "(1) no normlization, and (2) sample loading and internal reference scaling (SL+IRS).");
                 }
                 else{
-                    for(int i=0;i<=gop;i++) {//groupby
+                    for(int i=start_gop;i<=end_gop;i++) {//groupby
                         System.out.println("Start to process GroupBy="+i);
                         integrate.run(param, i, param.protNorm);
                         System.out.println("-----------------------------------------------------------------------");
@@ -87,7 +93,7 @@ public class TMTIntegrator
                 }
             }
             else if((param.groupBy<0) && (param.protNorm<0)){
-                for(int i=0; i<=gop; i++){//groupby
+                for(int i=start_gop; i<=end_gop; i++){//groupby
                     for(int j=0; j<=nop; j++) {//protNorm
                         if((param.abn_type==1) && (i<1 || i>=3)){
                             System.out.println("Start to process GroupBy="+i+"_protNorm="+j);
@@ -116,6 +122,40 @@ public class TMTIntegrator
             System.out.println("Finish!!!");
         }
 
+    }
+
+    private static void CheckPSMs(List<File> FileLi) throws IOException
+    {
+        for(File psmF : FileLi)
+        {
+            BufferedReader br = new BufferedReader(new FileReader(psmF.getAbsolutePath()));
+            String title = br.readLine();
+            GetColumnIndex(title, psmF.getAbsolutePath());
+            ds_Index indObj = param.indMap.get(psmF.getAbsolutePath());
+            String line = "";
+            int total=0;
+            int ms1count=0;
+            int genecount=0;
+            while ((line = br.readLine()) != null)
+            {
+                String[] strAry = line.split("\t");
+                ms1count += (Double.valueOf(strAry[indObj.ms1IntIndex])==0)? 1:0;
+                genecount += strAry[indObj.genecIndex].trim().length()==0?1:0;
+                total+=1;
+            }
+            br.close();
+
+            if(total==ms1count){
+                param.ms1Int = false;
+                System.out.println("Warning: All MS1 Intensities in "+ psmF.getAbsolutePath() +" are 0. TMT-Integrator will use summed MS2 reporter ion intensity instead of MS1 ion intensity as reference intensity for abundance calculation.");
+                break;
+            }
+            if(total==genecount){
+                param.geneflag = true;
+                System.out.println("Warning: No gene report is generated because all gene symbols in "+ psmF.getAbsolutePath() +" are missing. The protein ID will be used as gene in other reports.");
+                break;
+            }
+        }
     }
 
     private static void LoadParam(File YamlFile) throws IOException
@@ -191,7 +231,7 @@ public class TMTIntegrator
                     }
                     else if(header.equals("prot_exclude"))
                     {
-                        param.protExcludeAry = value.split(",");
+                        param.protExcludeAry = (value.trim().length()==0)? "none".split(","):value.split(",");
                     }
                     else if(header.equals("allow_overlabel"))
                     {
@@ -203,6 +243,7 @@ public class TMTIntegrator
                     }
                     else if(header.equals("mod_tag"))
                     {
+                        value = (value.trim().length()==0)?"none":value;
                         if(value.equalsIgnoreCase("none"))
                         {
                             param.modTagLi.add(value);
@@ -211,16 +252,33 @@ public class TMTIntegrator
                         {
                             String modAA="";
                             String[] strAry = value.split(",");
+                            String targetmass = "";
                             for(int i=0;i<strAry.length;i++)
                             {
-                                param.modTagLi.add(strAry[i].trim());
-                                String AA=strAry[i].substring(strAry[i].indexOf('[')-1, strAry[i].indexOf('['));
-                                if(!modAA.contains(AA))
+                                //double mass = (strAry[i].contains("(") && strAry[i].contains(")"))? Math.floor(Double.valueOf(strAry[i].substring(strAry[i].indexOf("(")+1,strAry[i].indexOf(")")))*10000)/10000:-1;
+                                String mass = (strAry[i].contains("(") && strAry[i].contains(")"))?strAry[i].substring(strAry[i].indexOf("(")+1,strAry[i].indexOf(")")):"";
+                                String tmp = strAry[i].contains("(")?strAry[i].substring(0,strAry[i].indexOf("("))+"("+mass+")": strAry[i];
+                                param.modTagLi.add(tmp.trim());
+
+                                if((i==0) && (mass!="")){
+                                    targetmass=mass;
+                                }
+
+                                if(tmp.equalsIgnoreCase("n-glyco")||tmp.equalsIgnoreCase("o-glyco")){
+                                    param.glycoflag = true;
+                                }
+
+                                if(strAry[i].contains("("))
                                 {
-                                    modAA +=  AA+"|";
+                                    String AA=strAry[i].substring(strAry[i].indexOf('(')-1, strAry[i].indexOf('('));
+                                    if(!modAA.contains(AA))
+                                    {
+                                        modAA +=  AA+"|";
+                                    }
                                 }
                             }
-                            param.modAA=modAA.substring(0,modAA.length()-1);
+                            param.modAA=modAA!=""?modAA.substring(0,modAA.length()-1):"";
+                            param.columntag = targetmass!=""?(param.modAA.replace("|","")+":"+targetmass):"";
                         }
                     }
                     else if(header.equals("min_site_prob"))
@@ -274,20 +332,15 @@ public class TMTIntegrator
     {
         BufferedReader br = new BufferedReader(new FileReader(param.fastaF));
         String line = br.readLine();
-        String[] KeyAry = line.split(" ");
-        String KeyStr = KeyAry[0];
-        line = line.replace(">", "");
+        String KeyStr = GenerateKey(line);
         String ValueStr = "";
         while ((line = br.readLine()) != null)
         {
             if(line.contains(">"))
             {
-                KeyStr = KeyStr.replace(">", "");
                 param.fastaMap.put(KeyStr, ValueStr);
-                line = line.replace(">", "");
 
-                KeyAry = line.split(" ");
-                KeyStr = KeyAry[0];
+                KeyStr = GenerateKey(line);
                 ValueStr = "";
             }
             else
@@ -296,8 +349,48 @@ public class TMTIntegrator
             }
         }
         br.close();
-        KeyStr = KeyStr.replace(">", "");
         param.fastaMap.put(KeyStr, ValueStr);
+    }
+
+    private static String GenerateKey(String line)
+    {
+        line = line.replace(">", "");
+        String[] KeyAry = null;
+        String KeyStr = "";
+
+//        if(line.contains("|")){
+//            KeyAry = line.split("\\|");
+//            if(line.contains("rev_")){
+//                KeyStr = "rev_"+KeyAry[1];
+//            }
+//            else{
+//                KeyStr = KeyAry[1];
+//            }
+//        }
+//        else{
+//            KeyAry = line.split(" ");
+//            KeyStr = KeyAry[0];
+//        }
+
+        if(line.contains("sp|") || line.contains("rev_sp|")){
+            KeyAry = line.split("\\|");
+            if(line.contains("rev_")){
+                KeyStr = "rev_"+KeyAry[1];
+            }
+            else{
+                KeyStr = KeyAry[1];
+            }
+        }
+        else if(line.contains("|")){
+            KeyAry = line.split("\\|");
+            KeyStr = KeyAry[0];
+        }
+        else{
+            KeyAry = line.split(" ");
+            KeyStr = KeyAry[0];
+        }
+
+        return KeyStr;
     }
 
     private static void GetAllGenes(List<File> FileLi)  throws IOException
@@ -309,11 +402,12 @@ public class TMTIntegrator
                 BufferedReader br = new BufferedReader(new FileReader(FileLi.get(i).getAbsolutePath()));
                 String title = br.readLine();
                 GetColumnIndex(title, FileLi.get(i).getAbsolutePath());
+                ds_Index indObj = param.indMap.get(FileLi.get(i).getAbsolutePath());
                 String line = "";
                 while ((line = br.readLine()) != null)
                 {
                     String[] strAry = line.split("\t");
-                    String gene = strAry[param.ci.genecIndex].trim();
+                    String gene = strAry[indObj.genecIndex].trim();
                     if(!param.AllGeneLi.contains(gene))
                     {
                         param.AllGeneLi.add(gene);
@@ -341,158 +435,145 @@ public class TMTIntegrator
             }
         }
 
+        ds_Index indObj = param.indMap.get(fName);
         for(int i = 0; i < tAry.length; i++){
             if(param.add_Ref>=0)
             {
-                param.ci.refIndexMap.put(fName,tAry.length+1);
+                indObj.refIndex = tAry.length;
                 refexit = true;
             }
             else if(tAry[i].contains(param.refTag))
             {
-                param.ci.refIndexMap.put(fName,i);
+                indObj.refIndex = i;
                 refexit = true;
             }
 
             if(tAry[i].equals("PeptideProphet Probability")){
-                param.ci.pepProbcIndex = i;
+                indObj.pepProbcIndex = i;
             }
             if(tAry[i].equals("Peptide")){
-                param.ci.pepcIndex = i;
+                indObj.pepcIndex = i;
             }
             if(tAry[i].equals("Assigned Modifications")){
-                param.ci.assignedModcIndex = i;
+                indObj.assignedModcIndex = i;
             }
-            if(tAry[i].equals("Phospho Site Localization")){
-                param.ci.phosphoLocalcIndex = i;
+            if(tAry[i].equals("Phospho Site Localization") || tAry[i].equals(param.columntag)){
+                indObj.ptmLocalcIndex = i;
+            }
+            if(tAry[i].equals("Protein ID")){
+                indObj.proteinIDcIndex = i;
             }
             if(tAry[i].equals("Protein")){
-                param.ci.proteinIDcIndex = i;
+                indObj.proteincIndex = i;
             }
             if(tAry[i].equals("Gene")){
-                param.ci.genecIndex = i;
+                indObj.genecIndex = i;
             }
             if(tAry[i].equals("Is Unique")){
-                param.ci.isUniquecIndex = i;
+                indObj.isUniquecIndex = i;
             }
-//            if(tAry[i].equals("Is Used")){
-//                param.ci.isUsedcIndex = i;
-//            }
             if(tAry[i].equals("Retention")){
-                param.ci.rtIndex = i;
+                indObj.rtIndex = i;
             }
             if(tAry[i].equals("Intensity")){
-                param.ci.ms1IntIndex = i;
+                indObj.ms1IntIndex = i;
             }
             if(tAry[i].equals("Purity")){
-                param.ci.purityIndex = i;
+                indObj.purityIndex = i;
             }
             if(tAry[i].equals("Peptide")){
-                param.ci.peptideIndex = i;
+                indObj.peptideIndex = i;
             }
             if(tAry[i].equals("Charge")){
-                param.ci.chargeIndex = i;
+                indObj.chargeIndex = i;
             }
             if(tAry[i].equals("Observed M/Z")){
-                param.ci.observedMzIndex = i;
+                indObj.observedMzIndex = i;
             }
             if(tAry[i].equals("Calculated Peptide Mass") || tAry[i].equals("Peptide Mass")){
-                param.ci.pepMassIndex = i;
-            }
-            if(tAry[i].equals("Number of Phospho Sites")){
-                param.ci.numPhosphoSiteIndex = i;
+                indObj.pepMassIndex = i;
             }
             if(tAry[i].equals("Mapped Genes")){
-                param.ci.mapGeneIndex = i;
+                indObj.mapGeneIndex = i;
             }
             if(tAry[i].equals("Modified Peptide")){
-                param.ci.modifiedPeptideIndex = i;
+                indObj.modifiedPeptideIndex = i;
             }
             if(tAry[i].equals("Number of Enzymatic Termini")){
-                param.ci.numEnzyTermi = i;
+                indObj.numEnzyTermi = i;
             }
         }
 
-        param.ci.abncIndex = tAry.length-param.channelNum;
+        indObj.abnIndex = tAry.length-param.channelNum;
+        indObj.flength = tAry.length;
 
         //region check the existence of columns
         if((!refexit) && (param.add_Ref<0)){
             System.out.println("TMT-Integrator can't find the reference channel. Please check if the reference tag is correctly defined in the parameter file.");
             System.exit(1);
         }
-        if(RefNum>1)
+        if((RefNum>1)&& (param.add_Ref<0))
         {
             System.out.println("There are more than one reference tag in the column names. Please check if the reference tag is unique among all the column names.");
             System.exit(1);
         }
-        if(param.ci.pepcIndex<0){
+        if(indObj.pepcIndex<0){
             System.out.println("TMT-Integrator can't find the 'Peptide' column. Please check if the column is in the psm tables.");
             System.exit(1);
         }
-        if(param.ci.pepProbcIndex<0){
+        if(indObj.pepProbcIndex<0){
             System.out.println("TMT-Integrator can't find the 'PeptideProphet Probability' column. Please check if the column is in the psm tables.");
             System.exit(1);
         }
-        if(param.ci.assignedModcIndex<0){
+        if(indObj.assignedModcIndex<0){
             System.out.println("TMT-Integrator can't find the 'Assigned Modifications' column. Please check if the column is in the psm tables.");
             System.exit(1);
         }
-        if((param.ci.phosphoLocalcIndex<0) && (param.minSiteProb>0)) {
-            System.out.println("TMT-Integrator can't find the 'Phospho Site Localization' column. Please check if the column is in the psm tables.");
+        if((indObj.ptmLocalcIndex<0) && (param.minSiteProb>0)) {
+            System.out.println("TMT-Integrator can't find the corresponding site localization column. Please check if the column: "+param.columntag+" is in the psm tables.");
             System.exit(1);
         }
-        if((param.ci.numPhosphoSiteIndex<0) && (param.minSiteProb>0)) {
-            System.out.println("TMT-Integrator can't find the 'Number of Phospho Sites' column. Please check if the column is in the psm tables.");
-            System.exit(1);
-        }
-        if(param.ci.proteinIDcIndex<0){
+        if(indObj.proteinIDcIndex<0){
             System.out.println("TMT-Integrator can't find the 'Protein' column. Please check if the column is in the psm tables.");
             System.exit(1);
         }
-        if(param.ci.genecIndex<0){
+        if(indObj.genecIndex<0){
             System.out.println("TMT-Integrator can't find the 'Gene' column. Please check if the column is in the psm tables.");
             System.exit(1);
         }
-        if(param.ci.isUniquecIndex<0){
+        if(indObj.isUniquecIndex<0){
             System.out.println("TMT-Integrator can't find the 'Is Unique' column. Please check if the column is in the psm tables.");
             System.exit(1);
         }
-//        if(param.ci.isUsedcIndex<0){
-//            System.out.println("TMT-Integrator can't find the 'Is Used' column. Please check if the column is in the psm tables.");
-//            System.exit(1);
-//        }
-        if(param.ci.rtIndex<0){
+        if(indObj.rtIndex<0){
             System.out.println("TMT-Integrator can't find the 'Retention' column. Please check if the column is in the psm tables.");
             System.exit(1);
         }
-        if(param.ci.abncIndex<0){
-            System.out.println("TMT-Integrator can't find the 'Abundance' column. Please check if the column is in the psm tables.");
-            System.exit(1);
-        }
-        if(param.ci.ms1IntIndex<0){
+        if(indObj.ms1IntIndex<0){
             System.out.println("TMT-Integrator can't find the 'Intensity' column. Please check if the column is in the psm tables.");
             System.exit(1);
         }
-        if(param.ci.purityIndex<0){
+        if(indObj.purityIndex<0){
             System.out.println("TMT-Integrator can't find the 'Purity' column. Please check if the column is in the psm tables.");
             System.exit(1);
         }
-        if(param.ci.peptideIndex<0){
+        if(indObj.peptideIndex<0){
             System.out.println("TMT-Integrator can't find the 'Peptide' column. Please check if the column is in the psm tables.");
             System.exit(1);
         }
-        if(param.ci.chargeIndex<0){
+        if(indObj.chargeIndex<0){
             System.out.println("TMT-Integrator can't find the 'Charge' column. Please check if the column is in the psm tables.");
             System.exit(1);
         }
-        if(param.ci.observedMzIndex<0){
+        if(indObj.observedMzIndex<0){
             System.out.println("TMT-Integrator can't find the 'Observed M/Z' column. Please check if the column is in the psm tables.");
             System.exit(1);
         }
-        if(param.ci.pepMassIndex<0){
+        if(indObj.pepMassIndex<0){
             System.out.println("TMT-Integrator can't find the 'Calculated Peptide Mass' column. Please check if the column is in the psm tables.");
             System.exit(1);
         }
-        if(param.ci.modifiedPeptideIndex<0){
+        if(indObj.modifiedPeptideIndex<0){
             System.out.println("TMT-Integrator can't find the 'Modified Peptide' column. Please check if the column is in the psm tables.");
             System.out.print(1);
         }
@@ -510,6 +591,7 @@ public class TMTIntegrator
         BufferedReader br = new BufferedReader(new FileReader(PsmF.getAbsolutePath()));
         String title = br.readLine();
         GetColumnIndex(title, PsmF.getAbsolutePath());
+        ds_Index indObj = param.indMap.get(PsmF.getAbsolutePath());
         List<Double> TmtIntLi = new ArrayList<Double>();
         String line = "";
         while ((line = br.readLine()) != null)
@@ -517,19 +599,17 @@ public class TMTIntegrator
             String[] strAry = line.split("\t");
 
             String NewPsm = ""; //Update isUsed = false
-            //strAry[param.ci.isUsedcIndex] = "false";
-            for(int i=0; i<param.ci.abncIndex;i++)
+            for(int i=0; i<indObj.abnIndex;i++)
             {
                 NewPsm+=strAry[i]+"\t";
             }
             NewPsm+="false\t";
-            for(int i=param.ci.abncIndex; i<strAry.length;i++){
+            for(int i=indObj.abnIndex; i<strAry.length;i++){
                 NewPsm+=strAry[i]+"\t";
             }
 
             double SumTmtInt = 0; //Sum Tmt Int
-            int length = param.ci.abncIndex+param.channelNum;
-            for(int i=param.ci.abncIndex; i<length; i++){
+            for(int i=indObj.abnIndex; i<indObj.flength; i++){
                 SumTmtInt+=Double.parseDouble(strAry[i]);
             }
             TmtIntLi.add(SumTmtInt);
@@ -539,31 +619,33 @@ public class TMTIntegrator
         br.close();
         Collections.sort(TmtIntLi);
 
-        param.ci.isUsedcIndex=param.ci.abncIndex;
-        param.ci.abncIndex+=1;
-        //endregion
-
         int TmtThresIndex = (int) Math.floor(AllPsmLi.size()*param.minPercent);
         double TmtThres = TmtIntLi.get(TmtThresIndex);
+
+        indObj.isUsedIndex = indObj.abnIndex;
+        indObj.abnIndex+=1;
+        indObj.refIndex+=1;
+        indObj.flength+=1;
+
+        List<String> NewModTagLi = new ArrayList<String>();
 
         //region Collapse Psm
         for(String Psm : AllPsmLi)
         {
             String[] strAry = Psm.split("\t");
             String fn = strAry[0].substring(strAry[0].lastIndexOf('_')+1, strAry[0].indexOf('.'));
-            String PepSeq = strAry[param.ci.pepcIndex];
-            String modPepSeq = strAry[param.ci.modifiedPeptideIndex];
-            double purity = Double.parseDouble(strAry[param.ci.purityIndex]);
+            String PepSeq = strAry[indObj.pepcIndex];
+            double purity = Double.parseDouble(strAry[indObj.purityIndex]);
             double tmtInt = Double.parseDouble(strAry[strAry.length-1]);
-            double pepProb = Double.parseDouble(strAry[param.ci.pepProbcIndex]);
-            boolean isUnique = Boolean.parseBoolean(strAry[param.ci.isUniquecIndex]);
-            int numPhosphoSite = param.ci.numPhosphoSiteIndex>=0? Integer.parseInt(strAry[param.ci.numPhosphoSiteIndex]) : 0;
-            String assignedMod = strAry[param.ci.assignedModcIndex];
-            String gene = strAry[param.ci.genecIndex];
-            String proteinID = strAry[param.ci.proteinIDcIndex];
-            String mapGenes = (param.ci.mapGeneIndex>=0) ? strAry[param.ci.mapGeneIndex]: "";
-            double refInt = (param.add_Ref<0) ? Double.parseDouble(strAry[param.ci.refIndexMap.get(PsmF.getAbsolutePath())]) : 10000 ; //set up a random value to pass the criteria
-            int ntt = Integer.parseInt(strAry[param.ci.numEnzyTermi]);
+            double pepProb = Double.parseDouble(strAry[indObj.pepProbcIndex]);
+            boolean isUnique = Boolean.parseBoolean(strAry[indObj.isUniquecIndex]);
+            String assignedMod = strAry[indObj.assignedModcIndex];
+            String gene = strAry[indObj.genecIndex];
+            String proteinID = strAry[indObj.proteinIDcIndex];
+            String protein = strAry[indObj.proteincIndex];
+            String mapGenes = (indObj.mapGeneIndex>=0) ? strAry[indObj.mapGeneIndex]: "";
+            double refInt = (param.add_Ref<0) ? Double.parseDouble(strAry[indObj.refIndex]) : 10000 ; //set up a random value to pass the criteria
+            int ntt = Integer.parseInt(strAry[indObj.numEnzyTermi]);
 
             boolean isAllowed = true;
             //region allow overlabeled
@@ -596,7 +678,48 @@ public class TMTIntegrator
             else
             {
                 for(String term : param.modTagLi){
-                    if(modPepSeq.contains(term)){
+                    if(term.equalsIgnoreCase("N-glyco")){
+                        param.modAA="N";
+                        String[] assignedModAry=assignedMod.split(",");
+                        for(String aMod : assignedModAry)
+                        {
+                            if(aMod.contains("N(")){
+                                double mass = Double.valueOf(aMod.substring(aMod.indexOf("N(")+2,aMod.indexOf(")")));
+                                modflag=mass>=100?true:false;
+
+                                String mod = aMod.substring(aMod.indexOf("(")-1);
+                                if(!NewModTagLi.contains(mod) && modflag){
+                                    NewModTagLi.add(mod);
+                                }
+                            }
+                        }
+                    }
+                    else if(term.equalsIgnoreCase("O-glyco")){
+                        param.modAA="S|T";
+                        String[] assignedModAry=assignedMod.split(",");
+                        for(String aMod : assignedModAry)
+                        {
+                            boolean tflag = false;
+                            if(aMod.contains("S(")){
+                                double mass = Double.valueOf(aMod.substring(aMod.indexOf("S(")+2,aMod.indexOf(")")));
+                                tflag=mass>=100?true:false;
+                            }
+                            else if(aMod.contains("T(")){
+                                double mass = Double.valueOf(aMod.substring(aMod.indexOf("T(")+2,aMod.indexOf(")")));
+                                tflag=mass>=100?true:false;
+                            }
+
+                            String mod = aMod.substring(aMod.indexOf("(")-1);
+                            if(tflag && !NewModTagLi.contains(mod)){
+                                NewModTagLi.add(mod);
+                            }
+
+                            if(tflag){
+                                modflag=true;
+                            }
+                        }
+                    }
+                    else if(assignedMod.contains(term)){
                         modflag= true;
                         break;
                     }
@@ -616,7 +739,7 @@ public class TMTIntegrator
             if((param.protExcludeAry != null) && (!param.protExcludeAry[0].contains("none")))
             {
                 for(String term : param.protExcludeAry){
-                    if(proteinID.contains(term)){
+                    if(protein.contains(term)){
                         peflag = false;
                         break;
                     }
@@ -682,13 +805,13 @@ public class TMTIntegrator
 
             if((purity>=param.minPurity) && (pepProb>=param.minPepProb) && (tmtInt>=TmtThres) && (gene.length()>0) &&  isAllowed && labelflag && modflag && uniqueflag && peflag && (gene_category>=param.uniqueGene) && (refInt > 0) && (ntt>=param.min_ntt)){
                 String NewPsm = ""; //Update isUsed = true
-                strAry[param.ci.isUsedcIndex] = "true";
+                strAry[indObj.isUsedIndex] = "true";
                 for(int i=0; i<strAry.length;i++){
                     NewPsm+=strAry[i]+"\t";
                 }
                 NewPsm+=gene_category;
 
-                String Key = fn+"_"+strAry[param.ci.peptideIndex]+"_"+strAry[param.ci.chargeIndex]+"_"+strAry[param.ci.pepMassIndex];
+                String Key = fn+"_"+strAry[indObj.peptideIndex]+"_"+strAry[indObj.chargeIndex]+"_"+strAry[indObj.pepMassIndex];
                 if(PsmMap.containsKey(Key)){
                     List<String> PsmLi = PsmMap.get(Key);
                     PsmLi.add(NewPsm);
@@ -701,22 +824,23 @@ public class TMTIntegrator
             }
             else{
                 List<String> PsmLi = PsmMap.get("NotUsed");
-                //PsmLi.add(Psm);
-                PsmLi.add(Psm +"\t"+gene_category); //X
+                PsmLi.add(Psm +"\t"+gene_category);
             }
         }
         //endregion
 
+        param.modTagLi.addAll(NewModTagLi);
+
         if(best_psm){
             //region Select the best Psm
             for(String key : PsmMap.keySet()){
-                if(!key.equals("NotUsed")){
+                if(!key.equals("NotUsed"))
+                {
                     List<String> PsmLi = PsmMap.get(key);
                     double maxInt = 0;
                     int bestPsmIndex = -1;
                     for(int i=0; i<PsmLi.size();i++){
                         String[] strAry = PsmLi.get(i).split("\t");
-                        //double TmtInt = Double.parseDouble(strAry[strAry.length-1]);
                         double TmtInt = Double.parseDouble(strAry[strAry.length-2]);
                         if(TmtInt>maxInt){
                             maxInt = TmtInt;
@@ -728,10 +852,10 @@ public class TMTIntegrator
                     for(int i=0; i<PsmLi.size();i++){
                         String[] strAry = PsmLi.get(i).split("\t");
                         if(i==bestPsmIndex){
-                            strAry[param.ci.isUsedcIndex] = "true";
+                            strAry[indObj.isUsedIndex] = "true";
                         }
                         else{
-                            strAry[param.ci.isUsedcIndex] = "false";
+                            strAry[indObj.isUsedIndex] = "false";
                         }
                         String NewPsm = "";
                         for(int j=0; j<strAry.length;j++){
@@ -748,15 +872,14 @@ public class TMTIntegrator
 
         //region Print PsmF
         String NewPath = PsmF.getAbsolutePath().replace(".tsv",".ti");
-        //PsmF.delete();
-        int PrintNum = param.ci.abncIndex + param.channelNum;
+        int PrintNum = indObj.abnIndex + param.channelNum;
         BufferedWriter wr = new BufferedWriter(new FileWriter(NewPath));
         String[] tAry = title.split("\t");
-        for(int i = 0; i < (param.ci.abncIndex-1); i++){
+        for(int i = 0; i < (indObj.abnIndex-1); i++){
             wr.write(tAry[i] + "\t");
         }
         wr.write("Is Used (TMT-I)\t");
-        for(int i=param.ci.abncIndex-1; i<(PrintNum-1);i++)
+        for(int i=indObj.abnIndex-1; i<(PrintNum-1);i++)
         {
             wr.write(tAry[i] + "\t");
         }
@@ -777,7 +900,7 @@ public class TMTIntegrator
                     double rAbn = 0;
                     if(param.add_Ref==0) //summation
                     {
-                        for(int i=param.ci.abncIndex; i<PrintNum; i++)
+                        for(int i=indObj.abnIndex; i<PrintNum; i++)
                         {
                             double value = TryParseDouble(pAry[i]);
                             rAbn += (value>=0) ? value:0;
@@ -786,7 +909,7 @@ public class TMTIntegrator
                     else if(param.add_Ref==1) //average
                     {
                         int count=0;
-                        for(int i=param.ci.abncIndex; i<PrintNum; i++)
+                        for(int i=indObj.abnIndex; i<PrintNum; i++)
                         {
                             double value = TryParseDouble(pAry[i]);
                             rAbn += (value >= 0) ? value:0;
@@ -797,7 +920,7 @@ public class TMTIntegrator
                     else if(param.add_Ref==2) //median
                     {
                         List<Double> rAbnLi = new ArrayList<Double>();
-                        for(int i=param.ci.abncIndex; i<PrintNum; i++)
+                        for(int i=indObj.abnIndex; i<PrintNum; i++)
                         {
                             double value = TryParseDouble(pAry[i]);
                             if(value>0)

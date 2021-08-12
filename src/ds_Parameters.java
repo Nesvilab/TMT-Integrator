@@ -23,7 +23,6 @@ public class ds_Parameters
     String[] protExcludeAry;
     boolean allow_overlabel;
     boolean allow_unlabeled;
-    List<String> modTagLi = new ArrayList<String>();
     float minSiteProb;
     boolean ms1Int;
     boolean  top3Pep;
@@ -34,11 +33,17 @@ public class ds_Parameters
     int abn_type=0; //0: ratio-based; 1: raw-based
     int aggregation_method=0; //psm aggregation, 0: median; 1: weighted-ratio
     String modAA="";
+    String columntag="";
+    List<String> modTagLi = new ArrayList<String>();
+
+    boolean geneflag = false;
+    boolean glycoflag = false;
 
     List<File> FileLi = new ArrayList<File>();
     List<String> fNameLi = new ArrayList<String>();
     TreeMap<String, String> fastaMap = new TreeMap<String, String>(); //Key: z; Value: ds_Peak
-    ds_ColumnIndex ci = new ds_ColumnIndex();
     List<String> AllGeneLi = new ArrayList<String>();
     TreeMap<String, String> TitleMap = new TreeMap<String, String>();
+    TreeMap<String, ds_Index> indMap = new TreeMap<String, ds_Index>();
+    //ds_ColumnIndex ci = new ds_ColumnIndex();
 }
