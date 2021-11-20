@@ -1514,7 +1514,10 @@ public class integrate
                             List<Double> vLi = new ArrayList<Double>();
                             for(int j=0;j<mLi.size();j++){
                                 double[] mAry = mLi.get(j);
-                                vLi.add(mAry[i]);
+                                if(mAry[i]!=-9999)
+                                {
+                                    vLi.add(mAry[i]);
+                                }
                             }
                             fmAry[i] = TakeMedian(vLi);
                         }

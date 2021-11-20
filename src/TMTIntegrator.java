@@ -358,21 +358,7 @@ public class TMTIntegrator
         String[] KeyAry = null;
         String KeyStr = "";
 
-//        if(line.contains("|")){
-//            KeyAry = line.split("\\|");
-//            if(line.contains("rev_")){
-//                KeyStr = "rev_"+KeyAry[1];
-//            }
-//            else{
-//                KeyStr = KeyAry[1];
-//            }
-//        }
-//        else{
-//            KeyAry = line.split(" ");
-//            KeyStr = KeyAry[0];
-//        }
-
-        if(line.contains("sp|") || line.contains("rev_sp|")){
+        if(line.contains("sp|") || line.contains("rev_sp|") || line.contains("tr|") || line.contains("rev_tr|")){
             KeyAry = line.split("\\|");
             if(line.contains("rev_")){
                 KeyStr = "rev_"+KeyAry[1];
