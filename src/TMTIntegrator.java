@@ -663,6 +663,11 @@ public class TMTIntegrator
             }
             else
             {
+                if (assignedMod.length() == 0) {
+                    // skip PSMs with nothing in assigned mods column if mods requested (shouldn't happen, but can if two mods are reported on same site and Philosopher can't separate them)
+                    modflag = false;
+                    continue;
+                }
                 for(String term : param.modTagLi){
                     if(term.equalsIgnoreCase("N-glyco")){
                         param.modAA="N";
