@@ -1,8 +1,0 @@
-<component name="ArtifactManager">
-  <artifact type="jar" name="TMTIntegrator:jar">
-    <output-path>$PROJECT_DIR$/out/artifacts/TMTIntegrator_jar</output-path>
-    <root id="archive" name="TMTIntegrator.jar">
-      <element id="module-output" name="TMTIntegrator" />
-    </root>
-  </artifact>
-</component>
