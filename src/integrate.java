@@ -152,6 +152,10 @@ public class integrate
 
                         proteinID = proteinID.contains("\"") ? proteinID.replaceAll("\"","") :  proteinID;
                         String ProtSeq = param.fastaMap.get(proteinID);
+                        if (ProtSeq == null) {
+                            System.out.printf("Error: could not find protein ID %s in database. Stopping analysis\n", proteinID);
+                            System.exit(0);
+                        }
                         int pepIndex = (ProtSeq.indexOf(peptide)>0)?ProtSeq.indexOf(peptide):0;
                         int sIndex = pepIndex;
                         int eIndex = pepIndex+peptide.length();
