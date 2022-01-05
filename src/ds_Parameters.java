@@ -38,6 +38,7 @@ public class ds_Parameters
 
     boolean geneflag = false;
     boolean glycoflag = false;
+    float glycoQval = -1;
 
     List<File> FileLi = new ArrayList<File>();
     List<String> fNameLi = new ArrayList<String>();

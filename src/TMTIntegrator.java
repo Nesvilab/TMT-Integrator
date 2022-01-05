@@ -317,6 +317,10 @@ public class TMTIntegrator
                     {
                         param.aggregation_method = Integer.parseInt(value);
                     }
+                    else if(header.equals("glyco_qval"))
+                    {
+                        param.glycoQval = Float.parseFloat(value);
+                    }
                 }
             }
             catch(Exception e)
@@ -488,6 +492,9 @@ public class TMTIntegrator
             if(tAry[i].equals("Number of Enzymatic Termini")){
                 indObj.numEnzyTermi = i;
             }
+            if(tAry[i].equals("Glycan q-value")){
+                indObj.glycoQvalIndex = i;
+            }
         }
 
         indObj.abnIndex = tAry.length-param.channelNum;
@@ -632,6 +639,7 @@ public class TMTIntegrator
             String mapGenes = (indObj.mapGeneIndex>=0) ? strAry[indObj.mapGeneIndex]: "";
             double refInt = (param.add_Ref<0) ? Double.parseDouble(strAry[indObj.refIndex]) : 10000 ; //set up a random value to pass the criteria
             int ntt = Integer.parseInt(strAry[indObj.numEnzyTermi]);
+            double psm_glycoQval = param.glycoQval >=0 ? TryParseDouble(strAry[indObj.glycoQvalIndex]) : -1;    // only parse this if glycan FDR checking requested
 
             boolean isAllowed = true;
             //region allow overlabeled
@@ -670,6 +678,10 @@ public class TMTIntegrator
                 }
                 for(String term : param.modTagLi){
                     if(term.equalsIgnoreCase("N-glyco")){
+                        // if skipping PSMs that failed glycan FDR, skip if psm glycan q-val is larger than threshold provided in param
+                        if (param.glycoQval >= 0 && psm_glycoQval > param.glycoQval) {
+                            continue;
+                        }
                         param.modAA="N";
                         String[] assignedModAry=assignedMod.split(",");
                         for(String aMod : assignedModAry)
@@ -686,6 +698,10 @@ public class TMTIntegrator
                         }
                     }
                     else if(term.equalsIgnoreCase("O-glyco")){
+                        // if skipping PSMs that failed glycan FDR, skip if psm glycan q-val is larger than threshold provided in param
+                        if (param.glycoQval >= 0 && psm_glycoQval > param.glycoQval) {
+                            continue;
+                        }
                         param.modAA="S|T";
                         String[] assignedModAry=assignedMod.split(",");
                         for(String aMod : assignedModAry)
