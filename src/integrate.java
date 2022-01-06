@@ -224,13 +224,14 @@ public class integrate
                             List<Integer> positionLi = new ArrayList<Integer>();
                             String[] aModAry = assignedMod.split(",");
                             for(String aMod : aModAry){
-                                String mod = aMod.substring(aMod.indexOf("(")-1);
+                                String mod = TMTIntegrator.getAssignedModIndex(aMod, strAry[indObj.observedModIndex], param.useGlycoComposition);
                                 if(param.modTagLi.contains(mod))
                                 {
                                     int pos = Integer.valueOf(aMod.substring(0,aMod.indexOf("(")-1).trim());
                                     positionLi.add(pos);
-
                                     String tmp=mod.replace("(","").replace(")","");
+                                    tmp = tmp.substring(1);     // remove first character (AA code) from index
+
                                     if(slmMap.containsKey(pos)){
                                         List<String> slmLi = slmMap.get(pos);
                                         slmLi.add(tmp);

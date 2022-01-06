@@ -19,6 +19,7 @@ public class ds_Index
     int modifiedPeptideIndex = -1;
     int numEnzyTermi = -1;
     int glycoQvalIndex = -1;
+    int observedModIndex = -1;
 
     int refIndex=-1;
     int abnIndex=-1;
