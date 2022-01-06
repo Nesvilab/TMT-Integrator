@@ -166,6 +166,9 @@ public class TMTIntegrator
         {
             try
             {
+                if (line.startsWith("#")) {
+                    continue;   // skip commented lines
+                }
                 if(line.contains(":"))
                 {
                     String header =  line.substring(0, line.indexOf(":")).trim();
