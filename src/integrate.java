@@ -146,6 +146,12 @@ public class integrate
                         TreeMap<Integer, Double> probMap = new TreeMap<Integer, Double>();
 
                         proteinID = proteinID.contains("\"") ? proteinID.replaceAll("\"","") :  proteinID;
+                        String ProtSeq = param.fastaMap.get(proteinID);
+                        if (ProtSeq == null) {
+                            System.out.printf("Error: could not find protein ID %s in database. Stopping analysis\n", proteinID);
+                            System.exit(0);
+                        }
+                        int pepIndex = (ProtSeq.indexOf(peptide)>0)?ProtSeq.indexOf(peptide):0;
                         String ProtSeq = param.fastaMap.get(proteinID).replaceAll("[IL]","-");
                         String tmpep = peptide.replaceAll("[IL]","-");
                         int pepIndex = (ProtSeq.indexOf(tmpep)>0)?ProtSeq.indexOf(tmpep):0;
@@ -217,13 +223,14 @@ public class integrate
                             List<Integer> positionLi = new ArrayList<Integer>();
                             String[] aModAry = assignedMod.split(",");
                             for(String aMod : aModAry){
-                                String mod = aMod.substring(aMod.indexOf("(")-1);
+                                String mod = TMTIntegrator.getAssignedModIndex(aMod, strAry[indObj.observedModIndex], param.useGlycoComposition);
                                 if(param.modTagLi.contains(mod))
                                 {
                                     int pos = Integer.valueOf(aMod.substring(0,aMod.indexOf("(")-1).trim());
                                     positionLi.add(pos);
-
                                     String tmp=mod.replace("(","").replace(")","");
+                                    tmp = tmp.substring(1);     // remove first character (AA code) from index
+
                                     if(slmMap.containsKey(pos)){
                                         List<String> slmLi = slmMap.get(pos);
                                         slmLi.add(tmp);

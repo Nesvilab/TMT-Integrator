@@ -166,6 +166,9 @@ public class TMTIntegrator
         {
             try
             {
+                if (line.startsWith("#")) {
+                    continue;   // skip commented lines
+                }
                 if(line.contains(":"))
                 {
                     String header =  line.substring(0, line.indexOf(":")).trim();
@@ -316,6 +319,14 @@ public class TMTIntegrator
                     else if(header.equals("aggregation_method"))
                     {
                         param.aggregation_method = Integer.parseInt(value);
+                    }
+                    else if(header.equals("glyco_qval"))
+                    {
+                        param.glycoQval = Float.parseFloat(value);
+                    }
+                    else if(header.equals("use_glycan_composition"))
+                    {
+                        param.useGlycoComposition = Boolean.parseBoolean(value);;
                     }
                 }
             }
@@ -488,6 +499,12 @@ public class TMTIntegrator
             if(tAry[i].equals("Number of Enzymatic Termini")){
                 indObj.numEnzyTermi = i;
             }
+            if(tAry[i].equals("Glycan q-value")){
+                indObj.glycoQvalIndex = i;
+            }
+            if(tAry[i].equals("Observed Modifications")){
+                indObj.observedModIndex = i;
+            }
         }
 
         //find the number of channel
@@ -655,6 +672,7 @@ public class TMTIntegrator
             String mapGenes = (indObj.mapGeneIndex>=0) ? strAry[indObj.mapGeneIndex]: "";
             double refInt = (param.add_Ref<0) ? Double.parseDouble(strAry[indObj.refIndex]) : 10000 ; //set up a random value to pass the criteria
             int ntt = Integer.parseInt(strAry[indObj.numEnzyTermi]);
+            double psm_glycoQval = param.glycoQval >=0 ? TryParseDouble(strAry[indObj.glycoQvalIndex]) : -1;    // only parse this if glycan FDR checking requested
 
             boolean isAllowed = true;
             //region allow overlabeled
@@ -686,8 +704,17 @@ public class TMTIntegrator
             }
             else
             {
+                if (assignedMod.length() == 0) {
+                    // skip PSMs with nothing in assigned mods column if mods requested (shouldn't happen, but can if two mods are reported on same site and Philosopher can't separate them)
+                    modflag = false;
+                    continue;
+                }
                 for(String term : param.modTagLi){
                     if(term.equalsIgnoreCase("N-glyco")){
+                        // if skipping PSMs that failed glycan FDR, skip if psm glycan q-val is larger than threshold provided in param
+                        if (param.glycoQval >= 0 && psm_glycoQval > param.glycoQval) {
+                            continue;
+                        }
                         param.modAA="N";
                         String[] assignedModAry=assignedMod.split(",");
                         for(String aMod : assignedModAry)
@@ -696,7 +723,7 @@ public class TMTIntegrator
                                 double mass = Double.valueOf(aMod.substring(aMod.indexOf("N(")+2,aMod.indexOf(")")));
                                 modflag=mass>=100?true:false;
 
-                                String mod = aMod.substring(aMod.indexOf("(")-1);
+                                String mod = getAssignedModIndex(aMod, strAry[indObj.observedModIndex], param.useGlycoComposition);
                                 if(!NewModTagLi.contains(mod) && modflag){
                                     NewModTagLi.add(mod);
                                 }
@@ -704,6 +731,10 @@ public class TMTIntegrator
                         }
                     }
                     else if(term.equalsIgnoreCase("O-glyco")){
+                        // if skipping PSMs that failed glycan FDR, skip if psm glycan q-val is larger than threshold provided in param
+                        if (param.glycoQval >= 0 && psm_glycoQval > param.glycoQval) {
+                            continue;
+                        }
                         param.modAA="S|T";
                         String[] assignedModAry=assignedMod.split(",");
                         for(String aMod : assignedModAry)
@@ -718,7 +749,7 @@ public class TMTIntegrator
                                 tflag=mass>=100?true:false;
                             }
 
-                            String mod = aMod.substring(aMod.indexOf("(")-1);
+                            String mod = getAssignedModIndex(aMod, strAry[indObj.observedModIndex], param.useGlycoComposition);
                             if(tflag && !NewModTagLi.contains(mod)){
                                 NewModTagLi.add(mod);
                             }
@@ -968,6 +999,28 @@ public class TMTIntegrator
         }
         wr.close();
         //endregion
+    }
+
+    /**
+     * Helper method for getting the part of a modification to use as the index. Supports using the glycan composition
+     * instead of mass if specified.
+     * Note: if observed mods is empty, default to using the mass value instead
+     * @param inputMod single Assigned modification string
+     * @param observedMods contents of the corresponding observed mods column (only needed for glyco mode)
+     * @param useGlycanComposition whether to use the glycan composition or mass as the index
+     * @return mod string to use as index
+     */
+    public static String getAssignedModIndex(String inputMod, String observedMods, boolean useGlycanComposition) {
+        String mod;
+        if (useGlycanComposition && observedMods.length() > 0) {
+            // if using composition for index, read it from observed mods column. Still get AA site from assigned mods
+            mod = inputMod.substring(inputMod.indexOf("(")-1, inputMod.indexOf("("));
+            mod = String.format("%s(%s)", mod, observedMods);
+        } else {
+            // read mass from assigned mod, as would do for any other mod
+            mod = inputMod.substring(inputMod.indexOf("(")-1);
+        }
+        return mod;
     }
 
     private static double TryParseDouble(String str)
