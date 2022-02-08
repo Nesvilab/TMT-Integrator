@@ -18,6 +18,8 @@ public class ds_Index
     int mapGeneIndex = -1;
     int modifiedPeptideIndex = -1;
     int numEnzyTermi = -1;
+    int totLen = -1;
+    int plexNum = -1;
 
     int refIndex=-1;
     int abnIndex=-1;

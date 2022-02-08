@@ -490,8 +490,31 @@ public class TMTIntegrator
             }
         }
 
+        //find the number of channel
         indObj.abnIndex = tAry.length-param.channelNum;
         indObj.flength = tAry.length;
+
+        int cnum = 0;
+        for(int i=indObj.abnIndex; i<tAry.length; i++)
+        {
+            if(!tAry[i].trim().equalsIgnoreCase("na"))
+            {
+                cnum += 1;
+            }
+            else
+            {
+                if(i<indObj.refIndex){
+                    indObj.refIndex -= 1;
+                }
+            }
+        }
+        indObj.totLen = (param.add_Ref<0) ? (cnum+1) : (cnum+2);
+        indObj.plexNum = (param.add_Ref<0) ? (cnum) : (cnum+1);
+        indObj.refIndex = (param.add_Ref<0) ? indObj.refIndex : (indObj.abnIndex+cnum);
+
+        if(param.geneflag){
+            indObj.genecIndex = indObj.proteincIndex;
+        }
 
         //region check the existence of columns
         if((!refexit) && (param.add_Ref<0)){
@@ -626,7 +649,7 @@ public class TMTIntegrator
             double pepProb = Double.parseDouble(strAry[indObj.pepProbcIndex]);
             boolean isUnique = Boolean.parseBoolean(strAry[indObj.isUniquecIndex]);
             String assignedMod = strAry[indObj.assignedModcIndex];
-            String gene = strAry[indObj.genecIndex];
+            String gene = strAry[indObj.genecIndex].length()>0?strAry[indObj.genecIndex]:strAry[indObj.proteinIDcIndex];
             String proteinID = strAry[indObj.proteinIDcIndex];
             String protein = strAry[indObj.proteincIndex];
             String mapGenes = (indObj.mapGeneIndex>=0) ? strAry[indObj.mapGeneIndex]: "";
@@ -789,7 +812,8 @@ public class TMTIntegrator
 
             //endregion
 
-            if((purity>=param.minPurity) && (pepProb>=param.minPepProb) && (tmtInt>=TmtThres) && (gene.length()>0) &&  isAllowed && labelflag && modflag && uniqueflag && peflag && (gene_category>=param.uniqueGene) && (refInt > 0) && (ntt>=param.min_ntt)){
+            //if((purity>=param.minPurity) && (pepProb>=param.minPepProb) && (tmtInt>=TmtThres) && (gene.length()>0) &&  isAllowed && labelflag && modflag && uniqueflag && peflag && (gene_category>=param.uniqueGene) && (refInt > 0) && (ntt>=param.min_ntt)){
+            if((purity>=param.minPurity) && (pepProb>=param.minPepProb) && (tmtInt>=TmtThres) &&  isAllowed && labelflag && modflag && uniqueflag && peflag && (gene_category>=param.uniqueGene) && (refInt > 0) && (ntt>=param.min_ntt)){
                 String NewPsm = ""; //Update isUsed = true
                 strAry[indObj.isUsedIndex] = "true";
                 for(int i=0; i<strAry.length;i++){
@@ -861,25 +885,37 @@ public class TMTIntegrator
         int PrintNum = indObj.abnIndex + param.channelNum;
         BufferedWriter wr = new BufferedWriter(new FileWriter(NewPath));
         String[] tAry = title.split("\t");
+        String ntStr = "";
         for(int i = 0; i < (indObj.abnIndex-1); i++){
             wr.write(tAry[i] + "\t");
+            ntStr += tAry[i]+"\t";
         }
         wr.write("Is Used (TMT-I)\t");
+        ntStr += "Is Used (TMT-I)\t";
         for(int i=indObj.abnIndex-1; i<(PrintNum-1);i++)
         {
-            wr.write(tAry[i] + "\t");
+            ntStr += tAry[i] + "\t";
+            if(!tAry[i].trim().equalsIgnoreCase("na"))
+            {
+                wr.write(tAry[i] + "\t");
+            }
         }
         if(param.add_Ref>=0)
         {
+            ntStr += "Virtual_Reference_"+PsmF.getParentFile().getName()+"\t";
             wr.write("Virtual_Reference_"+PsmF.getParentFile().getName()+"\t");
             param.refTag = "Virtual_Reference";
         }
         wr.newLine();
+        String[] ntAry = ntStr.split("\t");
         for(List<String> PsmLi : PsmMap.values()){
             for(String Psm : PsmLi){
                 String[] pAry = Psm.split("\t");
                 for(int i=0;i<PrintNum; i++){
-                    wr.write(pAry[i]+"\t");
+                    if(!ntAry[i].trim().equalsIgnoreCase("na"))
+                    {
+                        wr.write(pAry[i]+"\t");
+                    }
                 }
                 if(param.add_Ref>=0)
                 {
@@ -888,8 +924,11 @@ public class TMTIntegrator
                     {
                         for(int i=indObj.abnIndex; i<PrintNum; i++)
                         {
-                            double value = TryParseDouble(pAry[i]);
-                            rAbn += (value>=0) ? value:0;
+                            if(!ntAry[i].trim().equalsIgnoreCase("na"))
+                            {
+                                double value = TryParseDouble(pAry[i]);
+                                rAbn += (value>=0) ? value:0;
+                            }
                         }
                     }
                     else if(param.add_Ref==1) //average
@@ -897,9 +936,12 @@ public class TMTIntegrator
                         int count=0;
                         for(int i=indObj.abnIndex; i<PrintNum; i++)
                         {
-                            double value = TryParseDouble(pAry[i]);
-                            rAbn += (value >= 0) ? value:0;
-                            count += (value > 0) ? 1:0;
+                            if(!ntAry[i].trim().equalsIgnoreCase("na"))
+                            {
+                                double value = TryParseDouble(pAry[i]);
+                                rAbn += (value >= 0) ? value:0;
+                                count += (value > 0) ? 1:0;
+                            }
                         }
                         rAbn = (count>0) ? (rAbn/count) : 0;
                     }
@@ -908,10 +950,13 @@ public class TMTIntegrator
                         List<Double> rAbnLi = new ArrayList<Double>();
                         for(int i=indObj.abnIndex; i<PrintNum; i++)
                         {
-                            double value = TryParseDouble(pAry[i]);
-                            if(value>0)
+                            if(!ntAry[i].trim().equalsIgnoreCase("na"))
                             {
-                                rAbnLi.add(value);
+                                double value = TryParseDouble(pAry[i]);
+                                if(value>0)
+                                {
+                                    rAbnLi.add(value);
+                                }
                             }
                         }
                         rAbn = (rAbnLi.size()>0) ? TakeMedian(rAbnLi) : 0;
