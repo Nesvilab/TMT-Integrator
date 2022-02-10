@@ -7,10 +7,13 @@ import java.lang.*;
 
 public class TMTIntegrator
 {
+    public static final String name = "TMT-Integrator";
+    public static final String version = "3.3.1";
     private static ds_Parameters param = new ds_Parameters();
 
     public static void main(String[] args) throws IOException
     {
+        System.out.printf("%s v%s%n", name, version);
         File YamlFile = args[0].contains(".yml") ? new File(args[0]) : null ;
         if(YamlFile==null) {
             System.out.println("Please input a yml file.");

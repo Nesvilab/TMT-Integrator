@@ -1,8 +1,8 @@
 <component name="ArtifactManager">
-  <artifact type="jar" name="TMTIntegrator:jar">
+  <artifact type="jar" build-on-make="true" name="tmt-integrator:jar">
     <output-path>$PROJECT_DIR$/out/artifacts/TMTIntegrator_jar</output-path>
-    <root id="archive" name="TMTIntegrator.jar">
-      <element id="module-output" name="TMTIntegrator" />
+    <root id="archive" name="tmt-integrator.jar">
+      <element id="module-output" name="tmt-integrator" />
     </root>
   </artifact>
 </component>
