@@ -151,8 +151,7 @@ public class integrate
                             System.out.printf("Error: could not find protein ID %s in database. Stopping analysis\n", proteinID);
                             System.exit(0);
                         }
-                        int pepIndex = (ProtSeq.indexOf(peptide)>0)?ProtSeq.indexOf(peptide):0;
-                        String ProtSeq = param.fastaMap.get(proteinID).replaceAll("[IL]","-");
+                        ProtSeq = ProtSeq.replaceAll("[IL]","-");
                         String tmpep = peptide.replaceAll("[IL]","-");
                         int pepIndex = (ProtSeq.indexOf(tmpep)>0)?ProtSeq.indexOf(tmpep):0;
                         //int pepIndex = (ProtSeq.indexOf(peptide)>0)?ProtSeq.indexOf(peptide):0;
