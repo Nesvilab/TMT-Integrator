@@ -825,7 +825,7 @@ public class integrate
             else if(groupBy==1){
                 ggpStr = NumPsm + "\t" + ggpStr;
             }
-            else if(groupBy==3){ //multi-site
+            else if(groupBy==3 || groupBy == 5){ //multi-site and multi-mass
                 String pepStr = "";
                 String extPepStr = "";
                 for(String ProtId : ProtMap.keySet()){
