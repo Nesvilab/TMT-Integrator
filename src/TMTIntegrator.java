@@ -404,7 +404,7 @@ public class TMTIntegrator
             catch (Exception e)
             {
                 System.out.println("Error at: "+FileLi.get(i).getAbsolutePath()+" "+e);
-                System.exit(0);
+                System.exit(1);
             }
         }
     }
@@ -745,6 +745,9 @@ public class TMTIntegrator
 
             boolean peflag = true;
             //region check excluded  proteins
+            if(protein.contains("contam")){
+                peflag = false;
+            }
             if((param.protExcludeAry != null) && (!param.protExcludeAry[0].contains("none")))
             {
                 for(String term : param.protExcludeAry){

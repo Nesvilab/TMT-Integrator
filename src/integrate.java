@@ -370,7 +370,7 @@ public class integrate
             catch (Exception e)
             {
                 System.out.println("Error at: "+f.getAbsolutePath()+" "+e);
-                System.exit(0);
+                System.exit(1);
             }
         }
 
