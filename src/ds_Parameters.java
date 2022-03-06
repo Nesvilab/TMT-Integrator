@@ -38,6 +38,8 @@ public class ds_Parameters
 
     boolean geneflag = false;
     boolean glycoflag = false;
+    boolean useGlycoComposition = false;    // whether to use glycan composition string or glycan mass for indexing
+    float glycoQval = -1;
 
     List<File> FileLi = new ArrayList<File>();
     List<String> fNameLi = new ArrayList<String>();
