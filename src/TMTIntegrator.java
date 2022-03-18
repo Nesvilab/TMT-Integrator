@@ -8,7 +8,7 @@ import java.lang.*;
 public class TMTIntegrator
 {
     public static final String name = "TMT-Integrator";
-    public static final String version = "3.3.1";
+    public static final String version = "3.3.2-rc1";
     private static ds_Parameters param = new ds_Parameters();
 
     public static void main(String[] args) throws IOException
