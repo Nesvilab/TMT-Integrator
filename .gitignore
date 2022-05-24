@@ -3,3 +3,5 @@
 *.jar
 *.xml
 .idea/workspace.xml
+
+.vscode
