@@ -8,7 +8,7 @@ import java.lang.*;
 public class TMTIntegrator
 {
     public static final String name = "TMT-Integrator";
-    public static final String version = "3.3.1";
+    public static final String version = "3.3.3";
     private static ds_Parameters param = new ds_Parameters();
 
     public static void main(String[] args) throws IOException
@@ -387,7 +387,7 @@ public class TMTIntegrator
         }
         else{
             KeyAry = line.split(" ");
-            KeyStr = KeyAry[0];
+            KeyStr = KeyAry[0].substring(0,KeyAry[0].lastIndexOf("."));
         }
 
         return KeyStr;
@@ -675,8 +675,15 @@ public class TMTIntegrator
             String mapGenes = (indObj.mapGeneIndex>=0) ? strAry[indObj.mapGeneIndex]: "";
             double refInt = (param.add_Ref<0) ? Double.parseDouble(strAry[indObj.refIndex]) : 10000 ; //set up a random value to pass the criteria
             int ntt = Integer.parseInt(strAry[indObj.numEnzyTermi]);
-            double psm_glycoQval = param.glycoQval >=0 ? TryParseDouble(strAry[indObj.glycoQvalIndex]) : -1;    // only parse this if glycan FDR checking requested
-
+            double psm_glycoQval;
+            try {
+                psm_glycoQval = param.glycoQval >= 0 ? TryParseDouble(strAry[indObj.glycoQvalIndex]) : -1;    // only parse this if glycan FDR checking requested
+            } catch (IndexOutOfBoundsException ex) {
+                // non-glyco search
+                System.out.println("Glycan FDR control requested but no such column found. No Glycan FDR applied.");
+                param.glycoQval = -1;
+                psm_glycoQval = -1;
+            }
             boolean isAllowed = true;
             //region allow overlabeled
             if((!param.allow_overlabel) && (assignedMod.contains("S(229."))){
