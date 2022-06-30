@@ -8,7 +8,7 @@ import java.lang.*;
 public class TMTIntegrator
 {
     public static final String name = "TMT-Integrator";
-    public static final String version = "3.3.3";
+    public static final String version = "3.4";
     private static ds_Parameters param = new ds_Parameters();
 
     public static void main(String[] args) throws IOException
@@ -368,7 +368,7 @@ public class TMTIntegrator
 
     private static String GenerateKey(String line)
     {
-        line = line.replace(">", "");
+        line = line.replace(">", "").trim();
         String[] KeyAry = null;
         String KeyStr = "";
 
@@ -385,11 +385,13 @@ public class TMTIntegrator
             KeyAry = line.split("\\|");
             KeyStr = KeyAry[0];
         }
-        else{
+        else if(line.contains(" ")){
             KeyAry = line.split(" ");
             KeyStr = KeyAry[0].substring(0,KeyAry[0].lastIndexOf("."));
         }
-
+        else{
+            KeyStr = line;
+        }
         return KeyStr;
     }
 

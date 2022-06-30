@@ -245,6 +245,7 @@ public class integrate
 
                             for(int i=0;i<positionLi.size();i++)
                             {
+                                probMap.put(positionLi.get(i), 0d);
                                 String str = peptide.charAt(positionLi.get(i)-1) + "" + (pepIndex+positionLi.get(i));
                                 slpStr  += str;
                                 slpLi.add(str);
@@ -287,7 +288,7 @@ public class integrate
                                 //Mark localized site in peptide sequence
                                 String NewPepSeq = "";
                                 for(int i= 0; i<peptide.length(); i++){
-                                    NewPepSeq += (probMap.containsKey(i+1) && (probMap.get(i+1) > param.minSiteProb)) ?
+                                    NewPepSeq += (probMap.containsKey(i+1) && (probMap.get(i+1) >= param.minSiteProb)) ?
                                             Character.toLowerCase(peptide.charAt(i)) : peptide.charAt(i);
                                 }
                                 peptide = NewPepSeq;
