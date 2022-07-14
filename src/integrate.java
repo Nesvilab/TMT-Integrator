@@ -107,6 +107,11 @@ public class integrate
 
     private static TreeMap<String, List<String>> LoadPsms(List<File> FileLi) throws IOException
     {
+        String allModTagStr = "";
+        for(String modTag : param.modTagLi){
+            allModTagStr += modTag+";";
+        }
+
         TreeMap<String, List<String>> FileMap = new TreeMap<String, List<String>>();
         for(File f : FileLi)
         {
@@ -130,8 +135,10 @@ public class integrate
                     String peptide = strAry[indObj.pepcIndex];
                     String assignedMod = strAry[indObj.assignedModcIndex];
                     String ptmLocal = indObj.ptmLocalcIndex>=0? strAry[indObj.ptmLocalcIndex]: "";
+                    String protein = strAry[indObj.proteincIndex];
                     String proteinID = strAry[indObj.proteinIDcIndex];
-                    String gene = strAry[indObj.genecIndex].length()>0?strAry[indObj.genecIndex]:strAry[indObj.proteinIDcIndex];
+                    String gene = strAry[indObj.genecIndex].length()>0?strAry[indObj.genecIndex]:proteinID;
+
                     double MS1Int = Double.parseDouble(strAry[indObj.ms1IntIndex]);
 
                     if(isUsed)
@@ -144,24 +151,22 @@ public class integrate
                         List<String> slpLi = new ArrayList<String>();
                         int sCount = 0;
                         TreeMap<Integer, Double> probMap = new TreeMap<Integer, Double>();
-
-                        proteinID = proteinID.contains("\"") ? proteinID.replaceAll("\"","") :  proteinID;
-                        String ProtSeq = param.fastaMap.get(proteinID);
+                        
+                        String ProtSeq = param.fastaMap.get(param.phMap.get(protein));
                         if (ProtSeq == null) {
-                            System.out.printf("Error: could not find protein ID %s in database. Stopping analysis\n", proteinID);
+                            System.out.printf("Error: could not find protein ID %s in database. Stopping analysis\n", protein);
                             System.exit(0);
                         }
                         ProtSeq = ProtSeq.replaceAll("[IL]","-");
                         String tmpep = peptide.replaceAll("[IL]","-");
                         int pepIndex = (ProtSeq.indexOf(tmpep)>0)?ProtSeq.indexOf(tmpep):0;
-                        //int pepIndex = (ProtSeq.indexOf(peptide)>0)?ProtSeq.indexOf(peptide):0;
                         int sIndex = pepIndex;
                         int eIndex = pepIndex+peptide.length();
 
                         if(param.minSiteProb>0)
                         {
                             //region Get num. of possible modified site
-                            String masstag = "("+param.columntag.substring(param.columntag.indexOf(":")+1)+")";
+                            String masstag = "("+param.columntag.substring(param.columntag.indexOf(":")+1);
                             int index = assignedMod.indexOf(masstag);
                             while(index>=0)
                             {
@@ -223,7 +228,8 @@ public class integrate
                             String[] aModAry = assignedMod.split(",");
                             for(String aMod : aModAry){
                                 String mod = TMTIntegrator.getAssignedModIndex(aMod, strAry[indObj.observedModIndex], param.useGlycoComposition);
-                                if(param.modTagLi.contains(mod))
+                                mod = mod.substring(0,mod.indexOf(".")+3);
+                                if(allModTagStr.contains(mod))
                                 {
                                     int pos = Integer.valueOf(aMod.substring(0,aMod.indexOf("(")-1).trim());
                                     positionLi.add(pos);
@@ -704,12 +710,10 @@ public class integrate
         {
             TreeMap<String, ds_PsmInfo> fMap = gPsmMap.get(groupkey);
             TreeMap<String, double[]> fAbnMap = new TreeMap<String, double[]>();
-            //List<String> ProtIdLi = new ArrayList<String>();
             TreeMap<String, List<String>> ProtMap = new TreeMap<String, List<String>>();
             int NumPsm = 0;
             double MaxPepProb = 0;
             List<String> geneLi = new ArrayList<String>();
-            //List<String> pepLi = new ArrayList<String>();
             for(String fName : fMap.keySet())
             {
                 ds_PsmInfo pi = fMap.get(fName);
@@ -722,15 +726,16 @@ public class integrate
                 for(int i = 0; i < pi.PsmLi.size(); i++){
                     String[] strAry = pi.PsmLi.get(i).split("\t");
                     double PepProb = Double.parseDouble(strAry[indObj.pepProbcIndex]);
-                    String ProtId = strAry[indObj.proteinIDcIndex];
+                    //String protein = strAry[indObj.proteincIndex];
+                    String proteinID = strAry[indObj.proteinIDcIndex];
                     if(PepProb > MaxPepProb){
                         MaxPepProb = PepProb;
                     }
                     if(!geneLi.contains(pi.gene)){
                         geneLi.add(pi.gene);
                     }
-                    if(ProtMap.containsKey(ProtId)){
-                        List<String> pepLi = ProtMap.get(ProtId);
+                    if(ProtMap.containsKey(proteinID)){
+                        List<String> pepLi = ProtMap.get(proteinID);
                         if(!pepLi.contains(pi.peptide)){
                             pepLi.add(pi.peptide);
                         }
@@ -738,7 +743,7 @@ public class integrate
                     else{
                         List<String> pepLi = new ArrayList<>();
                         pepLi.add(pi.peptide);
-                        ProtMap.put(ProtId, pepLi);
+                        ProtMap.put(proteinID, pepLi);
                     }
                 }
                 //endregion
@@ -814,14 +819,14 @@ public class integrate
             }
             ggpStr=ggpStr.substring(0,ggpStr.lastIndexOf(";"));
 
-            String ProtStr = "";
-            for(String ProtId : ProtMap.keySet()){
-                ProtStr += ProtId+";";
+            String proteinIDStr = "";
+            for(String proteinID : ProtMap.keySet()){
+                proteinIDStr += proteinID +";";
             }
-            ProtStr=ProtStr.substring(0, ProtStr.length()-1);
+            proteinIDStr = proteinIDStr.substring(0, proteinIDStr.length()-1);
 
             if(groupBy==0){
-                ggpStr = NumPsm +"\t" + ProtStr;
+                ggpStr = NumPsm +"\t" + proteinIDStr;
             }
             else if(groupBy==1){
                 ggpStr = NumPsm + "\t" + ggpStr;
@@ -829,12 +834,12 @@ public class integrate
             else if(groupBy==3 || groupBy == 5){ //multi-site and multi-mass
                 String pepStr = "";
                 String extPepStr = "";
-                for(String ProtId : ProtMap.keySet()){
-                    List<String> pepLi = ProtMap.get(ProtId);
+                for(String proteinID : ProtMap.keySet()){
+                    List<String> pepLi = ProtMap.get(proteinID);
                     for(String pep: pepLi){
                         pepStr+=pep+";";
                     }
-                    String ProtSeq = param.fastaMap.get(ProtId);
+                    String ProtSeq = param.fastaMap.get(param.phMap.get(param.ppMap.get(proteinID)));
                     String tmpProtSeq = ProtSeq.replaceAll("[IL]","-");
                     for(String pep: pepLi){
                         String tmpep = pep.replaceAll("[IL]","-").toUpperCase();
@@ -863,18 +868,18 @@ public class integrate
                 }
                 pepStr = pepStr.substring(0,pepStr.length()-1);
                 extPepStr = extPepStr.substring(0,extPepStr.length()-1);
-                ggpStr += "\t"+ProtStr+"\t"+pepStr+"\t"+extPepStr;
+                ggpStr += "\t"+proteinIDStr+"\t"+pepStr+"\t"+extPepStr;
             }
             else{
                 String pepStr = "";
-                for(String ProtId : ProtMap.keySet()){
-                    List<String> pepLi = ProtMap.get(ProtId);
+                for(String protein : ProtMap.keySet()){
+                    List<String> pepLi = ProtMap.get(protein);
                     for(String pep : pepLi){
                         pepStr += pep;
                     }
                 }
                 pepStr = pepStr.substring(0,pepStr.length()-1);
-                ggpStr += "\t"+ProtStr+"\t"+pepStr;
+                ggpStr += "\t"+proteinIDStr+"\t"+pepStr;
             }
             groupkey = (ggpStr!="") ? (groupkey+"\t"+ggpStr+"\t"+MaxPepProb) : groupkey+"\t"+MaxPepProb;
             gAbnMap.put(groupkey, fAbnMap);
@@ -1236,7 +1241,7 @@ public class integrate
                         wr.write("\t" + AvgAbn);
                     }
                     else{
-                        wr.write("\t" + Log2(AvgAbn));
+                        wr.write("\t" + (param.log2transformed?Log2(AvgAbn):AvgAbn));
                     }
                 }
                 else{
@@ -1261,7 +1266,7 @@ public class integrate
                                 AbnStr += "\t" + mAry[indObj.plexNum];
                             }
                             else{
-                                AbnStr += "\t" + Log2(mAry[indObj.plexNum]);
+                                AbnStr += "\t" + (param.log2transformed?Log2(mAry[indObj.plexNum]): mAry[indObj.plexNum]);
                             }
                         }
                         else{
@@ -1279,7 +1284,7 @@ public class integrate
                                     if (mAry[i] == -9999) {
                                         wr.write("\tNA");
                                     } else {
-                                        wr.write("\t" + mAry[i]);
+                                        wr.write("\t" + (param.log2transformed?mAry[i]:Math.pow(2, mAry[i])));
                                     }
                                 }
                             }
@@ -1289,7 +1294,7 @@ public class integrate
                                     if (mAry[i] == -9999) {
                                         wr.write("\tNA");
                                     } else {
-                                        double abn = Log2(Math.pow(2, mAry[i]) * AvgAbn);
+                                        double abn = param.log2transformed?Log2(Math.pow(2, mAry[i]) * AvgAbn): Math.pow(2, mAry[i]) * AvgAbn;
                                         wr.write("\t" + abn);
                                     }
                                 }
@@ -1306,7 +1311,8 @@ public class integrate
                                 }
                             }
                         }
-                    } else { //SL, IRS, SL+IRS
+                    }
+                    else { //SL, IRS, SL+IRS
                         for (int i = 0; i < mAry.length - 1; i++) {
                             if (i != refIndex) {
                                 if (mAry[i] == -9999) {
@@ -1583,20 +1589,20 @@ public class integrate
                 }
 
                 String gene = "";
-                String protID = "";
+                String proteinID = "";
                 List<String> pepLi = new ArrayList<>();
                 List<String> extpepLi = new ArrayList<>();
                 double maxProb = -1000;
                 for(String str : strLi){
                     String[] sAry = str.split("\t");
                     gene = sAry[1];
-                    protID = sAry[2];
+                    proteinID = sAry[2];
                     if(!pepLi.contains(sAry[3])){
                         pepLi.add(sAry[3]);
                     }
                     maxProb = maxProb<Double.parseDouble(sAry[5])? Double.parseDouble(sAry[5]) : maxProb;
 
-                    String ProtSeq = param.fastaMap.get(protID);
+                    String ProtSeq = param.fastaMap.get(param.phMap.get(param.ppMap.get(proteinID)));
                     int Index = Integer.parseInt(key.substring(key.lastIndexOf("%")+2))-1;
                     int sIndex = Index-7;
                     int eIndex = Index+7;
@@ -1626,18 +1632,18 @@ public class integrate
                 }
                 peptides = peptides.substring(0,peptides.length()-1);
                 extpeptides = extpeptides.substring(0,extpeptides.length()-1);
-                String newKey = key+ "\t" + gene + "\t" + protID + "\t" + peptides + "\t" + extpeptides + "\t" + maxProb;
+                String newKey = key+ "\t" + gene + "\t" + proteinID + "\t" + peptides + "\t" + extpeptides + "\t" + maxProb;
                 NewgAbnMap.put(newKey, upAbnMap);
             }
             else{
                 String[] sAry = strLi.get(0).split("\t");
                 String gene = sAry[1];
-                String protID = sAry[2];
+                String proteinID = sAry[2];
                 String peptide = sAry[3];
                 double maxProb = Double.parseDouble(sAry[5]);
 
                 String extpeptide = "";
-                String ProtSeq = param.fastaMap.get(protID);
+                String ProtSeq = param.fastaMap.get(param.phMap.get(param.ppMap.get(proteinID)));
                 int Index = Integer.parseInt(key.substring(key.lastIndexOf("%")+2))-1;
                 int sIndex = Index-7;
                 int eIndex = Index+7;
@@ -1652,7 +1658,7 @@ public class integrate
                         extpeptide += ProtSeq.charAt(i);
                     }
                 }
-                String newKey = key + "\t" + gene + "\t" + protID + "\t" + peptide + "\t" + extpeptide + "\t" + maxProb;
+                String newKey = key + "\t" + gene + "\t" + proteinID + "\t" + peptide + "\t" + extpeptide + "\t" + maxProb;
                 TreeMap<String, double[]> fAbnMap = gAbnMap.get(strLi.get(0));
                 NewgAbnMap.put(newKey, fAbnMap);
             }

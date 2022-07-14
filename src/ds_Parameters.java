@@ -41,6 +41,9 @@ public class ds_Parameters
     boolean useGlycoComposition = false;    // whether to use glycan composition string or glycan mass for indexing
     float glycoQval = -1;
 
+    String prefix = "rev_";
+    boolean log2transformed = true;
+
     List<File> FileLi = new ArrayList<File>();
     List<String> fNameLi = new ArrayList<String>();
     TreeMap<String, String> fastaMap = new TreeMap<String, String>(); //Key: z; Value: ds_Peak
@@ -48,4 +51,7 @@ public class ds_Parameters
     TreeMap<String, String> TitleMap = new TreeMap<String, String>();
     TreeMap<String, ds_Index> indMap = new TreeMap<String, ds_Index>();
     //ds_ColumnIndex ci = new ds_ColumnIndex();
+
+    TreeMap<String, String> ppMap = new TreeMap<String, String>(); //proteinID-protein map
+    TreeMap<String, String> phMap = new TreeMap<String, String>(); //protein-fasta header map
 }

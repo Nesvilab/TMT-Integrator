@@ -8,8 +8,9 @@ import java.lang.*;
 public class TMTIntegrator
 {
     public static final String name = "TMT-Integrator";
-    public static final String version = "3.4";
+    public static final String version = "4.0";
     private static ds_Parameters param = new ds_Parameters();
+    private static List<String> proteinLi = new ArrayList<String>();
 
     public static void main(String[] args) throws IOException
     {
@@ -26,7 +27,6 @@ public class TMTIntegrator
         else
         {
             LoadParam(YamlFile); //Load & check parameters
-            LoadFasta(); //Load fast file
 
             for (int i = 1 ; i < args.length ; i++){
                 param.FileLi.add(new File(args[i]));
@@ -42,6 +42,7 @@ public class TMTIntegrator
             Collections.sort(param.fNameLi);
 
             CheckPSMs(param.FileLi);//Check PSM tables
+            LoadFasta(); //Load fast file
 
             long start = System.currentTimeMillis();
             NumberFormat formatter = new DecimalFormat("#0.00000");
@@ -145,6 +146,13 @@ public class TMTIntegrator
                 ms1count += (Double.valueOf(strAry[indObj.ms1IntIndex])==0)? 1:0;
                 genecount += strAry[indObj.genecIndex].trim().length()==0?1:0;
                 total+=1;
+
+                if(!proteinLi.contains(strAry[indObj.proteincIndex])){
+                    proteinLi.add(strAry[indObj.proteincIndex]);
+                }
+                if(!param.ppMap.containsKey(strAry[indObj.proteinIDcIndex])){
+                    param.ppMap.put(strAry[indObj.proteinIDcIndex], strAry[indObj.proteincIndex]);
+                }
             }
             br.close();
 
@@ -284,7 +292,7 @@ public class TMTIntegrator
                                 }
                             }
                             param.modAA=modAA!=""?modAA.substring(0,modAA.length()-1):"";
-                            param.columntag = targetmass!=""?(param.modAA.replace("|","")+":"+targetmass):"";
+                            param.columntag = targetmass!=""?(param.modAA.replace("|","")+":"+targetmass.substring(0, targetmass.indexOf(".")+3)):"";
                         }
                     }
                     else if(header.equals("min_site_prob"))
@@ -329,7 +337,15 @@ public class TMTIntegrator
                     }
                     else if(header.equals("use_glycan_composition"))
                     {
-                        param.useGlycoComposition = Boolean.parseBoolean(value);;
+                        param.useGlycoComposition = Boolean.parseBoolean(value);
+                    }
+                    else if(header.equals("prefix"))
+                    {
+                        param.prefix = value;
+                    }
+                    else if(header.equals("log2transformed"))
+                    {
+                        param.log2transformed = Boolean.parseBoolean(value);
                     }
                 }
             }
@@ -346,15 +362,17 @@ public class TMTIntegrator
     {
         BufferedReader br = new BufferedReader(new FileReader(param.fastaF));
         String line = br.readLine();
-        String KeyStr = GenerateKey(line);
+        String KeyStr = line.replace(">", "").trim();
         String ValueStr = "";
+        String allheaderStr = "$"+KeyStr+"$";
         while ((line = br.readLine()) != null)
         {
             if(line.contains(">"))
             {
                 param.fastaMap.put(KeyStr, ValueStr);
 
-                KeyStr = GenerateKey(line);
+                KeyStr = line.replace(">", "").trim();
+                allheaderStr += KeyStr+"$";
                 ValueStr = "";
             }
             else
@@ -364,35 +382,45 @@ public class TMTIntegrator
         }
         br.close();
         param.fastaMap.put(KeyStr, ValueStr);
+
+        for(String protein : proteinLi){
+            String match = FindMatch(protein, allheaderStr);
+            param.phMap.put(protein, match);
+        }
     }
 
-    private static String GenerateKey(String line)
+    private static String FindMatch(String protein, String allheaderStr)
     {
-        line = line.replace(">", "").trim();
-        String[] KeyAry = null;
-        String KeyStr = "";
-
-        if(line.contains("sp|") || line.contains("rev_sp|") || line.contains("tr|") || line.contains("rev_tr|")){
-            KeyAry = line.split("\\|");
-            if(line.contains("rev_")){
-                KeyStr = "rev_"+KeyAry[1];
-            }
-            else{
-                KeyStr = KeyAry[1];
-            }
-        }
-        else if(line.contains("|")){
-            KeyAry = line.split("\\|");
-            KeyStr = KeyAry[0];
-        }
-        else if(line.contains(" ")){
-            KeyAry = line.split(" ");
-            KeyStr = KeyAry[0].substring(0,KeyAry[0].lastIndexOf("."));
+        String bestMatch = "";
+        int index = allheaderStr.indexOf(protein);
+        if(index<0){
+            System.out.println("ERROR - Can't find protein ID: "+protein+" in the fasta file");
+            System.exit(1);
         }
         else{
-            KeyStr = line;
+            while(index<allheaderStr.length()){
+                int leftindex = allheaderStr.substring(0, index+1).lastIndexOf("$")+1;
+                int rightindex = leftindex+allheaderStr.substring(leftindex).indexOf("$");
+                String header = allheaderStr.substring(leftindex, rightindex);
+
+                if(!protein.contains(param.prefix) && !header.contains(param.prefix)){
+                    bestMatch = header;
+                }
+                else if(protein.contains(param.prefix) && header.contains(param.prefix)){
+                    bestMatch = header;
+                }
+
+                index = allheaderStr.substring(rightindex).indexOf(protein);
+                if(index<0){
+                    break;
+                }
+                else{
+                    index = rightindex+allheaderStr.substring(rightindex).indexOf(protein);
+                }
+            }
         }
-        return KeyStr;
+
+        return bestMatch;
     }
 
     private static void GetAllGenes(List<File> FileLi)  throws IOException
@@ -459,7 +487,7 @@ public class TMTIntegrator
             if(tAry[i].equals("Assigned Modifications")){
                 indObj.assignedModcIndex = i;
             }
-            if(tAry[i].equals("Phospho Site Localization") || tAry[i].equals(param.columntag)){
+            if(tAry[i].equals("Phospho Site Localization") || (tAry[i].contains(param.columntag) && !tAry[i].contains("Best Localization"))){
                 indObj.ptmLocalcIndex = i;
             }
             if(tAry[i].equals("Protein ID")){
@@ -671,9 +699,9 @@ public class TMTIntegrator
             double pepProb = Double.parseDouble(strAry[indObj.pepProbcIndex]);
             boolean isUnique = Boolean.parseBoolean(strAry[indObj.isUniquecIndex]);
             String assignedMod = strAry[indObj.assignedModcIndex];
-            String gene = strAry[indObj.genecIndex].length()>0?strAry[indObj.genecIndex]:strAry[indObj.proteinIDcIndex];
-            String proteinID = strAry[indObj.proteinIDcIndex];
             String protein = strAry[indObj.proteincIndex];
+            String proteinID = strAry[indObj.proteinIDcIndex];
+            String gene = strAry[indObj.genecIndex].length()>0?strAry[indObj.genecIndex]:proteinID;
             String mapGenes = (indObj.mapGeneIndex>=0) ? strAry[indObj.mapGeneIndex]: "";
             double refInt = (param.add_Ref<0) ? Double.parseDouble(strAry[indObj.refIndex]) : 10000 ; //set up a random value to pass the criteria
             int ntt = Integer.parseInt(strAry[indObj.numEnzyTermi]);
@@ -722,6 +750,7 @@ public class TMTIntegrator
                     continue;
                 }
                 for(String term : param.modTagLi){
+                    term = (!term.equalsIgnoreCase("N-glyco") && !term.equalsIgnoreCase("O-glyco"))?term.substring(0, term.indexOf(".")+3): term;
                     if(term.equalsIgnoreCase("N-glyco")){
                         // if skipping PSMs that failed glycan FDR, skip if psm glycan q-val is larger than threshold provided in param
                         if (param.glycoQval >= 0 && psm_glycoQval > param.glycoQval) {
