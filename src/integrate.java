@@ -768,6 +768,7 @@ public class integrate
                         {
                             ds_Ratio rObj = new ds_Ratio();
                             rObj.preInt = Double.parseDouble(strAry[indObj.ms1IntIndex]);
+                            rObj.rt = Double.parseDouble(strAry[indObj.rtIndex]);
                             rObj.ratio = Double.parseDouble(strAry[j]);
                             Obj2DAry[i][j-indObj.abnIndex] = rObj;
                         }
@@ -875,7 +876,7 @@ public class integrate
                 for(String protein : ProtMap.keySet()){
                     List<String> pepLi = ProtMap.get(protein);
                     for(String pep : pepLi){
-                        pepStr += pep;
+                        pepStr += pep + ";";
                     }
                 }
                 pepStr = pepStr.substring(0,pepStr.length()-1);
@@ -1410,6 +1411,7 @@ public class integrate
             for(int i=0; i<rObjLi.size(); i++)
             {
                 rObjLi.get(i).weight = Math.pow(rObjLi.get(i).preInt, pow);
+                //rObjLi.get(i).weight = Math.pow(rObjLi.get(i).preInt*rObjLi.get(i).rt, pow);
                 sum += rObjLi.get(i).weight;
             }
 

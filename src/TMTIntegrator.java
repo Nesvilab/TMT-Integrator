@@ -458,84 +458,89 @@ public class TMTIntegrator
         String[] tAry = title.split("\t");
         boolean refexit = false;
 
+        String ref_error = "";
         int RefNum = 0;
-        for (String str : tAry) {
+        for(int i = 0; i < tAry.length; i++){
+            String str = tAry[i].trim();
             if (str.contains(param.refTag)) {
+                ref_error += (i+1) +", ";
                 RefNum += 1;
             }
         }
+        ref_error=ref_error.substring(0,ref_error.lastIndexOf(","));
 
         ds_Index indObj = param.indMap.get(fName);
         for(int i = 0; i < tAry.length; i++){
+            String str = tAry[i].trim();
             if(param.add_Ref>=0)
             {
                 indObj.refIndex = tAry.length;
                 refexit = true;
             }
-            else if(tAry[i].contains(param.refTag))
+            else if(str.contains(param.refTag))
             {
                 indObj.refIndex = i;
                 refexit = true;
             }
 
-            if(tAry[i].equals("PeptideProphet Probability")){
+            if(str.equals("PeptideProphet Probability")){
                 indObj.pepProbcIndex = i;
             }
-            if(tAry[i].equals("Peptide")){
+            if(str.equals("Peptide")){
                 indObj.pepcIndex = i;
             }
-            if(tAry[i].equals("Assigned Modifications")){
+            if(str.equals("Assigned Modifications")){
                 indObj.assignedModcIndex = i;
             }
-            if(tAry[i].equals("Phospho Site Localization") || (tAry[i].contains(param.columntag) && !tAry[i].contains("Best Localization"))){
+            if(str.equals("Phospho Site Localization") || (str.contains(param.columntag) && !str.contains("Best Localization"))){
                 indObj.ptmLocalcIndex = i;
             }
-            if(tAry[i].equals("Protein ID")){
+            if(str.equals("Protein ID")){
                 indObj.proteinIDcIndex = i;
             }
-            if(tAry[i].equals("Protein")){
+            if(str.equals("Protein")){
                 indObj.proteincIndex = i;
             }
-            if(tAry[i].equals("Gene")){
+            if(str.equals("Gene")){
                 indObj.genecIndex = i;
             }
-            if(tAry[i].equals("Is Unique")){
+            if(str.equals("Is Unique")){
                 indObj.isUniquecIndex = i;
             }
-            if(tAry[i].equals("Retention")){
+            if(str.equals("Retention")){
                 indObj.rtIndex = i;
             }
-            if(tAry[i].equals("Intensity")){
+            if(str.equals("Intensity")){
                 indObj.ms1IntIndex = i;
             }
-            if(tAry[i].equals("Purity")){
+            if(str.equals("Purity")){
                 indObj.purityIndex = i;
             }
-            if(tAry[i].equals("Peptide")){
+            if(str.equals("Peptide")){
                 indObj.peptideIndex = i;
             }
-            if(tAry[i].equals("Charge")){
+            if(str.equals("Charge")){
                 indObj.chargeIndex = i;
             }
-            if(tAry[i].equals("Observed M/Z")){
+            if(str.equals("Observed M/Z")){
                 indObj.observedMzIndex = i;
             }
-            if(tAry[i].equals("Calculated Peptide Mass") || tAry[i].equals("Peptide Mass")){
+            if(str.equals("Calculated Peptide Mass") || str.equals("Peptide Mass")){
                 indObj.pepMassIndex = i;
             }
-            if(tAry[i].equals("Mapped Genes")){
+            if(str.equals("Mapped Genes")){
                 indObj.mapGeneIndex = i;
             }
-            if(tAry[i].equals("Modified Peptide")){
+            if(str.equals("Modified Peptide")){
                 indObj.modifiedPeptideIndex = i;
             }
-            if(tAry[i].equals("Number of Enzymatic Termini")){
+            if(str.equals("Number of Enzymatic Termini")){
                 indObj.numEnzyTermi = i;
             }
-            if(tAry[i].equals("Glycan q-value")){
+            if(str.equals("Glycan q-value")){
                 indObj.glycoQvalIndex = i;
             }
-            if(tAry[i].equals("Observed Modifications")){
+            if(str.equals("Observed Modifications")){
                 indObj.observedModIndex = i;
             }
         }
@@ -573,7 +578,7 @@ public class TMTIntegrator
         }
         if((RefNum>1)&& (param.add_Ref<0))
         {
-            System.out.println("There are more than one reference tag in the column names. Please check if the reference tag is unique among all the column names.");
+            System.out.println("There are more than one '"+ param.refTag +"' in the column names. Repeated reference tag at column: "+ref_error+". Please make sure the reference tag is unique among all the column names.");
             System.exit(1);
         }
         if(indObj.pepcIndex<0){
@@ -887,7 +892,6 @@ public class TMTIntegrator
 
             //endregion
 
-            //if((purity>=param.minPurity) && (pepProb>=param.minPepProb) && (tmtInt>=TmtThres) && (gene.length()>0) &&  isAllowed && labelflag && modflag && uniqueflag && peflag && (gene_category>=param.uniqueGene) && (refInt > 0) && (ntt>=param.min_ntt)){
             if((purity>=param.minPurity) && (pepProb>=param.minPepProb) && (tmtInt>=TmtThres) &&  isAllowed && labelflag && modflag && uniqueflag && peflag && (gene_category>=param.uniqueGene) && (refInt > 0) && (ntt>=param.min_ntt)){
                 String NewPsm = ""; //Update isUsed = true
                 strAry[indObj.isUsedIndex] = "true";
