@@ -8,7 +8,7 @@ import java.lang.*;
 public class TMTIntegrator
 {
     public static final String name = "TMT-Integrator";
-    public static final String version = "4.0";
+    public static final String version = "4.0.2";
     private static ds_Parameters param = new ds_Parameters();
     private static List<String> proteinLi = new ArrayList<String>();
 
@@ -467,7 +467,9 @@ public class TMTIntegrator
                 RefNum += 1;
             }
         }
-        ref_error=ref_error.substring(0,ref_error.lastIndexOf(","));
+        if(ref_error.length()>0){
+            ref_error=ref_error.substring(0,ref_error.lastIndexOf(","));
+        }
 
         ds_Index indObj = param.indMap.get(fName);
         for(int i = 0; i < tAry.length; i++){
