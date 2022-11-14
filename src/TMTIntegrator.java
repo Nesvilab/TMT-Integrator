@@ -352,6 +352,7 @@ public class TMTIntegrator
             catch(Exception e)
             {
                 System.out.println("Error at: " + line);
+                e.printStackTrace();
                 System.exit(1);
             }
         }
@@ -448,6 +449,7 @@ public class TMTIntegrator
             catch (Exception e)
             {
                 System.out.println("Error at: "+FileLi.get(i).getAbsolutePath()+" "+e);
+                e.printStackTrace();
                 System.exit(1);
             }
         }

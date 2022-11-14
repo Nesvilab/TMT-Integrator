@@ -383,6 +383,7 @@ public class integrate
             catch (Exception e)
             {
                 System.out.println("Error at: "+f.getAbsolutePath()+" "+e);
+                e.printStackTrace();
                 System.exit(1);
             }
         }
