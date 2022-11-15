@@ -513,7 +513,7 @@ public class TMTIntegrator
             if(str.equals("Assigned Modifications")){
                 indObj.assignedModcIndex = i;
             }
-            if(str.equals("Phospho Site Localization") || (str.contains(param.columntag) && !str.contains("Best Localization"))){
+            if(str.equals("Phospho Site Localization") || (!param.columntag.isEmpty() && str.contains(param.columntag) && !str.contains("Best Localization"))){
                 indObj.ptmLocalcIndex = i;
             }
             if(str.equals("Protein ID")){
