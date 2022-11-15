@@ -1,14 +1,22 @@
-import java.io.*;
-import java.nio.file.Path;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
-import java.util.*;
-import java.lang.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.TreeMap;
 
 public class TMTIntegrator
 {
     public static final String name = "TMT-Integrator";
     public static final String version = "4.0.2";
+    private static final NumberFormat formatter = new DecimalFormat("#0.00000");
+
     private static ds_Parameters param = new ds_Parameters();
     private static List<String> proteinLi = new ArrayList<String>();
 
@@ -26,6 +34,8 @@ public class TMTIntegrator
         }
         else
         {
+            long start = System.currentTimeMillis();
+
             LoadParam(YamlFile); //Load & check parameters
 
             for (int i = 1 ; i < args.length ; i++){
@@ -42,17 +52,20 @@ public class TMTIntegrator
             Collections.sort(param.fNameLi);
 
             CheckPSMs(param.FileLi);//Check PSM tables
-            LoadFasta(); //Load fast file
 
-            long start = System.currentTimeMillis();
-            NumberFormat formatter = new DecimalFormat("#0.00000");
+            System.out.println("Load parameters and check PSMs--- " + formatter.format((System.currentTimeMillis() - start) / (1000d * 60)) + " min.");
+
+            start = System.currentTimeMillis();
+            LoadFasta(); //Load fast file
+            System.out.println("Load fasta--- " + formatter.format((System.currentTimeMillis() - start) / (1000d * 60)) + " min.");
+
+            start = System.currentTimeMillis();
 
             GetAllGenes(param.FileLi); //Get All Genes
 
             for(File PsmF : param.FileLi){UpdateColumns(PsmF, param.bestPsm); }
 
-            long end1 = System.currentTimeMillis();
-            System.out.println("UpdateColumns--- " + formatter.format((end1 - start) / (1000d * 60)) + " min.");
+            System.out.println("UpdateColumns--- " + formatter.format((System.currentTimeMillis() - start) / (1000d * 60)) + " min.");
 
             int start_gop = (!param.geneflag) ? 0: 1;
             int end_gop = (param.glycoflag)? 5: 4; //group options
