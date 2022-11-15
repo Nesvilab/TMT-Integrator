@@ -22,6 +22,8 @@ public class TMTIntegrator
 
     public static void main(String[] args) throws IOException
     {
+        long totalStart = System.currentTimeMillis();
+
         System.out.printf("%s v%s%n", name, version);
         File YamlFile = args[0].contains(".yml") ? new File(args[0]) : null ;
         if(YamlFile==null) {
@@ -135,6 +137,8 @@ public class TMTIntegrator
             }
 
             //endregion
+
+            System.out.println("Total run time--- " + formatter.format((System.currentTimeMillis() - totalStart) / (1000d * 60)) + " min.");
 
             System.out.println("Finish!!!");
         }
