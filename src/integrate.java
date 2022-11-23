@@ -155,7 +155,7 @@ public class integrate
                         String ProtSeq = param.fastaMap.get(param.phMap.get(protein));
                         if (ProtSeq == null) {
                             System.out.printf("Error: could not find protein ID %s in database. Stopping analysis\n", protein);
-                            System.exit(0);
+                            System.exit(1);
                         }
                         ProtSeq = ProtSeq.replaceAll("[IL]","-");
                         String tmpep = peptide.replaceAll("[IL]","-");
