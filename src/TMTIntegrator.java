@@ -663,7 +663,7 @@ public class TMTIntegrator
         }
         if(indObj.modifiedPeptideIndex<0){
             System.out.println("TMT-Integrator can't find the 'Modified Peptide' column. Please check if the column is in the psm tables.");
-            System.out.print(1);
+            System.exit(1);
         }
 
         //endregion
