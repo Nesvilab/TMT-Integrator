@@ -8,9 +8,7 @@ import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.TreeMap;
 
 public class TMTIntegrator
@@ -20,7 +18,7 @@ public class TMTIntegrator
     private static final NumberFormat formatter = new DecimalFormat("#0.00000");
 
     private static ds_Parameters param = new ds_Parameters();
-    private static Set<String> proteinLi = new HashSet<>();
+    private static List<String> proteinLi = new ArrayList<String>();
 
     public static void main(String[] args) throws IOException
     {
@@ -166,7 +164,9 @@ public class TMTIntegrator
                 genecount += strAry[indObj.genecIndex].trim().length()==0?1:0;
                 total+=1;
 
-                proteinLi.add(strAry[indObj.proteincIndex]);
+                if(!proteinLi.contains(strAry[indObj.proteincIndex])){
+                    proteinLi.add(strAry[indObj.proteincIndex]);
+                }
                 if(!param.ppMap.containsKey(strAry[indObj.proteinIDcIndex])){
                     param.ppMap.put(strAry[indObj.proteinIDcIndex], strAry[indObj.proteincIndex]);
                 }
@@ -381,35 +381,32 @@ public class TMTIntegrator
         BufferedReader br = new BufferedReader(new FileReader(param.fastaF));
         String line = br.readLine();
         String KeyStr = line.replace(">", "").trim();
-        StringBuilder ValueStr = new StringBuilder();
+        String ValueStr = "";
+        String allheaderStr = "$"+KeyStr+"$";
         while ((line = br.readLine()) != null)
         {
             if(line.contains(">"))
             {
-                param.fastaMap.put(KeyStr, ValueStr.toString());
+                param.fastaMap.put(KeyStr, ValueStr);
 
                 KeyStr = line.replace(">", "").trim();
-                ValueStr.setLength(0);
+                allheaderStr += KeyStr+"$";
+                ValueStr = "";
             }
             else
             {
-                ValueStr.append(line);
+                ValueStr += line;
             }
         }
         br.close();
-        param.fastaMap.put(KeyStr, ValueStr.toString());
+        param.fastaMap.put(KeyStr, ValueStr);
 
         for(String protein : proteinLi){
-            for (String k : param.fastaMap.keySet()) {
-                if (k.startsWith(protein)) {
-                    param.phMap.put(protein, k);
-                    break;
-                }
-            }
+            String match = FindMatch(protein, allheaderStr);
+            param.phMap.put(protein, match);
         }
     }
 
-    @Deprecated
     private static String FindMatch(String protein, String allheaderStr)
     {
         String bestMatch = "";
