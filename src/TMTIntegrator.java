@@ -695,7 +695,14 @@ public class TMTIntegrator
 
             double SumTmtInt = 0; //Sum Tmt Int
             for(int i=indObj.abnIndex; i<indObj.flength; i++){
-                SumTmtInt+=Double.parseDouble(strAry[i]);
+                try {
+                    SumTmtInt += Double.parseDouble(strAry[i]);
+                } catch (Exception ex) {
+                    System.err.println(ex.getMessage() + ": " + strAry[i] + " is not a number.");
+                    System.err.println(String.join("\t", strAry));
+                    ex.printStackTrace();
+                    System.exit(1);
+                }
             }
             TmtIntLi.add(SumTmtInt);
             NewPsm+=SumTmtInt;
