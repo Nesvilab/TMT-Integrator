@@ -594,12 +594,15 @@ public class TMTIntegrator
 
         //region check the existence of columns
         if((!refexit) && (param.add_Ref<0)){
-            System.out.println("TMT-Integrator can't find the reference channel. Please check if the reference tag is correctly defined in the parameter file.");
+            System.out.println("TMT-Integrator can't find the reference channel matching \"" + param.refTag + "\" from column " + String.join(",", tAry) + ".");
+            System.out.println("Please check if the reference tag is correctly defined in the parameter file.");
             System.exit(1);
         }
         if((RefNum>1)&& (param.add_Ref<0))
         {
-            System.out.println("There are more than one '"+ param.refTag +"' in the column names. Repeated reference tag at column: "+ref_error+". Please make sure the reference tag is unique among all the column names.");
+            System.out.println("There are more than one \""+ param.refTag + "\" in the column " + String.join(",", tAry) + ".");
+            System.out.println("Repeated reference tag at column: " + ref_error + ".");
+            System.out.println("Please make sure the reference tag is unique among all the column names.");
             System.exit(1);
         }
         if(indObj.pepcIndex<0){
