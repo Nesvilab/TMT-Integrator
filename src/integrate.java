@@ -836,6 +836,7 @@ public class integrate
             else if(groupBy==3 || groupBy == 5){ //multi-site and multi-mass
                 String pepStr = "";
                 String extPepStr = "";
+                String pepIndexStr = "";
                 for(String proteinID : ProtMap.keySet()){
                     List<String> pepLi = ProtMap.get(proteinID);
                     for(String pep: pepLi){
@@ -848,6 +849,7 @@ public class integrate
                         int pepIndex = (tmpProtSeq.indexOf(tmpep)>0)?tmpProtSeq.indexOf(tmpep):0;
                         int sIndex = pepIndex - 7;
                         int eIndex = pepIndex + pep.length();
+                        pepIndexStr += (pepIndex + 1) + "\t" + (eIndex + 1) + ";";
                         for(int i=sIndex; i<pepIndex; i++){
                             if(sIndex<0){
                                 extPepStr += "_";
@@ -870,18 +872,28 @@ public class integrate
                 }
                 pepStr = pepStr.substring(0,pepStr.length()-1);
                 extPepStr = extPepStr.substring(0,extPepStr.length()-1);
-                ggpStr += "\t"+proteinIDStr+"\t"+pepStr+"\t"+extPepStr;
+                pepIndexStr = pepIndexStr.substring(0,pepIndexStr.length()-1);
+                ggpStr += "\t"+proteinIDStr+"\t"+pepStr+"\t"+extPepStr + "\t" + pepIndexStr;
             }
             else{
                 String pepStr = "";
+                String pepIndexStr = "";
                 for(String protein : ProtMap.keySet()){
+                    String ProtSeq = param.fastaMap.get(param.phMap.get(param.ppMap.get(protein)));
+                    String tmpProtSeq = ProtSeq.replaceAll("[IL]","-");
                     List<String> pepLi = ProtMap.get(protein);
                     for(String pep : pepLi){
                         pepStr += pep + ";";
+
+                        String tmpep = pep.replaceAll("[IL]", "-").toUpperCase();
+                        int pepStart = (tmpProtSeq.indexOf(tmpep) > 0) ? tmpProtSeq.indexOf(tmpep) + 1 : 0;
+                        int pepEnd = pepStart + pep.length();
+                        pepIndexStr += pepStart + "\t" + pepEnd + ";";
                     }
                 }
                 pepStr = pepStr.substring(0,pepStr.length()-1);
-                ggpStr += "\t"+proteinIDStr+"\t"+pepStr;
+                pepIndexStr = pepIndexStr.substring(0,pepIndexStr.length()-1);
+                ggpStr += String.format("\t%s\t%s\t%s", proteinIDStr, pepStr, pepIndexStr);
             }
             groupkey = (ggpStr!="") ? (groupkey+"\t"+ggpStr+"\t"+MaxPepProb) : groupkey+"\t"+MaxPepProb;
             gAbnMap.put(groupkey, fAbnMap);
@@ -1162,10 +1174,10 @@ public class integrate
             wr.write("Index\tNumberPSM\tGene");
         }
         else if (groupBy==2){ //2: Peptide
-            wr.write("Index\tGene\tProteinID\tPeptide");
+            wr.write("Index\tGene\tProteinID\tPeptide\tStart\tEnd");
         }
         else if ((groupBy==3) || (groupBy==4) || (groupBy==5)){ //3. Site
-            wr.write("Index\tGene\tProteinID\tPeptide\tSequenceWindow");
+            wr.write("Index\tGene\tProteinID\tPeptide\tSequenceWindow\tStart\tEnd");
         }
         else if (groupBy==0){ //0. Gene
             wr.write("Index\tNumberPSM\tProteinID");
