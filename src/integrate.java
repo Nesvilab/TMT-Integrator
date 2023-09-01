@@ -838,6 +838,8 @@ public class integrate
                 String extPepStr = "";
                 String pepIndexStr = "";
                 for(String proteinID : ProtMap.keySet()){
+                    int lowestStart = (int) 1E6;
+                    int highestEnd = 0;
                     List<String> pepLi = ProtMap.get(proteinID);
                     for(String pep: pepLi){
                         pepStr+=pep+";";
@@ -849,7 +851,17 @@ public class integrate
                         int pepIndex = (tmpProtSeq.indexOf(tmpep)>0)?tmpProtSeq.indexOf(tmpep):0;
                         int sIndex = pepIndex - 7;
                         int eIndex = pepIndex + pep.length();
-                        pepIndexStr += (pepIndex + 1) + "\t" + (eIndex + 1) + ";";
+                        // only change the start/end string if a longer peptide is found
+                        if (pepIndex < lowestStart || eIndex > highestEnd) {
+                            pepIndexStr = (pepIndex + 1) + "\t" + (eIndex + 1);
+                            if (pepIndex < lowestStart) {
+                                lowestStart = pepIndex;
+                            }
+                            if (eIndex > highestEnd) {
+                                highestEnd = eIndex;
+                            }
+                        }
+
                         for(int i=sIndex; i<pepIndex; i++){
                             if(sIndex<0){
                                 extPepStr += "_";
@@ -872,7 +884,6 @@ public class integrate
                 }
                 pepStr = pepStr.substring(0,pepStr.length()-1);
                 extPepStr = extPepStr.substring(0,extPepStr.length()-1);
-                pepIndexStr = pepIndexStr.substring(0,pepIndexStr.length()-1);
                 ggpStr += "\t"+proteinIDStr+"\t"+pepStr+"\t"+extPepStr + "\t" + pepIndexStr;
             }
             else{
@@ -882,17 +893,27 @@ public class integrate
                     String ProtSeq = param.fastaMap.get(param.phMap.get(param.ppMap.get(protein)));
                     String tmpProtSeq = ProtSeq.replaceAll("[IL]","-");
                     List<String> pepLi = ProtMap.get(protein);
+                    int lowestStart = (int) 1E6;
+                    int highestEnd = 0;
                     for(String pep : pepLi){
                         pepStr += pep + ";";
 
                         String tmpep = pep.replaceAll("[IL]", "-").toUpperCase();
                         int pepStart = (tmpProtSeq.indexOf(tmpep) > 0) ? tmpProtSeq.indexOf(tmpep) + 1 : 0;
                         int pepEnd = pepStart + pep.length();
-                        pepIndexStr += pepStart + "\t" + pepEnd + ";";
+                        // only change the start/end string if a longer peptide is found
+                        if (pepStart < lowestStart || pepEnd > highestEnd) {
+                            pepIndexStr = (pepStart + 1) + "\t" + (pepEnd + 1);
+                            if (pepStart < lowestStart) {
+                                lowestStart = pepStart;
+                            }
+                            if (pepEnd > highestEnd) {
+                                highestEnd = pepEnd;
+                            }
+                        }
                     }
                 }
                 pepStr = pepStr.substring(0,pepStr.length()-1);
-                pepIndexStr = pepIndexStr.substring(0,pepIndexStr.length()-1);
                 ggpStr += String.format("\t%s\t%s\t%s", proteinIDStr, pepStr, pepIndexStr);
             }
             groupkey = (ggpStr!="") ? (groupkey+"\t"+ggpStr+"\t"+MaxPepProb) : groupkey+"\t"+MaxPepProb;
