@@ -837,11 +837,11 @@ public class integrate
             else if(groupBy==3 || groupBy == 5){ //multi-site and multi-mass
                 String pepStr = "";
                 String extPepStr = "";
+                String pepIndexStr = "";
                 for(String proteinID : ProtMap.keySet()){
-                	
-                	 int lowestStart = (int) 1E6;
+                	int lowestStart = (int) 1E6;
                     int highestEnd = 0;
-                    
+
                     List<String> pepLi = ProtMap.get(proteinID);
                     for(String pep: pepLi){
                         String sequence = pep.substring(0,pep.indexOf("@"));
@@ -852,35 +852,19 @@ public class integrate
                         int pepIndex = Integer.parseInt(pep.substring(pep.indexOf("@")+1));
                         int sIndex = pepIndex - 7;
                         int eIndex = pepIndex + pep.length();
-                        
-                        // [??I don't think it will make any difference] only change the start/end string if a longer peptide is found
+
+                        //[need to check] only change the start/end string if a longer peptide is found
                         if (pepIndex < lowestStart || eIndex > highestEnd) {
-                            pepIndexStr = (pepIndex + 1) + "\t" + (eIndex + 1);
                             if (pepIndex < lowestStart) {
                                 lowestStart = pepIndex;
                             }
                             if (eIndex > highestEnd) {
                                 highestEnd = eIndex;
                             }
+                            pepIndexStr = (lowestStart + 1) + "\t" + (highestEnd + 1);
                         }
-                        
-//                        for(int i=sIndex; i<pepIndex; i++){
-//                            if(sIndex<0){
-//                                extPepStr += "_";
-//                            }
-//                            else{
-//                                extPepStr += ProtSeq.charAt(i);
-//                            }
-//                        }
+
                         extPepStr += "." + sequence + ".";
-//                        for(int i=eIndex; i<eIndex+7; i++){
-//                            if(i>=ProtSeq.length()){
-//                                extPepStr += "_";
-//                            }
-//                            else{
-//                                extPepStr += ProtSeq.charAt(i);
-//                            }
-//                        }
                         extPepStr += ";";
                     }
                 }
@@ -891,27 +875,26 @@ public class integrate
             }
             else{
                 String pepStr = "";
+                String pepIndexStr = "";
                 for(String protein : ProtMap.keySet()){
                     List<String> pepLi = ProtMap.get(protein);
-                    
                     int lowestStart = (int) 1E6;
                     int highestEnd = 0;
-                    
                     for(String pep : pepLi){
                         pepStr += pep.substring(0,pep.indexOf("@")) + ";";
-                        
-                        String tmpep = pep.replaceAll("[IL]", "-").toUpperCase();
-                        int pepStart = (tmpProtSeq.indexOf(tmpep) > 0) ? tmpProtSeq.indexOf(tmpep) + 1 : 0;
-                        int pepEnd = pepStart + pep.length();
-                        // only change the start/end string if a longer peptide is found
+
+                        int pepIndex = Integer.parseInt(pep.substring(pep.indexOf("@")+1));
+                        int pepStart = pepIndex - 7;
+                        int pepEnd = pepIndex + pep.length();
+                        //[need to check] only change the start/end string if a longer peptide is found
                         if (pepStart < lowestStart || pepEnd > highestEnd) {
-                            pepIndexStr = (pepStart + 1) + "\t" + (pepEnd + 1);
                             if (pepStart < lowestStart) {
                                 lowestStart = pepStart;
                             }
                             if (pepEnd > highestEnd) {
                                 highestEnd = pepEnd;
                             }
+                            pepIndexStr = (lowestStart + 1) + "\t" + (highestEnd + 1);
                         }
                     }
                 }
