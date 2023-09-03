@@ -853,15 +853,15 @@ public class integrate
                         int sIndex = pepIndex - 7;
                         int eIndex = pepIndex + pep.length();
 
-                        //[need to check] only change the start/end string if a longer peptide is found
+                        //only change the start/end string if a longer peptide is found
                         if (pepIndex < lowestStart || eIndex > highestEnd) {
+                            pepIndexStr = (pepIndex + 1) + "\t" + (eIndex + 1);
                             if (pepIndex < lowestStart) {
                                 lowestStart = pepIndex;
                             }
                             if (eIndex > highestEnd) {
                                 highestEnd = eIndex;
                             }
-                            pepIndexStr = (lowestStart + 1) + "\t" + (highestEnd + 1);
                         }
 
                         extPepStr += "." + sequence + ".";
@@ -870,7 +870,6 @@ public class integrate
                 }
                 pepStr = pepStr.substring(0,pepStr.length()-1);
                 extPepStr = extPepStr.substring(0,extPepStr.length()-1);
-                //ggpStr += "\t"+proteinIDStr+"\t"+pepStr+"\t"+extPepStr;
                 ggpStr += "\t"+proteinIDStr+"\t"+pepStr+"\t"+extPepStr + "\t" + pepIndexStr;
             }
             else{
@@ -886,21 +885,20 @@ public class integrate
                         int pepIndex = Integer.parseInt(pep.substring(pep.indexOf("@")+1));
                         int pepStart = pepIndex - 7;
                         int pepEnd = pepIndex + pep.length();
-                        //[need to check] only change the start/end string if a longer peptide is found
+                        //only change the start/end string if a longer peptide is found
                         if (pepStart < lowestStart || pepEnd > highestEnd) {
+                            pepIndexStr = (pepIndex + 1) + "\t" + (pepEnd + 1);
                             if (pepStart < lowestStart) {
                                 lowestStart = pepStart;
                             }
                             if (pepEnd > highestEnd) {
                                 highestEnd = pepEnd;
                             }
-                            pepIndexStr = (lowestStart + 1) + "\t" + (highestEnd + 1);
                         }
                     }
                 }
                 pepStr = pepStr.substring(0,pepStr.length()-1);
                 ggpStr += String.format("\t%s\t%s\t%s", proteinIDStr, pepStr, pepIndexStr);
-                //ggpStr += "\t"+proteinIDStr+"\t"+pepStr;
             }
             groupkey = (ggpStr!="") ? (groupkey+"\t"+ggpStr+"\t"+MaxPepProb) : groupkey+"\t"+MaxPepProb;
             gAbnMap.put(groupkey, fAbnMap);
