@@ -46,12 +46,12 @@ public class ds_Parameters
 
     List<File> FileLi = new ArrayList<File>();
     List<String> fNameLi = new ArrayList<String>();
-    TreeMap<String, String> fastaMap = new TreeMap<String, String>(); //Key: z; Value: ds_Peak
+    //TreeMap<String, String> fastaMap = new TreeMap<String, String>(); //Key: z; Value: ds_Peak
     List<String> AllGeneLi = new ArrayList<String>();
     TreeMap<String, String> TitleMap = new TreeMap<String, String>();
     TreeMap<String, ds_Index> indMap = new TreeMap<String, ds_Index>();
     //ds_ColumnIndex ci = new ds_ColumnIndex();
 
     TreeMap<String, String> ppMap = new TreeMap<String, String>(); //proteinID-protein map
-    TreeMap<String, String> phMap = new TreeMap<String, String>(); //protein-fasta header map
+    //TreeMap<String, String> phMap = new TreeMap<String, String>(); //protein-fasta header map
 }

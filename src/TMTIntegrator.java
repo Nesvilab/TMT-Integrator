@@ -14,7 +14,7 @@ import java.util.TreeMap;
 public class TMTIntegrator
 {
     public static final String name = "TMT-Integrator";
-    public static final String version = "4.0.6";
+    public static final String version = "5.0.0";
     private static final NumberFormat formatter = new DecimalFormat("#0.00000");
 
     private static ds_Parameters param = new ds_Parameters();
@@ -52,21 +52,12 @@ public class TMTIntegrator
                 param.indMap.put(param.FileLi.get(i).getAbsolutePath(), indObj);
             }
             Collections.sort(param.fNameLi);
-
             CheckPSMs(param.FileLi);//Check PSM tables
-
             System.out.println("Load parameters and check PSMs--- " + formatter.format((System.currentTimeMillis() - start) / (1000d * 60)) + " min.");
 
             start = System.currentTimeMillis();
-            LoadFasta(); //Load fast file
-            System.out.println("Load fasta--- " + formatter.format((System.currentTimeMillis() - start) / (1000d * 60)) + " min.");
-
-            start = System.currentTimeMillis();
-
             GetAllGenes(param.FileLi); //Get All Genes
-
             for(File PsmF : param.FileLi){UpdateColumns(PsmF, param.bestPsm); }
-
             System.out.println("UpdateColumns--- " + formatter.format((System.currentTimeMillis() - start) / (1000d * 60)) + " min.");
 
             int start_gop = (!param.geneflag) ? 0: 1;
@@ -86,7 +77,7 @@ public class TMTIntegrator
                 }
             }
             else if((param.groupBy<0) && (param.protNorm>=0)){
-                if((param.abn_type==1) && (param.protNorm>1 || param.protNorm<3)){
+                if((param.abn_type==1) && (param.protNorm>=1 && param.protNorm<3)){
                     System.out.println("For raw-based abundance reports, TMT-Integrator only supports " +
                             "(1) no normlization, and (2) sample loading and internal reference scaling (SL+IRS).");
                 }
@@ -204,7 +195,7 @@ public class TMTIntegrator
                     value = value.contains("#")? value.substring(0, value.indexOf("#")).trim() : value.trim();
                     if(header.equals("protein_database"))
                     {
-                        param.fastaF= new File(value);
+                        //param.fastaF= new File(value);
                     }
                     else if(header.equals("output"))
                     {
@@ -376,71 +367,6 @@ public class TMTIntegrator
         br.close();
     }
 
-    private static void LoadFasta() throws IOException
-    {
-        BufferedReader br = new BufferedReader(new FileReader(param.fastaF));
-        String line = br.readLine();
-        String KeyStr = line.replace(">", "").trim();
-        String ValueStr = "";
-        String allheaderStr = "$"+KeyStr+"$";
-        while ((line = br.readLine()) != null)
-        {
-            if(line.contains(">"))
-            {
-                param.fastaMap.put(KeyStr, ValueStr);
-
-                KeyStr = line.replace(">", "").trim();
-                allheaderStr += KeyStr+"$";
-                ValueStr = "";
-            }
-            else
-            {
-                ValueStr += line;
-            }
-        }
-        br.close();
-        param.fastaMap.put(KeyStr, ValueStr);
-
-        for(String protein : proteinLi){
-            String match = FindMatch(protein, allheaderStr);
-            param.phMap.put(protein, match);
-        }
-    }
-
-    private static String FindMatch(String protein, String allheaderStr)
-    {
-        String bestMatch = "";
-        int index = allheaderStr.indexOf(protein);
-        if(index<0){
-            System.out.println("ERROR - Can't find protein ID: "+protein+" in the fasta file");
-            System.exit(1);
-        }
-        else{
-            while(index<allheaderStr.length()){
-                int leftindex = allheaderStr.substring(0, index+1).lastIndexOf("$")+1;
-                int rightindex = leftindex+allheaderStr.substring(leftindex).indexOf("$");
-                String header = allheaderStr.substring(leftindex, rightindex);
-
-                if(!protein.contains(param.prefix) && !header.contains(param.prefix)){
-                    bestMatch = header;
-                }
-                else if(protein.contains(param.prefix) && header.contains(param.prefix)){
-                    bestMatch = header;
-                }
-
-                index = allheaderStr.substring(rightindex).indexOf(protein);
-                if(index<0){
-                    break;
-                }
-                else{
-                    index = rightindex+allheaderStr.substring(rightindex).indexOf(protein);
-                }
-            }
-        }
-
-        return bestMatch;
-    }
-
     private static void GetAllGenes(List<File> FileLi)  throws IOException
     {
         for(int i=0; i<FileLi.size(); i++)
@@ -563,6 +489,15 @@ public class TMTIntegrator
             }
             if(str.equals("Observed Modifications")){
                 indObj.observedModIndex = i;
+            }
+            if(str.equals("Protein Start")){
+                indObj.protsIndex = i;
+            }
+            if(str.equals("Protein End")){
+                indObj.proteIndex = i;
+            }
+            if(str.equals("Extended Peptide")){
+                indObj.extpepIndex = i;
             }
         }
 
@@ -698,14 +633,15 @@ public class TMTIntegrator
 
             double SumTmtInt = 0; //Sum Tmt Int
             for(int i=indObj.abnIndex; i<indObj.flength; i++){
-                try {
-                    SumTmtInt += Double.parseDouble(strAry[i]);
-                } catch (Exception ex) {
+            	try{
+            		SumTmtInt+=Double.parseDouble(strAry[i]);
+            	}
+            	catch (Exception ex) {
                     System.err.println(ex.getMessage() + ": " + strAry[i] + " is not a number.");
                     System.err.println(String.join("\t", strAry));
                     ex.printStackTrace();
                     System.exit(1);
-                }
+              }                
             }
             TmtIntLi.add(SumTmtInt);
             NewPsm+=SumTmtInt;

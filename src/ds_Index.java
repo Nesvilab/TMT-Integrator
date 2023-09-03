@@ -24,6 +24,9 @@ public class ds_Index
     int observedModIndex = -1;
     int totLen = -1;
     int plexNum = -1;
+    int protsIndex = -1;
+    int proteIndex = -1;
+    int extpepIndex = -1;
 
     int refIndex=-1;
     int abnIndex=-1;
