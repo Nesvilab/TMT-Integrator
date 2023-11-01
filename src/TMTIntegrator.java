@@ -651,7 +651,7 @@ public class TMTIntegrator
         Collections.sort(TmtIntLi);
 
         int TmtThresIndex = (int) Math.floor(AllPsmLi.size()*param.minPercent);
-        double TmtThres = TmtIntLi.get(TmtThresIndex);
+        double TmtThres = TmtIntLi.isEmpty() ? 0 : TmtIntLi.get(TmtThresIndex);
 
         indObj.isUsedIndex = indObj.abnIndex;
         indObj.abnIndex+=1;
