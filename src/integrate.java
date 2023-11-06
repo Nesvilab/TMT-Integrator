@@ -850,8 +850,7 @@ public class integrate
                     for(String pep: pepLi){
                         String sequence = pep.substring(0,pep.indexOf("@"));
                         int pepIndex = Integer.parseInt(pep.substring(pep.indexOf("@")+1));
-                        int sIndex = pepIndex - 7;
-                        int eIndex = pepIndex + pep.length();
+                        int eIndex = pepIndex + pep.indexOf("@");   // pep is of format PEPTIDE@10, so peptide length is the index of the "@"
 
                         //only change the start/end string if a longer peptide is found
                         if (pepIndex < lowestStart || eIndex > highestEnd) {
@@ -883,13 +882,12 @@ public class integrate
                         pepStr += pep.substring(0,pep.indexOf("@")) + ";";
 
                         int pepIndex = Integer.parseInt(pep.substring(pep.indexOf("@")+1));
-                        int pepStart = pepIndex - 7;
-                        int pepEnd = pepIndex + pep.length();
+                        int pepEnd = pepIndex + pep.indexOf("@");   // pep is of format PEPTIDE@10, so peptide length is the index of the "@"
                         //only change the start/end string if a longer peptide is found
-                        if (pepStart < lowestStart || pepEnd > highestEnd) {
+                        if (pepIndex < lowestStart || pepEnd > highestEnd) {
                             pepIndexStr = (pepIndex + 1) + "\t" + (pepEnd + 1);
-                            if (pepStart < lowestStart) {
-                                lowestStart = pepStart;
+                            if (pepIndex < lowestStart) {
+                                lowestStart = pepIndex;
                             }
                             if (pepEnd > highestEnd) {
                                 highestEnd = pepEnd;
