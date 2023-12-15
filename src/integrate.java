@@ -1,8 +1,18 @@
-
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 
 public class integrate
 {
@@ -735,7 +745,7 @@ public class integrate
                         geneLi.add(pi.gene);
                     }
 
-                    String pep_index = pi.peptide+"@"+pi.pepsIndex;
+                    String pep_index = pi.peptide+"@"+pi.pepsIndex + "@" + pi.extpep;
                     if(ProtMap.containsKey(proteinID)){
                         List<String> pepLi = ProtMap.get(proteinID);
                         if(!pepLi.contains(pep_index)){
@@ -848,8 +858,8 @@ public class integrate
                         pepStr += sequence +";";
                     }
                     for(String pep: pepLi){
-                        String sequence = pep.substring(0,pep.indexOf("@"));
-                        int pepIndex = Integer.parseInt(pep.substring(pep.indexOf("@")+1));
+                        String[] ss = pep.split("@");
+                        int pepIndex = Integer.parseInt(ss[1]);
                         int eIndex = pepIndex + pep.indexOf("@");   // pep is of format PEPTIDE@10, so peptide length is the index of the "@"
 
                         //only change the start/end string if a longer peptide is found
@@ -863,25 +873,25 @@ public class integrate
                             }
                         }
 
-                        extPepStr += "." + sequence + ".";
-                        extPepStr += ";";
+                        extPepStr = ss[2];
                     }
                 }
                 pepStr = pepStr.substring(0,pepStr.length()-1);
-                extPepStr = extPepStr.substring(0,extPepStr.length()-1);
                 ggpStr += "\t"+proteinIDStr+"\t"+pepStr+"\t"+extPepStr + "\t" + pepIndexStr;
             }
             else{
                 String pepStr = "";
+                String extPepStr = "";
                 String pepIndexStr = "";
                 for(String protein : ProtMap.keySet()){
                     List<String> pepLi = ProtMap.get(protein);
                     int lowestStart = (int) 1E6;
                     int highestEnd = 0;
                     for(String pep : pepLi){
-                        pepStr += pep.substring(0,pep.indexOf("@")) + ";";
+                        String[] ss = pep.split("@");
+                        pepStr += ss[0] + ";";
 
-                        int pepIndex = Integer.parseInt(pep.substring(pep.indexOf("@")+1));
+                        int pepIndex = Integer.parseInt(ss[1]);
                         int pepEnd = pepIndex + pep.indexOf("@");   // pep is of format PEPTIDE@10, so peptide length is the index of the "@"
                         //only change the start/end string if a longer peptide is found
                         if (pepIndex < lowestStart || pepEnd > highestEnd) {
@@ -893,10 +903,12 @@ public class integrate
                                 highestEnd = pepEnd;
                             }
                         }
+
+                        extPepStr = ss[2];
                     }
                 }
                 pepStr = pepStr.substring(0,pepStr.length()-1);
-                ggpStr += String.format("\t%s\t%s\t%s", proteinIDStr, pepStr, pepIndexStr);
+                ggpStr += String.format("\t%s\t%s\t%s\t%s", proteinIDStr, pepStr, extPepStr, pepIndexStr);
             }
             groupkey = (ggpStr!="") ? (groupkey+"\t"+ggpStr+"\t"+MaxPepProb) : groupkey+"\t"+MaxPepProb;
             gAbnMap.put(groupkey, fAbnMap);
@@ -1636,69 +1648,28 @@ public class integrate
 
                 String gene = "";
                 String proteinID = "";
-                List<String> pepLi = new ArrayList<>();
-                List<String> extpepLi = new ArrayList<>();
-                double maxProb = -1000;
+                Set<String> start = new TreeSet<>();
+                Set<String> end = new TreeSet<>();
+                double maxProb = 0;
+                Set<String> pepLi = new TreeSet<>();
+                Set<String> extpepLi = new TreeSet<>();
                 for(String str : strLi){
                     String[] sAry = str.split("\t");
                     gene = sAry[1];
                     proteinID = sAry[2];
-                    if(!pepLi.contains(sAry[3])){
-                        pepLi.add(sAry[3]);
-                    }
-                    maxProb = maxProb<Double.parseDouble(sAry[5])? Double.parseDouble(sAry[5]) : maxProb;
+                    pepLi.add(sAry[3]);
+                    extpepLi.add(sAry[4]);
+                    start.add(sAry[5]);
+                    end.add(sAry[6]);
+                    maxProb = Math.max(maxProb, Float.parseFloat(sAry[7]));
+                }
 
-                    //generate the sequence windwo
-                    String pepseq = sAry[3];
-                    int siteIndex = keyPepMap.get(key).get(pepseq);
-                    String extpeptide = "";
-                    for(int i=0; i<sAry[3].length(); i++){
-                        if(i==siteIndex){
-                            extpeptide += Character.toLowerCase(pepseq.charAt(i));
-                        }
-                        else{
-                            extpeptide += Character.toUpperCase(pepseq.charAt(i));
-                        }
-                    }
-
-                    if(!extpepLi.contains(extpeptide)){
-                        extpepLi.add(extpeptide);
-                    }
-                }
-                String peptides = "";
-                for(String pep : pepLi){
-                    peptides += pep + ";";
-                }
-                String extpeptides = "";
-                for(String extpep : extpepLi){
-                    extpeptides += extpep + ";";
-                }
-                peptides = peptides.substring(0,peptides.length()-1);
-                extpeptides = extpeptides.substring(0,extpeptides.length()-1);
-                String newKey = key+ "\t" + gene + "\t" + proteinID + "\t" + peptides + "\t" + extpeptides + "\t" + maxProb;
+                String newKey = key+ "\t" + gene + "\t" + proteinID + "\t" + String.join(";", pepLi) + "\t" + String.join(";", extpepLi) + "\t" + String.join(";", start) + "\t" + String.join(";", end) + "\t" + maxProb;
                 NewgAbnMap.put(newKey, upAbnMap);
             }
             else{
                 String[] sAry = strLi.get(0).split("\t");
-                String gene = sAry[1];
-                String proteinID = sAry[2];
-                String peptide = sAry[3];
-                double maxProb = Double.parseDouble(sAry[5]);
-
-                //generate the sequence window
-                String pepseq = sAry[3];
-                int siteIndex = keyPepMap.get(key).get(pepseq);
-                String extpeptide = "";
-                for(int i=0; i<sAry[3].length(); i++){
-                    if(i==siteIndex){
-                        extpeptide += Character.toLowerCase(sAry[3].charAt(i));
-                    }
-                    else{
-                        extpeptide += Character.toUpperCase(sAry[3].charAt(i));
-                    }
-                }
-
-                String newKey = key + "\t" + gene + "\t" + proteinID + "\t" + peptide + "\t" + extpeptide + "\t" + maxProb;
+                String newKey = key + "\t" + sAry[1] + "\t" + sAry[2] + "\t" + sAry[3] + "\t" + sAry[4] + "\t" + sAry[5] + "\t" + sAry[6] + "\t" + sAry[7];
                 TreeMap<String, double[]> fAbnMap = gAbnMap.get(strLi.get(0));
                 NewgAbnMap.put(newKey, fAbnMap);
             }
