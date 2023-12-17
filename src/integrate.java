@@ -4,6 +4,8 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.ArrayList;
@@ -560,7 +562,7 @@ public class integrate
                         pi.gene = gene;
                         pi.peptide = (pi.peptide.length() < NewPepSeq.length()) ? NewPepSeq : pi.peptide;
                         pi.extpep = ExtPepSeq;
-                        pi.pepsIndex = pepsIndex;
+                        pi.pepsIndex = (pi.peptide.length() < NewPepSeq.length()) ? pepsIndex: pi.pepsIndex;
                         pi.PsmLi.add(Psm);
                     }
                     else
@@ -1171,6 +1173,8 @@ public class integrate
             pnTag="SL+IRS";
         }
         //endregion
+
+        Files.createDirectories(Paths.get(param.reportPath));
 
         String path = "";
         if(flag == "Ratio"){
