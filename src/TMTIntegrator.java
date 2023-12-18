@@ -484,6 +484,9 @@ public class TMTIntegrator
             if(str.equals("Number of Enzymatic Termini")){
                 indObj.numEnzyTermi = i;
             }
+            if(str.equals("Total Glycan Composition")){
+                indObj.glycoCompositionIndex = i;
+            }
             if(str.equals("Glycan q-value")){
                 indObj.glycoQvalIndex = i;
             }
@@ -736,7 +739,7 @@ public class TMTIntegrator
                                 double mass = Double.valueOf(aMod.substring(aMod.indexOf("N(")+2,aMod.indexOf(")")));
                                 modflag=mass>=100?true:false;
 
-                                String mod = getAssignedModIndex(aMod, strAry[indObj.observedModIndex], param.useGlycoComposition);
+                                String mod = getAssignedModIndex(aMod, strAry[indObj.glycoCompositionIndex], param.useGlycoComposition);
                                 if(!NewModTagLi.contains(mod) && modflag){
                                     NewModTagLi.add(mod);
                                 }
@@ -762,7 +765,7 @@ public class TMTIntegrator
                                 tflag=mass>=100?true:false;
                             }
 
-                            String mod = getAssignedModIndex(aMod, strAry[indObj.observedModIndex], param.useGlycoComposition);
+                            String mod = getAssignedModIndex(aMod, strAry[indObj.glycoCompositionIndex], param.useGlycoComposition);
                             if(tflag && !NewModTagLi.contains(mod)){
                                 NewModTagLi.add(mod);
                             }
@@ -1021,16 +1024,16 @@ public class TMTIntegrator
      * instead of mass if specified.
      * Note: if observed mods is empty, default to using the mass value instead
      * @param inputMod single Assigned modification string
-     * @param observedMods contents of the corresponding observed mods column (only needed for glyco mode)
+     * @param glycanComposition contents of the corresponding glycan composition column (only needed for glyco mode)
      * @param useGlycanComposition whether to use the glycan composition or mass as the index
      * @return mod string to use as index
      */
-    public static String getAssignedModIndex(String inputMod, String observedMods, boolean useGlycanComposition) {
+    public static String getAssignedModIndex(String inputMod, String glycanComposition, boolean useGlycanComposition) {
         String mod;
-        if (useGlycanComposition && observedMods.length() > 0) {
-            // if using composition for index, read it from observed mods column. Still get AA site from assigned mods
+        if (useGlycanComposition && glycanComposition.length() > 0) {
+            // if using composition for index, read it from glycan composition column. Still get AA site from assigned mods
             mod = inputMod.substring(inputMod.indexOf("(")-1, inputMod.indexOf("("));
-            mod = String.format("%s(%s)", mod, observedMods);
+            mod = String.format("%s(%s)", mod, glycanComposition);
         } else {
             // read mass from assigned mod, as would do for any other mod
             mod = inputMod.substring(inputMod.indexOf("(")-1);

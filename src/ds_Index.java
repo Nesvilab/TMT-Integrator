@@ -20,6 +20,7 @@ public class ds_Index
     int mapGeneIndex = -1;
     int modifiedPeptideIndex = -1;
     int numEnzyTermi = -1;
+    int glycoCompositionIndex = -1;
     int glycoQvalIndex = -1;
     int observedModIndex = -1;
     int totLen = -1;

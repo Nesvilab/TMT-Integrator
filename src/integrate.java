@@ -235,7 +235,7 @@ public class integrate
                             List<Integer> positionLi = new ArrayList<Integer>();
                             String[] aModAry = assignedMod.split(",");
                             for(String aMod : aModAry){
-                                String mod = TMTIntegrator.getAssignedModIndex(aMod, strAry[indObj.observedModIndex], param.useGlycoComposition);
+                                String mod = TMTIntegrator.getAssignedModIndex(aMod, strAry[indObj.glycoCompositionIndex], param.useGlycoComposition);
                                 mod = mod.substring(0,mod.indexOf(".")+3);
                                 if(allModTagStr.contains(mod))
                                 {
