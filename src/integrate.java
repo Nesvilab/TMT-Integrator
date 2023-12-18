@@ -1650,25 +1650,23 @@ public class integrate
                     }
                 }
 
-                String gene = "";
-                String proteinID = "";
-                Set<String> start = new TreeSet<>();
-                Set<String> end = new TreeSet<>();
-                double maxProb = 0;
+                String str = strLi.get(0);
+                String[] sAry = str.split("\t");
+                String gene = sAry[1];
+                String proteinID = sAry[2];
                 Set<String> pepLi = new TreeSet<>();
-                Set<String> extpepLi = new TreeSet<>();
-                for(String str : strLi){
-                    String[] sAry = str.split("\t");
-                    gene = sAry[1];
-                    proteinID = sAry[2];
-                    pepLi.add(sAry[3]);
-                    extpepLi.add(sAry[4]);
-                    start.add(sAry[5]);
-                    end.add(sAry[6]);
-                    maxProb = Math.max(maxProb, Float.parseFloat(sAry[7]));
+                String extpepLi = sAry[4];
+                String start = sAry[5];
+                String end = sAry[6];
+                double maxProb = 0;
+
+                for (String s : strLi) {
+                    String[] ss = s.split("\t");
+                    pepLi.add(ss[3]);
+                    maxProb = Math.max(maxProb, Float.parseFloat(ss[7]));
                 }
 
-                String newKey = key+ "\t" + gene + "\t" + proteinID + "\t" + String.join(";", pepLi) + "\t" + String.join(";", extpepLi) + "\t" + String.join(";", start) + "\t" + String.join(";", end) + "\t" + maxProb;
+                String newKey = key+ "\t" + gene + "\t" + proteinID + "\t" + String.join(";", pepLi) + "\t" + extpepLi + "\t" + start + "\t" + end + "\t" + maxProb;
                 NewgAbnMap.put(newKey, upAbnMap);
             }
             else{
