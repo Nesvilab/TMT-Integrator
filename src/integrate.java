@@ -553,7 +553,7 @@ public class integrate
                 String[] strAry1 = strAry[0].split("#");
                 String groupkey = strAry1[0];
                 String NewPepSeq = strAry1[2];
-                String ExtPepSeq = strAry[indObj.extpepIndex];
+                String ExtPepSeq = refineExtendedSequence(strAry[indObj.extpepIndex]);
                 String gene = strAry[indObj.genecIndex];
                 int pepsIndex = Integer.parseInt(strAry[indObj.protsIndex]);
 
@@ -1725,5 +1725,19 @@ public class integrate
 
         gAbnMap.clear();
         gAbnMap = NewgAbnMap;
+    }
+
+    private static String refineExtendedSequence(String s) {
+        int idx1 = s.indexOf('.');
+        if (idx1 < 0) {
+            return s;
+        } else {
+            int idx2 = s.indexOf('.', idx1 + 1);
+            if (idx2 < 0) {
+                return s.substring(Math.max(0, idx1 - 7));
+            } else {
+                return s.substring(Math.max(0, idx1 - 7), Math.min(idx2 + 8, s.length()));
+            }
+        }
     }
 }
