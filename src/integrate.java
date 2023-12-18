@@ -15,9 +15,13 @@ import java.util.List;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class integrate
 {
+    private static final Pattern pattern = Pattern.compile("([^%]+)%([ncA-Z])(\\d+)");
+    private static final Pattern pattern2 = Pattern.compile("([ncA-Z])(\\d+)");
     private static ds_Parameters param = new ds_Parameters();
     private static int groupBy = -1;
     private static int protNorm = -1;
@@ -1262,13 +1266,54 @@ public class integrate
                 isPrint=false;
             }
 
-            //region Print front columns
+            if (groupBy == 4) {
+                int site = -1;
+                String[] ss = groupkey.split("\t");
+                Matcher matcher = pattern.matcher(ss[0]);
+                if (matcher.matches()) {
+                    site = Integer.parseInt(matcher.group(3));
+                } else {
+                    System.err.println("Error: cannot parse site from " + ss[0]);
+                    System.exit(1);
+                }
+
+                try {
+                    Integer.parseInt(ss[5]);
+                } catch (Exception e) {
+                    System.err.println("Error: cannot parse site from " + ss[5]);
+                    System.exit(1);
+                }
+
+                int offset = site - Integer.parseInt(ss[5]);
+                String s = ss[4].replace(".", "");
+
+                int dotIndex = ss[4].indexOf('.');
+                if (dotIndex == -1) {
+                    System.err.println("There are no find dots in " + s);
+                    System.exit(1);
+                }
+
+                int startIndex = dotIndex + offset - 7;
+                int endIndex = dotIndex + offset + 8;
+
+                if (startIndex < 0) {
+                    s = "_".repeat(-startIndex) + s;
+                    endIndex -= startIndex;
+                    startIndex = 0;
+                }
+                if (endIndex > s.length()) {
+                    s += "_".repeat(endIndex - s.length());
+                }
+
+                String sequenceWindow =  s.substring(startIndex, startIndex + 7) + Character.toLowerCase(s.charAt(startIndex + 7)) + s.substring(startIndex + 8, endIndex);
+
+                ss[4] = sequenceWindow;
+                groupkey = String.join("\t", ss);
+            }
 
             if(isPrint){
                 wr.write(groupkey.replace("%","_"));
             }
-
-            //endregion
 
             if(isPrint){
                 if(protNorm<3){
