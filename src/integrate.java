@@ -871,7 +871,15 @@ public class integrate
                             }
                         }
 
-                        tt.put(ss[0], ss[2]);
+                        int idx1 = ss[2].indexOf('.');
+                        if (idx1 < 0) {
+                            System.err.println("There is no '.' in the extended peptide sequence: " + ss[2]);
+                            System.exit(1);
+                        }
+
+                        int idx2 = ss[2].indexOf('.', idx1 + 1);
+
+                        tt.put(ss[0], ss[2].substring(0, idx1 + 1) + ss[0] + ss[2].substring(idx2));
                     }
                 }
                 ggpStr += "\t" + proteinIDStr + "\t" + String.join(";", tt.keySet()) + "\t" + String.join(";", tt.values()) + "\t" + pepIndexStr;
