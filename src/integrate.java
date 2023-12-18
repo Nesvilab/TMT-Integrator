@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -838,11 +839,7 @@ public class integrate
             }
             ggpStr=ggpStr.substring(0,ggpStr.lastIndexOf(";"));
 
-            String proteinIDStr = "";
-            for(String proteinID : ProtMap.keySet()){
-                proteinIDStr += proteinID +";";
-            }
-            proteinIDStr = proteinIDStr.substring(0, proteinIDStr.length()-1);
+            String proteinIDStr = String.join(";", ProtMap.keySet());
 
             if(groupBy==0){
                 ggpStr = NumPsm +"\t" + proteinIDStr;
@@ -851,18 +848,13 @@ public class integrate
                 ggpStr = NumPsm + "\t" + ggpStr;
             }
             else if(groupBy==3 || groupBy == 5){ //multi-site and multi-mass
-                String pepStr = "";
-                String extPepStr = "";
+                Map<String, String> tt = new TreeMap<>();
                 String pepIndexStr = "";
                 for(String proteinID : ProtMap.keySet()){
                 	int lowestStart = (int) 1E6;
                     int highestEnd = 0;
 
                     List<String> pepLi = ProtMap.get(proteinID);
-                    for(String pep: pepLi){
-                        String sequence = pep.substring(0,pep.indexOf("@"));
-                        pepStr += sequence +";";
-                    }
                     for(String pep: pepLi){
                         String[] ss = pep.split("@");
                         int pepIndex = Integer.parseInt(ss[1]);
@@ -879,14 +871,13 @@ public class integrate
                             }
                         }
 
-                        extPepStr = ss[2];
+                        tt.put(ss[0], ss[2]);
                     }
                 }
-                pepStr = pepStr.substring(0,pepStr.length()-1);
-                ggpStr += "\t"+proteinIDStr+"\t"+pepStr+"\t"+extPepStr + "\t" + pepIndexStr;
+                ggpStr += "\t" + proteinIDStr + "\t" + String.join(";", tt.keySet()) + "\t" + String.join(";", tt.values()) + "\t" + pepIndexStr;
             }
             else{
-                String pepStr = "";
+                Set<String> pepStr = new TreeSet<>();
                 String extPepStr = "";
                 String pepIndexStr = "";
                 for(String protein : ProtMap.keySet()){
@@ -895,7 +886,7 @@ public class integrate
                     int highestEnd = 0;
                     for(String pep : pepLi){
                         String[] ss = pep.split("@");
-                        pepStr += ss[0] + ";";
+                        pepStr.add(ss[0]);
 
                         int pepIndex = Integer.parseInt(ss[1]);
                         int pepEnd = pepIndex + pep.indexOf("@");   // pep is of format PEPTIDE@10, so peptide length is the index of the "@"
@@ -913,8 +904,7 @@ public class integrate
                         extPepStr = ss[2];
                     }
                 }
-                pepStr = pepStr.substring(0,pepStr.length()-1);
-                ggpStr += String.format("\t%s\t%s\t%s\t%s", proteinIDStr, pepStr, extPepStr, pepIndexStr);
+                ggpStr += String.format("\t%s\t%s\t%s\t%s", proteinIDStr, String.join(";", pepStr), extPepStr, pepIndexStr);
             }
             groupkey = (ggpStr!="") ? (groupkey+"\t"+ggpStr+"\t"+MaxPepProb) : groupkey+"\t"+MaxPepProb;
             gAbnMap.put(groupkey, fAbnMap);
