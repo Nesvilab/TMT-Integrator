@@ -1197,7 +1197,7 @@ public class integrate
         }
         else if (groupBy==2){ //2: Peptide
             //wr.write("Index\tGene\tProteinID\tPeptide");
-            wr.write("Index\tGene\tProteinID\tPeptide\tStart\tEnd");
+            wr.write("Index\tGene\tProteinID\tPeptide\tSequenceWindow\tStart\tEnd");
         }
         else if ((groupBy==3) || (groupBy==4) || (groupBy==5)){ //3. Site
             //wr.write("Index\tGene\tProteinID\tPeptide\tSequenceWindow");
