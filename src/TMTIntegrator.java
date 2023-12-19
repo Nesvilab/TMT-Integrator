@@ -739,7 +739,8 @@ public class TMTIntegrator
                                 double mass = Double.valueOf(aMod.substring(aMod.indexOf("N(")+2,aMod.indexOf(")")));
                                 modflag=mass>=100?true:false;
 
-                                String mod = getAssignedModIndex(aMod, strAry[indObj.glycoCompositionIndex], param.useGlycoComposition);
+                                String glycoComp = indObj.glycoCompositionIndex == -1 ? "" : strAry[indObj.glycoCompositionIndex];
+                                String mod = getAssignedModIndex(aMod, glycoComp, param.useGlycoComposition);
                                 if(!NewModTagLi.contains(mod) && modflag){
                                     NewModTagLi.add(mod);
                                 }
@@ -765,7 +766,8 @@ public class TMTIntegrator
                                 tflag=mass>=100?true:false;
                             }
 
-                            String mod = getAssignedModIndex(aMod, strAry[indObj.glycoCompositionIndex], param.useGlycoComposition);
+                            String glycoComp = indObj.glycoCompositionIndex == -1 ? "" : strAry[indObj.glycoCompositionIndex];
+                            String mod = getAssignedModIndex(aMod, glycoComp, param.useGlycoComposition);
                             if(tflag && !NewModTagLi.contains(mod)){
                                 NewModTagLi.add(mod);
                             }
