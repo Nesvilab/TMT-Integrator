@@ -1276,13 +1276,6 @@ public class integrate
                     System.exit(1);
                 }
 
-                try {
-                    Integer.parseInt(ss[5]);
-                } catch (Exception e) {
-                    System.err.println("Error: cannot parse site from " + ss[5]);
-                    System.exit(1);
-                }
-
                 int offset = site - Integer.parseInt(ss[5]);
                 String s = ss[4].replace(".", "");
 
