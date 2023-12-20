@@ -167,9 +167,9 @@ public class integrate
                         int sCount = 0;
                         TreeMap<Integer, Double> probMap = new TreeMap<Integer, Double>();
 
-                        int pepIndex = Integer.parseInt(strAry[indObj.protsIndex]);
+                        int pepIndex = Integer.parseInt(strAry[indObj.protsIndex]) - 1;
                         int sIndex = pepIndex;
-                        int eIndex = Integer.parseInt(strAry[indObj.proteIndex]);
+                        int eIndex = Integer.parseInt(strAry[indObj.proteIndex]) - 1;
 
                         if(param.minSiteProb>0)
                         {
@@ -557,7 +557,7 @@ public class integrate
                 String NewPepSeq = strAry1[2];
                 String ExtPepSeq = refineExtendedSequence(strAry[indObj.extpepIndex]);
                 String gene = strAry[indObj.genecIndex];
-                int pepsIndex = Integer.parseInt(strAry[indObj.protsIndex]);
+                int pepsIndex = Integer.parseInt(strAry[indObj.protsIndex]) - 1;
 
                 if(gPsmMap.containsKey(groupkey))
                 {
