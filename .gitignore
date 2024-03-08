@@ -81,5 +81,5 @@ fabric.properties
 *.jar
 *.xml
 out
-
+copilot
 .vscode
