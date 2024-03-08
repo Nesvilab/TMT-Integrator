@@ -509,6 +509,7 @@ public class TMTIntegrator
         indObj.flength = tAry.length;
 
         int cnum = 0;
+        int t = 0;
         for(int i=indObj.abnIndex; i<tAry.length; i++)
         {
             if(!tAry[i].trim().equalsIgnoreCase("na"))
@@ -518,10 +519,13 @@ public class TMTIntegrator
             else
             {
                 if(i<indObj.refIndex){
-                    indObj.refIndex -= 1;
+                    ++t;
                 }
             }
         }
+
+        indObj.refIndex -= t;
+
         indObj.totLen = (param.add_Ref<0) ? (cnum+1) : (cnum+2);
         indObj.plexNum = (param.add_Ref<0) ? (cnum) : (cnum+1);
         indObj.refIndex = (param.add_Ref<0) ? indObj.refIndex : (indObj.abnIndex+cnum);
