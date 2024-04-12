@@ -6,7 +6,7 @@
 
   <groupId>org.nesvilab</groupId>
   <artifactId>TMT-Integrator</artifactId>
-  <version>5.0.8</version>
+  <version>5.0.9</version>
 
   <properties>
     <maven.compiler.source>11</maven.compiler.source>
