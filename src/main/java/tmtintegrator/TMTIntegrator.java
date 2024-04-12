@@ -432,7 +432,7 @@ public class TMTIntegrator
                 refexit = true;
             }
 
-            if(str.equals("PeptideProphet Probability")){
+            if(str.equals("PeptideProphet Probability") || str.equals("Probability")){
                 indObj.pepProbcIndex = i;
             }
             if(str.equals("Peptide")){
@@ -554,7 +554,7 @@ public class TMTIntegrator
             System.exit(1);
         }
         if(indObj.pepProbcIndex<0){
-            System.out.println("TMT-Integrator can't find the 'PeptideProphet Probability' column. Please check if the column is in the psm tables.");
+            System.out.println("TMT-Integrator can't find the 'Probability' column. Please check if the column is in the psm tables.");
             System.exit(1);
         }
         if(indObj.assignedModcIndex<0){
