@@ -15,44 +15,20 @@ import java.util.TreeMap;
 
 public class TMTIntegrator
 {
-    public static final String name = "TMT-Integrator";
-    public static final String version = "5.0.9";
     private static final NumberFormat formatter = new DecimalFormat("#0.00000");
 
-    private static ds_Parameters param = new ds_Parameters();
-    private static List<String> proteinLi = new ArrayList<String>();
+    private ds_Parameters param;
+    private List<String> proteinLi;
 
-    public static void main(String[] args) throws IOException
+    public TMTIntegrator(ds_Parameters param) {
+        this.param = param;
+        this.proteinLi = new ArrayList<String>();
+    }
+
+    public void run() throws IOException
     {
-        long totalStart = System.currentTimeMillis();
-
-        System.out.printf("%s v%s%n", name, version);
-        File YamlFile = args[0].contains(".yml") ? new File(args[0]) : null ;
-        if(YamlFile==null) {
-            System.out.println("Please input a yml file.");
-            return;
-        }
-        else if(args[1].equalsIgnoreCase("--ValParam"))  //validate parameters
-        {
-            LoadParam(YamlFile);
-        }
-        else
-        {
             long start = System.currentTimeMillis();
 
-            LoadParam(YamlFile); //Load & check parameters
-
-            for (int i = 1 ; i < args.length ; i++){
-                param.FileLi.add(new File(args[i]));
-            }
-
-            for(int i=0;i<param.FileLi.size();i++)
-            {
-                param.fNameLi.add(param.FileLi.get(i).getAbsolutePath());
-
-                ds_Index indObj = new ds_Index();
-                param.indMap.put(param.FileLi.get(i).getAbsolutePath(), indObj);
-            }
             Collections.sort(param.fNameLi);
             CheckPSMs(param.FileLi);//Check PSM tables
             System.out.println("Load parameters and check PSMs--- " + formatter.format((System.currentTimeMillis() - start) / (1000d * 60)) + " min.");
@@ -131,15 +107,9 @@ public class TMTIntegrator
             }
 
             //endregion
-
-            System.out.println("Total run time--- " + formatter.format((System.currentTimeMillis() - totalStart) / (1000d * 60)) + " min.");
-
-            System.out.println("Finish!!!");
-        }
-
     }
 
-    private static void CheckPSMs(List<File> FileLi) throws IOException
+    private void CheckPSMs(List<File> FileLi) throws IOException
     {
         for(File psmF : FileLi)
         {
@@ -180,197 +150,7 @@ public class TMTIntegrator
         }
     }
 
-    private static void LoadParam(File YamlFile) throws IOException
-    {
-        BufferedReader br = new BufferedReader(new FileReader(YamlFile.getAbsolutePath()));
-        String line = "";
-        while ((line = br.readLine()) != null)
-        {
-            try
-            {
-                if (line.startsWith("#")) {
-                    continue;   // skip commented lines
-                }
-                if(line.contains(":"))
-                {
-                    String header =  line.substring(0, line.indexOf(":")).trim();
-                    String value = line.substring(line.indexOf(":")+1, line.length()).trim();
-                    value = value.contains("#")? value.substring(0, value.indexOf("#")).trim() : value.trim();
-                    if(header.equals("protein_database"))
-                    {
-                        //param.fastaF= new File(value);
-                    }
-                    else if(header.equals("output"))
-                    {
-                        param.reportPath = value;
-                    }
-                    else if(header.equals("combined_protein"))
-                    {
-                        param.combinedF = new File(value);
-                    }
-                    else if(header.equals("channel_num"))
-                    {
-                        param.channelNum = Integer.parseInt(value);
-                    }
-                    else if(header.equals("ref_tag"))
-                    {
-                        param.refTag = value;
-                    }
-                    else if(header.equals("groupby")){
-                        param.groupBy = Integer.parseInt(value);
-                    }
-                    else if(header.equals("psm_norm"))
-                    {
-                        param.psmNorm = Boolean.parseBoolean(value);
-                    }
-                    else if(header.equals("outlier_removal"))
-                    {
-                        param.outlierRemoval = Boolean.parseBoolean(value);
-                    }
-                    else if(header.equals("prot_norm"))
-                    {
-                        param.protNorm = Integer.parseInt(value);
-                    }
-                    else if(header.equals("min_pep_prob")){
-                        param.minPepProb = Float.parseFloat(value);
-                    }
-                    else if(header.equals("min_purity"))
-                    {
-                        param.minPurity = Float.parseFloat(value);
-                    }
-                    else if(header.equals("min_percent"))
-                    {
-                        param.minPercent = Float.parseFloat(value);
-                    }
-                    else if(header.equals("unique_pep"))
-                    {
-                        param.uniquePep = Boolean.parseBoolean(value);
-                    }
-                    else if(header.equals("unique_gene"))
-                    {
-                        param.uniqueGene = Integer.parseInt(value);
-                    }
-                    else if(header.equals("best_psm"))
-                    {
-                        param.bestPsm = Boolean.parseBoolean(value);
-                    }
-                    else if(header.equals("prot_exclude"))
-                    {
-                        param.protExcludeAry = (value.trim().length()==0)? "none".split(","):value.split(",");
-                    }
-                    else if(header.equals("allow_overlabel"))
-                    {
-                        param.allow_overlabel = Boolean.parseBoolean(value);
-                    }
-                    else if(header.equals("allow_unlabeled"))
-                    {
-                        param.allow_unlabeled = Boolean.parseBoolean(value);
-                    }
-                    else if(header.equals("mod_tag"))
-                    {
-                        value = (value.trim().length()==0)?"none":value;
-                        if(value.equalsIgnoreCase("none"))
-                        {
-                            param.modTagLi.add(value);
-                        }
-                        else
-                        {
-                            String modAA="";
-                            String[] strAry = value.split(",");
-                            String targetmass = "";
-                            for(int i=0;i<strAry.length;i++)
-                            {
-                                //double mass = (strAry[i].contains("(") && strAry[i].contains(")"))? Math.floor(Double.valueOf(strAry[i].substring(strAry[i].indexOf("(")+1,strAry[i].indexOf(")")))*10000)/10000:-1;
-                                String mass = (strAry[i].contains("(") && strAry[i].contains(")"))?strAry[i].substring(strAry[i].indexOf("(")+1,strAry[i].indexOf(")")):"";
-                                String tmp = strAry[i].contains("(")?strAry[i].substring(0,strAry[i].indexOf("("))+"("+mass+")": strAry[i];
-                                param.modTagLi.add(tmp.trim());
-
-                                if((i==0) && (mass!="")){
-                                    targetmass=mass;
-                                }
-
-                                if(tmp.equalsIgnoreCase("n-glyco")||tmp.equalsIgnoreCase("o-glyco")){
-                                    param.glycoflag = true;
-                                }
-
-                                if(strAry[i].contains("("))
-                                {
-                                    String AA=strAry[i].substring(strAry[i].indexOf('(')-1, strAry[i].indexOf('('));
-                                    if(!modAA.contains(AA))
-                                    {
-                                        modAA +=  AA+"|";
-                                    }
-                                }
-                            }
-                            param.modAA=modAA!=""?modAA.substring(0,modAA.length()-1):"";
-                            param.columntag = targetmass!=""?(param.modAA.replace("|","")+":"+targetmass.substring(0, targetmass.indexOf(".")+3)):"";
-                        }
-                    }
-                    else if(header.equals("min_site_prob"))
-                    {
-                        param.minSiteProb = Float.parseFloat(value);
-                    }
-                    else if(header.equals("ms1_int"))
-                    {
-                        param.ms1Int = Boolean.parseBoolean(value);
-                    }
-                    else if(header.equals("top3_pep"))
-                    {
-                        param.top3Pep = Boolean.parseBoolean(value);
-                    }
-                    else if(header.equals("print_RefInt"))
-                    {
-                        param.print_RefInt = Boolean.parseBoolean(value);
-                    }
-                    else if(header.equals("add_Ref"))
-                    {
-                        param.add_Ref = Integer.parseInt(value);
-                    }
-                    else if(header.equals("max_pep_prob_thres"))
-                    {
-                        param.max_pep_prob_thres = Double.parseDouble(value);
-                    }
-                    else if(header.equals("min_ntt"))
-                    {
-                        param.min_ntt = Integer.parseInt(value);
-                    }
-                    else if(header.equals("abn_type"))
-                    {
-                        param.abn_type = Integer.parseInt(value);
-                    }
-                    else if(header.equals("aggregation_method"))
-                    {
-                        param.aggregation_method = Integer.parseInt(value);
-                    }
-                    else if(header.equals("glyco_qval"))
-                    {
-                        param.glycoQval = Float.parseFloat(value);
-                    }
-                    else if(header.equals("use_glycan_composition"))
-                    {
-                        param.useGlycoComposition = Boolean.parseBoolean(value);
-                    }
-                    else if(header.equals("prefix"))
-                    {
-                        param.prefix = value;
-                    }
-                    else if(header.equals("log2transformed"))
-                    {
-                        param.log2transformed = Boolean.parseBoolean(value);
-                    }
-                }
-            }
-            catch(Exception e)
-            {
-                System.out.println("Error at: " + line);
-                e.printStackTrace();
-                System.exit(1);
-            }
-        }
-        br.close();
-    }
-
-    private static void GetAllGenes(List<File> FileLi)  throws IOException
+    private void GetAllGenes(List<File> FileLi)  throws IOException
     {
         for(int i=0; i<FileLi.size(); i++)
         {
@@ -401,7 +181,7 @@ public class TMTIntegrator
         }
     }
 
-    private static void GetColumnIndex(String title, String fName)
+    private void GetColumnIndex(String title, String fName)
     {
         String[] tAry = title.split("\t");
         boolean refexit = false;
@@ -614,7 +394,7 @@ public class TMTIntegrator
         //endregion
     }
 
-    private static void UpdateColumns(File PsmF, boolean best_psm)  throws IOException
+    private void UpdateColumns(File PsmF, boolean best_psm)  throws IOException
     {
         List<String> AllPsmLi = new ArrayList<String>();
         TreeMap<String, List<String>> PsmMap = new TreeMap<String, List<String>>();
@@ -690,7 +470,7 @@ public class TMTIntegrator
             int ntt = Integer.parseInt(strAry[indObj.numEnzyTermi]);
             double psm_glycoQval;
             try {
-                psm_glycoQval = param.glycoQval >= 0 ? TryParseDouble(strAry[indObj.glycoQvalIndex]) : -1;    // only parse this if glycan FDR checking requested
+                psm_glycoQval = param.glycoQval >= 0 ? Utils.tryParseDouble(strAry[indObj.glycoQvalIndex]) : -1;    // only parse this if glycan FDR checking requested
             } catch (IndexOutOfBoundsException ex) {
                 // non-glyco search
                 System.out.println("Glycan FDR control requested but no such column found. No Glycan FDR applied.");
@@ -987,7 +767,7 @@ public class TMTIntegrator
                         {
                             if(!ntAry[i].trim().equalsIgnoreCase("na"))
                             {
-                                double value = TryParseDouble(pAry[i]);
+                                double value = Utils.tryParseDouble(pAry[i]);
                                 rAbn += (value>=0) ? value:0;
                             }
                         }
@@ -999,7 +779,7 @@ public class TMTIntegrator
                         {
                             if(!ntAry[i].trim().equalsIgnoreCase("na"))
                             {
-                                double value = TryParseDouble(pAry[i]);
+                                double value = Utils.tryParseDouble(pAry[i]);
                                 rAbn += (value >= 0) ? value:0;
                                 count += (value > 0) ? 1:0;
                             }
@@ -1013,14 +793,14 @@ public class TMTIntegrator
                         {
                             if(!ntAry[i].trim().equalsIgnoreCase("na"))
                             {
-                                double value = TryParseDouble(pAry[i]);
+                                double value = Utils.tryParseDouble(pAry[i]);
                                 if(value>0)
                                 {
                                     rAbnLi.add(value);
                                 }
                             }
                         }
-                        rAbn = (rAbnLi.size()>0) ? TakeMedian(rAbnLi) : 0;
+                        rAbn = (rAbnLi.size()>0) ? Utils.takeMedian(rAbnLi) : 0;
                     }
                     wr.write(rAbn + "\t");
                 }
@@ -1051,53 +831,5 @@ public class TMTIntegrator
             mod = inputMod.substring(inputMod.indexOf("(")-1);
         }
         return mod;
-    }
-
-    private static double TryParseDouble(String str)
-    {
-        double value = 0;
-        try
-        {
-            value = Double.parseDouble(str);
-        }
-        catch (NumberFormatException e)
-        {
-            value = -1;
-        }
-        return value;
-    }
-
-    private static double TakeMedian(List<Double> tmpLi)
-    {
-        Collections.sort(tmpLi);
-        double mValue;
-        if(tmpLi.size() == 0)
-        {
-            mValue = -9999;
-        }
-        else if(tmpLi.size() == 1)
-        {
-            mValue = tmpLi.get(0);
-        }
-        else if(tmpLi.size() == 2)
-        {
-            mValue = (tmpLi.get(0)+tmpLi.get(1))/2;
-        }
-        else
-        {
-            int mod = tmpLi.size()%2;
-            int i1= tmpLi.size()/2;
-            if(mod==0) //even
-            {
-                int i2 = i1-1;
-                mValue = (tmpLi.get(i1) + tmpLi.get(i2))/2 ;
-            }
-            else //odd
-            {
-                mValue = tmpLi.get(i1);
-            }
-        }
-
-        return mValue;
     }
 }
