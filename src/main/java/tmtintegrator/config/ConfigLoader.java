@@ -1,4 +1,7 @@
-package tmtintegrator;
+package tmtintegrator.config;
+
+import tmtintegrator.ds_Index;
+import tmtintegrator.ds_Parameters;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -49,6 +52,7 @@ public class ConfigLoader {
         }
     }
 
+    // region helper methods=======================================================================================
     private void parseLine(String line) {
 
         // Skip comments and empty lines
@@ -239,4 +243,5 @@ public class ConfigLoader {
         return modAA + ":" + mass;
 
     }
+    // endregion helper methods====================================================================================
 }
