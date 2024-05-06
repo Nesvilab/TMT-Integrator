@@ -1,5 +1,10 @@
 package tmtintegrator;
 
+import tmtintegrator.pojo.ds_Index;
+import tmtintegrator.pojo.ds_Parameters;
+import tmtintegrator.pojo.ds_PsmInfo;
+import tmtintegrator.pojo.ds_Ratio;
+
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;

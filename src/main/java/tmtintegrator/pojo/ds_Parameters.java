@@ -1,4 +1,4 @@
-package tmtintegrator;
+package tmtintegrator.pojo;
 
 import java.io.File;
 import java.util.ArrayList;

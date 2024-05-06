@@ -1,4 +1,4 @@
-package tmtintegrator;
+package tmtintegrator.utils;
 
 import java.util.Collections;
 import java.util.List;

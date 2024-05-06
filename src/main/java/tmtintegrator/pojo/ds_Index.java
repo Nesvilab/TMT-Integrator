@@ -1,4 +1,4 @@
-package tmtintegrator;
+package tmtintegrator.pojo;
 
 public class ds_Index
 {

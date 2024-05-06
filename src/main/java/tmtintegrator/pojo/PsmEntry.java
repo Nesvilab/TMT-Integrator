@@ -1,8 +1,6 @@
 package tmtintegrator.pojo;
 
-import tmtintegrator.Utils;
-import tmtintegrator.ds_Index;
-import tmtintegrator.ds_Parameters;
+import tmtintegrator.utils.Utils;
 
 import java.util.List;
 

@@ -1,7 +1,7 @@
 package tmtintegrator.config;
 
-import tmtintegrator.ds_Index;
-import tmtintegrator.ds_Parameters;
+import tmtintegrator.pojo.ds_Index;
+import tmtintegrator.pojo.ds_Parameters;
 
 import java.io.BufferedReader;
 import java.io.File;
