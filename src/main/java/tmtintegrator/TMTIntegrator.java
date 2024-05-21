@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class TMTIntegrator {
-    private ds_Parameters param;
+    private final ds_Parameters param;
     private List<String> proteinLi; // TODO: no usage
 
     public TMTIntegrator(ds_Parameters param) {
@@ -20,14 +20,14 @@ public class TMTIntegrator {
         try {
             // region check PSM tables, get genes, and build index
             long start = System.currentTimeMillis();
-            PsmProcessor psmProcessor = new PsmProcessor(param);
-            psmProcessor.checkPsmAndBuildIndex();
+            PsmPreProcessor processor = new PsmPreProcessor(param);
+            processor.checkPsmAndBuildIndex();
             System.out.println("Check PSM tables, get genes, and build index: " + (System.currentTimeMillis() - start) + " ms");
             // endregion
 
             // region preprocess PSM files
             start = System.currentTimeMillis();
-            psmProcessor.updatePsmFiles();
+            processor.updatePsmFiles();
             System.out.println("Update PSM files: " + (System.currentTimeMillis() - start) + " ms");
             System.out.println("Preprocessing finished.\n");
             // endregion

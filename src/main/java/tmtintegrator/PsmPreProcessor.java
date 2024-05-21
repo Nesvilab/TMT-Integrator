@@ -8,7 +8,7 @@ import tmtintegrator.utils.Utils;
 import java.io.*;
 import java.util.*;
 
-public class PsmProcessor {
+public class PsmPreProcessor {
 
     private final ds_Parameters parameters;
     private final List<String> proteinList; // TODO: no usage
@@ -34,7 +34,7 @@ public class PsmProcessor {
         }
     }
 
-    public PsmProcessor(ds_Parameters parameters) {
+    public PsmPreProcessor(ds_Parameters parameters) {
         this.parameters = parameters;
         this.proteinList = new ArrayList<>();
     }
@@ -71,14 +71,14 @@ public class PsmProcessor {
                 updateIndex(index);
 
                 // collapse PSM lines based on the criteria
-                Map<String, List<String>> psmMap = new TreeMap<>();
+                Map<String, List<String>> psmMap = new TreeMap<>(); // TODO: HashMap?
                 psmMap.put("NotUsed", new ArrayList<>());
                 collapsePsmLines(processedLines, psmMap, tmtThreshold, index);
 
                 // select best PSM if required
                 selectBestPsm(psmMap, index);
 
-                // print psm file
+                // print intermediate psm file
                 printPsmFile(psmFile, index, psmMap);
 
             } catch (IOException e) {
@@ -459,35 +459,7 @@ public class PsmProcessor {
     private void processPsmEntry(String psm, Map<String, List<String>> psmMap, List<String> newModTagList, double tmtThreshold, ds_Index index) {
         PsmEntry psmEntry = new PsmEntry(psm, parameters, index);
         psmEntry.parsePsmEntry();
-        // Extract psm data for criteria check
-//        String fileName = extractFileName(fields[0]);
-//        String peptideSequence = fields[index.pepcIndex];
-//        double purity = Double.parseDouble(fields[index.purityIndex]);
-//        double tmtIntensity = Double.parseDouble(fields[fields.length - 1]);
-//        double peptideProb = Double.parseDouble(fields[index.pepProbcIndex]);
-//        boolean isUnique = Boolean.parseBoolean(fields[index.isUniquecIndex]);
-//        String assignedModification = fields[index.assignedModcIndex];
-//        String proteinName = fields[index.proteincIndex];
-//        String proteinId = fields[index.proteinIDcIndex];
-//        String gene = !fields[index.genecIndex].isEmpty() ? fields[index.genecIndex] : proteinId;
-//        String mappedGenes = index.mapGeneIndex >= 0 ? fields[index.mapGeneIndex] : "";
-//        double referenceIntensity = parameters.add_Ref < 0 ? Double.parseDouble(fields[index.refIndex]) : 10000; // TODO: set random value to pass the criteria
-//        int numEnzymaticTermini = Integer.parseInt(fields[index.numEnzyTermi]);
-//        double glycoQValue = extractGlycoQValue(fields, index);
-
-        // Check configurations
         psmEntry.checkConfigurations(newModTagList);
-//        boolean allowOverLabel = parameters.allow_overlabel || (!assignedModification.contains("S(229."));
-//        boolean labelFlag = checkLabelFlag(assignedModification, peptideSequence);
-//        String glycoComposition = index.glycoCompositionIndex == -1 ? "" : fields[index.glycoCompositionIndex]; // required for glycan processing
-//        boolean modficationFlag = checkModifications(assignedModification, index, newModTagList, glycoQValue, glycoComposition);
-//        boolean uniquePeptideFlag = !parameters.uniquePep || isUnique; // TODO: seems like a bug
-//        boolean proteinExclusionFlag = checkProteinExclusion(proteinName);
-//        int geneCategory = determineGeneCategory(gene, mappedGenes);
-
-        // Check criteria
-        // TODO: Not a good practice, may extract to a method of the pojo class
-
         if (psmEntry.isPassCriteria(tmtThreshold)) {
             String newPsm = psmEntry.getProcessedPsm();
             String key = psmEntry.generatePsmKey();
@@ -546,6 +518,13 @@ public class PsmProcessor {
         psmList.addAll(newPsmList);
     }
 
+    /**
+     * Print PSMs to intermediate .ti file, add one column "IS Used (TMT-I)"
+     * @param psmFile PSM file
+     * @param index index for PSM file (column index)
+     * @param psmMap map of PSM lines (filtered by criteria)
+     * @throws IOException if an I/O error occurs
+     */
     private void printPsmFile(File psmFile, ds_Index index, Map<String, List<String>> psmMap) throws IOException {
         String newPath = psmFile.getAbsolutePath().replace(".tsv", ".ti");
         // get title line

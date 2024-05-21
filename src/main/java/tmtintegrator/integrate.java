@@ -1,28 +1,20 @@
 package tmtintegrator;
 
-import tmtintegrator.pojo.ds_Index;
-import tmtintegrator.pojo.ds_Parameters;
-import tmtintegrator.pojo.ds_PsmInfo;
-import tmtintegrator.pojo.ds_Ratio;
+import tmtintegrator.integrator.PsmFileLoader;
+import tmtintegrator.integrator.PsmNormalizer;
+import tmtintegrator.integrator.PsmProcessor;
+import tmtintegrator.pojo.*;
+import tmtintegrator.utils.Utils;
 
-import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
-import java.util.TreeSet;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -33,8 +25,8 @@ public class integrate
     private static ds_Parameters param = new ds_Parameters();
     private static int groupBy = -1;
     private static int protNorm = -1;
-    private static TreeMap<String, TreeMap<String, ds_PsmInfo>> gPsmMap = new TreeMap<String, TreeMap<String, ds_PsmInfo>>();
-    private static TreeMap<String, TreeMap<String, double[]>> gAbnMap = new TreeMap<String, TreeMap<String, double[]>>();
+    private static Map<String, Map<String, PsmInfo>> gPsmMap = new TreeMap<>();
+    private static Map<String, Map<String, double[]>> gAbnMap = new TreeMap<>();
 
     public static void run(ds_Parameters parameter, int gb, int pn) throws IOException
     {
@@ -52,42 +44,39 @@ public class integrate
         NumberFormat formatter = new DecimalFormat("#0.00000");
 
         //Load all psm.tsvs in FileMap
-        TreeMap<String, List<String>> FileMap = LoadPsms(param.FileLi); //Store the psms, key: fName; value: psm list (0 is the title)
+        PsmFileLoader loader = new PsmFileLoader(param);
+        GroupBy groupByEnum = GroupBy.fromValue(groupBy); // TODO: temp implementation, to be refactored
+        Map<String, List<String>> FileMap = loader.loadPsmFiles(groupByEnum); // key: file path, value: list of psm (0 is title)
 
         long  end2 = System.currentTimeMillis();
         System.out.println("LoadPsms--- " + formatter.format((end2 - end1) / (1000d * 60)) + " min.");
 
+        PsmNormalizer normalizer = new PsmNormalizer(param);
+
         if(param.abn_type==0)
         {
-            for(String fName : FileMap.keySet()){//Take log and normalize
-                List<String> PsmLi = FileMap.get(fName);
-                ds_Index indObj = param.indMap.get(fName);
-                List<String> NewPsmLi = LogNor(PsmLi, indObj);
-                PsmLi.clear();
-                PsmLi.addAll(NewPsmLi);
-            }
+            normalizer.logNormalizeData(FileMap);
         }
 
         long  end3 = System.currentTimeMillis();
         System.out.println("Take log and normalize--- " + formatter.format((end3 - end2) / (1000d * 60)) + " min.");
 
         if(param.psmNorm){ //PSM normalization
-            for(String fName : FileMap.keySet()){
-                List<String> PsmLi = FileMap.get(fName);
-                ds_Index indObj = param.indMap.get(fName);
-                List<String> NewPsmLi = RtNorm(PsmLi, indObj);
-                PsmLi.clear();
-                PsmLi.addAll(NewPsmLi);
-            }
+            normalizer.rtNormalizeData(FileMap);
         }
 
         long  end4 = System.currentTimeMillis();
         System.out.println("PSM normalization--- " + formatter.format((end4 - end3) / (1000d * 60)) + " min.");
 
-        GroupPsm(FileMap);
+        PsmProcessor processor = new PsmProcessor(param);
+        processor.groupPsm(FileMap);
+        gPsmMap = processor.getGroupPsmMap(); // TODO: temp implementation, to be removed.
         FileMap.clear();
+        System.out.println("Group psm: " + (System.currentTimeMillis() - end4) + " ms");
 
-        if(param.outlierRemoval){RemoveOutlier();}
+        if(param.outlierRemoval){
+            processor.removeOutlier();
+        }
 
         long  end5 = System.currentTimeMillis();
         System.out.println("outlierRemoval--- " + formatter.format((end5 - end4) / (1000d * 60)) + " min.");
@@ -129,582 +118,6 @@ public class integrate
         System.out.println("Report--- " + formatter.format((end8 - end7) / (1000d * 60)) + " min.");
     }
 
-    private static TreeMap<String, List<String>> LoadPsms(List<File> FileLi) throws IOException
-    {
-        String allModTagStr = "";
-        for(String modTag : param.modTagLi){
-            allModTagStr += modTag+";";
-        }
-
-        TreeMap<String, List<String>> FileMap = new TreeMap<String, List<String>>();
-        for(File f : FileLi)
-        {
-            try
-            {
-                String fName = f.getAbsolutePath();
-                List<String> PsmLi = new ArrayList<String>();
-
-                String NewPath = f.getAbsolutePath().replace(".tsv",".ti");
-                BufferedReader br = new BufferedReader(new FileReader(NewPath));
-                String title = br.readLine();
-                param.TitleMap.put(fName, title);
-                ds_Index indObj = param.indMap.get(fName);
-
-                String line = "";
-                while ((line = br.readLine()) != null)
-                {
-                    String[] strAry = line.split("\t");
-                    boolean isUsed = Boolean.parseBoolean(strAry[indObj.isUsedIndex]);
-                    double refInt = Double.parseDouble(strAry[indObj.refIndex]);
-                    String peptide = strAry[indObj.pepcIndex];
-                    String assignedMod = strAry[indObj.assignedModcIndex];
-                    String ptmLocal = indObj.ptmLocalcIndex>=0? strAry[indObj.ptmLocalcIndex]: "";
-                    String proteinID = strAry[indObj.proteinIDcIndex];
-                    String gene = strAry[indObj.genecIndex].length()>0?strAry[indObj.genecIndex]:proteinID;
-                    double MS1Int = Double.parseDouble(strAry[indObj.ms1IntIndex]);
-
-                    if(isUsed)
-                    {
-                        //region Get num. of phospho site with probablity > threshold ; and the start, end position
-
-                        int slCount = 0;
-                        String slpStr = ""; //site localized position
-                        TreeMap<Integer, List<String>> slmMap = new TreeMap<Integer, List<String>>(); // key: position, value: site localized mass
-                        List<String> slpLi = new ArrayList<String>();
-                        int sCount = 0;
-                        TreeMap<Integer, Double> probMap = new TreeMap<Integer, Double>();
-
-                        int pepIndex = Integer.parseInt(strAry[indObj.protsIndex]) - 1;
-                        int sIndex = pepIndex;
-                        int eIndex = Integer.parseInt(strAry[indObj.proteIndex]) - 1;
-
-                        if(param.minSiteProb>0)
-                        {
-                            //region Get num. of possible modified site
-                            String masstag = "("+param.columntag.substring(param.columntag.indexOf(":")+1);
-                            int index = assignedMod.indexOf(masstag);
-                            while(index>=0)
-                            {
-                                sCount += 1;
-                                index = assignedMod.indexOf(masstag, index+1);
-                            }
-                            //endregion
-
-                            //region Get positions
-                            int lindex = ptmLocal.indexOf("(");
-                            int rindex = ptmLocal.indexOf(")");
-                            int gap = 0;
-                            boolean isFirst = true;
-                            while(lindex>=0)
-                            {
-                                double prob = Double.parseDouble(ptmLocal.substring(lindex+1, rindex));
-                                int key = -1;
-                                if(isFirst)
-                                {
-                                    key = lindex;
-                                    isFirst = false;
-                                }
-                                else
-                                {
-                                    gap += (rindex - lindex + 1);
-                                    key = lindex - gap;
-                                }
-                                probMap.put(key, prob);
-                                lindex = ptmLocal.indexOf("(", lindex+1);
-                                rindex = ptmLocal.indexOf(")", rindex+1);
-                            }
-                            boolean isStart = false;
-                            for(int key : probMap.keySet())
-                            {
-                                if(probMap.get(key) > param.minSiteProb)
-                                {
-                                    slCount += 1;
-                                    String str = peptide.charAt(key-1) + "" + (pepIndex+key);
-                                    slpStr  += str;
-                                    slpLi.add(str);
-                                }
-                                if(!isStart)
-                                {
-                                    sIndex = key;
-                                    isStart = true;
-                                }
-                                eIndex = key;
-                            }
-
-                            sIndex = (sIndex < 0) ? 0 : sIndex + pepIndex;
-                            eIndex = (eIndex < 0) ? 0 : eIndex + pepIndex;
-                            //endregion
-                        }
-                        else if(param.minSiteProb==0)
-                        {
-                            //region Get site position
-
-                            List<Integer> positionLi = new ArrayList<Integer>();
-                            String[] aModAry = assignedMod.split(",");
-                            for(String aMod : aModAry){
-                                String glycoComp = indObj.glycoCompositionIndex == -1 ? "" : strAry[indObj.glycoCompositionIndex];
-                                String mod = TMTIntegrator.getAssignedModIndex(aMod, glycoComp, param.useGlycoComposition);
-                                // FIXME 07: review required, detail in refactored code
-                                mod = mod.substring(0,mod.indexOf(".")+3);
-                                if(allModTagStr.contains(mod)) // FIXME 07: inefficient, use parameters.modTagLi.contains(mod) instead without rounding
-                                {
-                                    int pos = Integer.valueOf(aMod.substring(0,aMod.indexOf("(")-1).trim());
-                                    positionLi.add(pos);
-                                    String tmp=mod.replace("(","").replace(")","");
-                                    tmp = tmp.substring(1);     // remove first character (AA code) from index
-
-                                    if(slmMap.containsKey(pos)){
-                                        List<String> slmLi = slmMap.get(pos);
-                                        slmLi.add(tmp);
-                                    }
-                                    else{
-                                        List<String> slmLi = new ArrayList<String>();
-                                        slmLi.add(tmp);
-                                        slmMap.put(pos,slmLi);
-                                    }
-                                }
-                            }
-                            Collections.sort(positionLi);
-
-                            for(int i=0;i<positionLi.size();i++)
-                            {
-                                probMap.put(positionLi.get(i), 0d);
-                                String str = peptide.charAt(positionLi.get(i)-1) + "" + (pepIndex+positionLi.get(i));
-                                slpStr  += str;
-                                slpLi.add(str);
-                            }
-                            slCount = positionLi.size();
-                            sCount = positionLi.size();
-                            sIndex = positionLi.get(0) + pepIndex;
-                            eIndex = positionLi.get(positionLi.size()-1) + pepIndex;
-
-                            //endregion
-                        }
-
-                        //endregion
-
-                        String groupkey = "";
-                        //region  Set up key
-
-                        if(groupBy==1){ //1: ProteinID
-                            groupkey = proteinID;
-                        }
-                        else if (groupBy==2) { //2: Peptide
-                            if((param.minSiteProb>=0)&&(sCount >0)){
-                                groupkey = proteinID + "%" + sIndex + "%" + eIndex;
-                            }
-                            else if(param.minSiteProb<0)
-                            {
-                                groupkey = proteinID + "%" + peptide;
-                            }
-                            else{
-                                groupkey = "null";
-                            }
-                        }
-                        else if (groupBy==3){ //3. Multiple Phospho Sites
-                            if(sCount >0)
-                            {
-                                groupkey = proteinID + "%" + sIndex + "%" + eIndex + "%" + sCount + "%" + slCount;
-                                groupkey = (slpStr.length() > 0) ? (groupkey + "%" + slpStr) : groupkey;
-                                groupkey = (peptide.split("-").length>1)? (groupkey+"%"+peptide.split("-")[1]): groupkey;
-
-                                //Mark localized site in peptide sequence
-                                String NewPepSeq = "";
-                                for(int i= 0; i<peptide.length(); i++){
-                                    NewPepSeq += (probMap.containsKey(i+1) && (probMap.get(i+1) >= param.minSiteProb)) ?
-                                            Character.toLowerCase(peptide.charAt(i)) : peptide.charAt(i);
-                                }
-                                peptide = NewPepSeq;
-                            }
-                            else{
-                                groupkey = "null";
-                            }
-                        }
-                        else if (groupBy==4) { //4. Single Phospho Sites
-                            if (slpLi.size() > 0) {
-                                String NewPepSeq = ""; //Mark localized site in peptide sequence
-                                for(int i= 0; i<peptide.length(); i++){
-                                    NewPepSeq += (probMap.containsKey(i+1) && (probMap.get(i+1) >= param.minSiteProb)) ?
-                                            Character.toLowerCase(peptide.charAt(i)) : peptide.charAt(i);
-                                }
-                                peptide = NewPepSeq;
-                            }
-                            else{
-                                groupkey = "null";
-                            }
-                        }
-                        else if (groupBy==5){ //5. Multi-mass for glycosylation
-                            if(sCount >0)
-                            {
-                                String slmStr="";
-                                for(List<String> slmLi : slmMap.values()){
-                                    for(String slm : slmLi){
-                                        slmStr += slm+"_";
-                                    }
-                                }
-                                slmStr = slmStr.substring(0,slmStr.length()-1);
-
-                                groupkey = proteinID + "%" + sIndex + "%" + eIndex + "%" + sCount + "%" + slCount;
-                                groupkey = (slpStr.length() > 0) ? (groupkey + "%" + slpStr) : groupkey;
-                                groupkey += "%"+slmStr;
-
-                                //Mark localized site in peptide sequence
-                                String NewPepSeq = "";
-                                for(int i= 0; i<peptide.length(); i++){
-                                    NewPepSeq += (probMap.containsKey(i+1) && (probMap.get(i+1) > param.minSiteProb)) ?
-                                            Character.toLowerCase(peptide.charAt(i)) : peptide.charAt(i);
-                                }
-                                peptide = NewPepSeq;
-                            }
-                            else{
-                                groupkey = "null";
-                            }
-                        }
-                        else if (groupBy==0) { //0. Gene
-                            groupkey = gene;
-                        }
-
-                        //endregion
-
-                        //region Use MS1 intensity
-                        if(param.ms1Int){
-                            double Sum = 0;
-                            for(int x=indObj.abnIndex; x<strAry.length; x++){
-                                Sum += Double.parseDouble(strAry[x]);
-                            }
-                            refInt = MS1Int * (refInt/Sum);
-                        }
-                        //endregion
-
-                        if(groupkey != "null")
-                        {
-                            if((groupBy == 4)&&(slpLi.size() > 0))
-                            { //4. Single Phospho Site
-                                for(int i=0; i<slpLi.size(); i++)
-                                {
-                                    String NewPsm = proteinID +"%" + slpLi.get(i) + "#" + refInt + "#" + peptide + "#" + line;
-                                    PsmLi.add(NewPsm);
-                                }
-                            }
-                            else
-                            {
-                                String NewPsm = groupkey + "#" + refInt + "#" + peptide + "#" + line;
-                                PsmLi.add(NewPsm);
-                            }
-                        }
-                    }
-                }
-                br.close();
-                FileMap.put(fName, PsmLi);
-            }
-            catch (Exception e)
-            {
-                System.out.println("Error at: "+f.getAbsolutePath()+" "+e);
-                e.printStackTrace();
-                System.exit(1);
-            }
-        }
-
-        return FileMap;
-    }
-
-    private static Boolean TryParseInt(String value)
-    {
-        try {
-            Integer.parseInt(value);
-            return true;
-        } catch (NumberFormatException e) {
-            return false;
-        }
-    }
-
-    private static List<String> RtNorm(List<String> PsmLi, ds_Index indObj)
-    {
-        List<String> NewPsmLi = new ArrayList<String>();
-
-        double minRt = 999999;
-        double maxRt = 0;
-        //region Get min. and max. Rt
-
-        for(String psm : PsmLi){
-            String[] strAry = psm.split("\t");
-            double Rt = Double.parseDouble(strAry[indObj.rtIndex]);
-            if(minRt>Rt){
-                minRt = Rt;
-            }
-            if(maxRt < Rt){
-                maxRt = Rt;
-            }
-        }
-
-        //endregion
-
-        int bin = 10;
-        TreeMap<Double, List<String>> binMap = new TreeMap<Double, List<String>>();
-        //region Generate bins FIXME 02: bin number mismatch with this implementation, two more bins are generated here
-        double gap = (maxRt - minRt)/bin;
-        double sRt = minRt;
-        double eRt = maxRt + gap;
-        while(sRt<eRt){
-            binMap.put(sRt, new ArrayList<String>());
-            sRt += gap;
-        }
-        binMap.put((maxRt+gap), new ArrayList<String>()); // FIXME 02: this bin never gets used
-        //endregion
-
-        List<Double> keyLi = new ArrayList<Double>(binMap.keySet());
-        Collections.sort(keyLi);
-        //region Assign psms to bins
-        for(String psm : PsmLi)
-        {
-            String[] strAry = psm.split("\t");
-            double Rt = Double.parseDouble(strAry[indObj.rtIndex]);
-            for(int i=0; i<keyLi.size()-1;i++)
-            {
-                if((Rt>=keyLi.get(i)) && (Rt<keyLi.get(i+1))){
-                    List<String> strLi = binMap.get(keyLi.get(i));
-                    strLi.add(psm);
-                    break;
-                }
-            }
-        }
-        //endregion
-
-        //region Normalize each channel
-        for(double key : binMap.keySet())
-        {
-            List<String> SubPsmLi = binMap.get(key);
-            NewPsmLi.addAll(PsmNor(SubPsmLi, indObj));
-        }
-        //endregion
-
-        return NewPsmLi;
-    }
-
-    private static List<String> PsmNor(List<String> SubPsmLi, ds_Index indObj)
-    {
-        List<String> NewPsmLi = new ArrayList<String>();
-
-        double[][] ratio2DAry = new double[SubPsmLi.size()][indObj.plexNum];
-        //region Convert to 2D array
-        for(int i=0; i<SubPsmLi.size(); i++){
-            String[] strAry = SubPsmLi.get(i).split("\t");
-            for(int j=indObj.abnIndex; j<strAry.length; j++){
-                ratio2DAry[i][j-indObj.abnIndex] = Double.parseDouble(strAry[j]);
-            }
-        }
-        //endregion
-
-        double[] MedAry = new double[indObj.plexNum];
-        //region Get median ratio for each channel
-        for(int j=0; j<indObj.plexNum; j++){
-            List<Double> tmpLi = new ArrayList<Double>();
-            for(int i=0; i<SubPsmLi.size(); i++){
-                if(ratio2DAry[i][j] != -9999){
-                    tmpLi.add(ratio2DAry[i][j]);
-                }
-            }
-            MedAry[j] = TakeMedian(tmpLi);
-        }
-        //endregion
-
-        //region Subtract median ratio from each channel
-        for(int i=0; i<ratio2DAry.length; i++){
-            for(int j=0; j<ratio2DAry[i].length; j++){
-                ratio2DAry[i][j] = (ratio2DAry[i][j] != -9999) ? (ratio2DAry[i][j]-MedAry[j]) : ratio2DAry[i][j];
-            }
-        }
-        //endregion
-
-        //region Update new ratios
-        for(int i=0; i<SubPsmLi.size(); i++) {
-            String[] strAry = SubPsmLi.get(i).split("\t");
-            String NewPsm = "";
-            for(int j=0; j<strAry.length; j++){
-                NewPsm += (j<indObj.abnIndex) ? (strAry[j] + "\t") : (ratio2DAry[i][j-indObj.abnIndex] + "\t");
-            }
-            NewPsmLi.add(NewPsm);
-        }
-        //endregion
-
-        return NewPsmLi;
-    }
-
-    private static List<String> LogNor(List<String> PsmLi, ds_Index indObj)
-    {
-        List<String> NewPsmLi = new ArrayList<String>();
-        for(int i = 0; i < PsmLi.size(); i++)
-        {
-            String[] strAry = PsmLi.get(i).split("\t");
-            double refValue = Double.parseDouble(strAry[indObj.refIndex]) > 0 ? Log2(Double.parseDouble(strAry[indObj.refIndex])) : 0;
-            double[] ratioAry = new double[indObj.plexNum];
-            for(int j = indObj.abnIndex; j < strAry.length; j++) {
-                ratioAry[j-indObj.abnIndex] = (Double.parseDouble(strAry[j]) > 0) ?
-                        (Log2(Double.parseDouble(strAry[j])) - refValue) : -9999;
-            }
-            String NewPsm = "";
-            for (int j=0; j<strAry.length; j++)
-            {
-                NewPsm += (j<indObj.abnIndex) ? (strAry[j] + "\t") : (ratioAry[j-indObj.abnIndex] + "\t");
-            }
-            NewPsmLi.add(NewPsm);
-        }
-        return NewPsmLi;
-    }
-
-    private static void GroupPsm(TreeMap<String, List<String>> FileMap) throws IOException
-    {
-        for(String fName : FileMap.keySet())
-        {
-            ds_Index indObj = param.indMap.get(fName);
-            List<String> PsmLi = FileMap.get(fName);
-            for(String Psm : PsmLi){
-                String[] strAry = Psm.split("\t");
-                String[] strAry1 = strAry[0].split("#");
-                String groupkey = strAry1[0];
-                String NewPepSeq = strAry1[2];
-                String ExtPepSeq = refineExtendedSequence(strAry[indObj.extpepIndex]);
-                String gene = strAry[indObj.genecIndex];
-                int pepsIndex = Integer.parseInt(strAry[indObj.protsIndex]) - 1;
-
-                if(gPsmMap.containsKey(groupkey))
-                {
-                    TreeMap<String, ds_PsmInfo> fMap = gPsmMap.get(groupkey);
-                    if(fMap.containsKey(fName))
-                    {
-                        ds_PsmInfo pi = fMap.get(fName);
-                        pi.gene = gene;
-                        pi.peptide = (pi.peptide.length() < NewPepSeq.length()) ? NewPepSeq : pi.peptide;
-                        pi.extpep = ExtPepSeq;
-                        // FIXME 06: should be updated, but it will always be the first pepsIndex
-                        pi.pepsIndex = (pi.peptide.length() < NewPepSeq.length()) ? pepsIndex: pi.pepsIndex; // FIXME 06: pepIndex will never be updated
-                        pi.PsmLi.add(Psm);
-                    }
-                    else
-                    {
-                        ds_PsmInfo pi = new ds_PsmInfo();
-                        pi.gene = gene;
-                        pi.peptide = NewPepSeq;
-                        pi.extpep = ExtPepSeq;
-                        pi.pepsIndex = pepsIndex;
-                        pi.PsmLi.add(Psm);
-                        fMap.put(fName, pi);
-                    }
-                }
-                else
-                {
-                    TreeMap<String, ds_PsmInfo> fMap = new TreeMap<String, ds_PsmInfo>();
-                    ds_PsmInfo pi = new ds_PsmInfo();
-                    pi.gene = gene;
-                    pi.peptide = NewPepSeq;
-                    pi.extpep = ExtPepSeq;
-                    pi.pepsIndex = pepsIndex;
-                    pi.PsmLi.add(Psm);
-
-                    fMap.put(fName, pi);
-                    gPsmMap.put(groupkey, fMap);
-                }
-            }
-        }
-
-        //Compute the total reference intensity
-        for(String groupkey : gPsmMap.keySet())
-        {
-            TreeMap<String, ds_PsmInfo> fMap = gPsmMap.get(groupkey);
-            for(ds_PsmInfo pi : fMap.values())
-            {
-                List<Double> refIntLi = new ArrayList<Double>();
-                for(String Psm : pi.PsmLi)
-                {
-                    String[] strAry = Psm.split("\t");
-                    String[] strAry1 = strAry[0].split("#");
-                    double refInt = Double.parseDouble(strAry1[1]);
-                    refIntLi.add(refInt);
-                    pi.tolrefInt += refInt;  //sum all peptides
-                }
-                Collections.sort(refIntLi);
-
-                //Top3 intensive peptides
-                if(param.top3Pep){
-                    if(pi.PsmLi.size()>=3){
-                        pi.tolrefInt = 0;
-                        for(int i=refIntLi.size()-1; i>=refIntLi.size()-3; i--){
-                            pi.tolrefInt += refIntLi.get(i);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private static void RemoveOutlier()
-    {
-        for(String groupkey : gPsmMap.keySet())
-        {
-            TreeMap<String, ds_PsmInfo> fMap = gPsmMap.get(groupkey);
-            for (String fName : fMap.keySet())
-            {
-                ds_PsmInfo pi = fMap.get(fName);
-                ds_Index indObj = param.indMap.get(fName);
-                if(pi.PsmLi.size()>3) { //only process pi with at least 4 psms, for speeding up
-                    List<String> NewPsmLi = IqrPsm(pi.PsmLi, indObj);
-                    pi.PsmLi.clear();
-                    pi.PsmLi.addAll(NewPsmLi);
-                }
-            }
-        }
-    }
-
-    private static List<String> IqrPsm(List<String> PsmLi, ds_Index indObj)
-    {
-        List<String> NewPsmLi = new ArrayList<String>();
-
-        //region Get ratios
-        double[][] Ratio2DAry = new double[PsmLi.size()][indObj.plexNum];
-        for(int i=0; i<PsmLi.size(); i++){
-            String[] strAry = PsmLi.get(i).split("\t");
-            for(int j=indObj.abnIndex; j<strAry.length; j++){
-                Ratio2DAry[i][j-indObj.abnIndex] = Double.parseDouble(strAry[j]);
-            }
-        }
-        //endregion
-
-        //region Remove outlier from each channel
-        for(int j =0; j < indObj.plexNum; j++)
-        {
-            List<Double> tmpLi = new ArrayList<Double>();
-            for (int i = 0; i< PsmLi.size(); i++){
-                if(Ratio2DAry[i][j] != -9999)
-                    tmpLi.add(Ratio2DAry[i][j]);
-            }
-            if(tmpLi.size()>3){ //use IQR for outlier removal
-                double[] IqrAry = IqrRatio(tmpLi);
-                double LowerIqr = IqrAry[0];
-                double UpperIqr = IqrAry[1];
-
-                for(int i=0; i<PsmLi.size(); i++){
-                    if((Ratio2DAry[i][j] < LowerIqr) || (Ratio2DAry[i][j] > UpperIqr)){
-                        Ratio2DAry[i][j] = -9999;
-                    }
-                }
-            }
-        }
-        //endregion
-
-        //region Update the ratios
-        for(int i=0; i<PsmLi.size(); i++){
-            String[] strAry = PsmLi.get(i).split("\t");
-            String NewPsm = "";
-            for(int j=0; j<strAry.length; j++){
-                NewPsm += (j<indObj.abnIndex) ? (strAry[j] + "\t") : (Ratio2DAry[i][j-indObj.abnIndex] + "\t");
-            }
-            NewPsmLi.add(NewPsm);
-        }
-        //endregion
-
-        return NewPsmLi;
-    }
-
     private static double[] IqrRatio(List<Double> RatioLi) //Interquartile range method for outlier removal
     {
         Collections.sort(RatioLi);
@@ -723,8 +136,8 @@ public class integrate
         }
         //endregion
 
-        double Q1 = TakeMedian(Q1Li);
-        double Q3 = TakeMedian(Q3Li);
+        double Q1 = Utils.takeMedian(Q1Li);
+        double Q3 = Utils.takeMedian(Q3Li);
         IqrAry[0] = Q1 - 1.5*(Q3 - Q1);
         IqrAry[1] = Q3 + 1.5*(Q3 - Q1);
 
@@ -735,23 +148,23 @@ public class integrate
     {
         for(String groupkey : gPsmMap.keySet())
         {
-            TreeMap<String, ds_PsmInfo> fMap = gPsmMap.get(groupkey);
-            TreeMap<String, double[]> fAbnMap = new TreeMap<String, double[]>();
-            TreeMap<String, List<String>> ProtMap = new TreeMap<String, List<String>>();
+            Map<String, PsmInfo> fMap = gPsmMap.get(groupkey);
+            Map<String, double[]> fAbnMap = new TreeMap<String, double[]>();
+            Map<String, List<String>> ProtMap = new TreeMap<String, List<String>>();
             int NumPsm = 0;
             double MaxPepProb = 0;
             List<String> geneLi = new ArrayList<String>();
             for(String fName : fMap.keySet())
             {
-                ds_PsmInfo pi = fMap.get(fName);
+                PsmInfo pi = fMap.get(fName);
                 ds_Index indObj = param.indMap.get(fName);
                 double[] mAry = new double[indObj.totLen];
-                double[][] Ratio2DAry = new double[pi.PsmLi.size()][indObj.plexNum];
-                ds_Ratio[][] Obj2DAry = new ds_Ratio[pi.PsmLi.size()][indObj.plexNum];
+                double[][] Ratio2DAry = new double[pi.psmList.size()][indObj.plexNum];
+                ds_Ratio[][] Obj2DAry = new ds_Ratio[pi.psmList.size()][indObj.plexNum];
 
                 //region Get  Max. peptide probability and all peptide sequences
-                for(int i = 0; i < pi.PsmLi.size(); i++){
-                    String[] strAry = pi.PsmLi.get(i).split("\t");
+                for(int i = 0; i < pi.psmList.size(); i++){
+                    String[] strAry = pi.psmList.get(i).split("\t");
                     double PepProb = Double.parseDouble(strAry[indObj.pepProbcIndex]);
                     String proteinID = strAry[indObj.proteinIDcIndex];
 
@@ -780,9 +193,9 @@ public class integrate
                 //region Get ratios
                 if(param.aggregation_method==0)
                 {
-                    for(int i = 0; i < pi.PsmLi.size(); i++)
+                    for(int i = 0; i < pi.psmList.size(); i++)
                     {
-                        String[] strAry = pi.PsmLi.get(i).split("\t");
+                        String[] strAry = pi.psmList.get(i).split("\t");
                         for(int j=indObj.abnIndex; j<strAry.length; j++){
                             Ratio2DAry[i][j-indObj.abnIndex] = Double.parseDouble(strAry[j]);
                         }
@@ -790,9 +203,9 @@ public class integrate
                 }
                 else if(param.aggregation_method==1)
                 {
-                    for(int i = 0; i < pi.PsmLi.size(); i++)
+                    for(int i = 0; i < pi.psmList.size(); i++)
                     {
-                        String[] strAry = pi.PsmLi.get(i).split("\t");
+                        String[] strAry = pi.psmList.get(i).split("\t");
                         for(int j=indObj.abnIndex; j<strAry.length; j++)
                         {
                             ds_Ratio rObj = new ds_Ratio();
@@ -812,16 +225,16 @@ public class integrate
                     if(param.aggregation_method==0)
                     {
                         List<Double> tmpLi = new ArrayList<Double>();
-                        for (int i = 0; i< pi.PsmLi.size(); i++){
+                        for (int i = 0; i< pi.psmList.size(); i++){
                             if(Ratio2DAry[i][j] != -9999)
                                 tmpLi.add(Ratio2DAry[i][j]);
                         }
-                        mAry[j] = TakeMedian(tmpLi);
+                        mAry[j] = Utils.takeMedian(tmpLi);
                     }
                     else if(param.aggregation_method==1)
                     {
                         List<ds_Ratio> rObjLi = new ArrayList<ds_Ratio>();
-                        for (int i = 0; i< pi.PsmLi.size(); i++){
+                        for (int i = 0; i< pi.psmList.size(); i++){
                             if(Obj2DAry[i][j].ratio != -9999)
                                 rObjLi.add(Obj2DAry[i][j]);
                         }
@@ -830,14 +243,14 @@ public class integrate
                 }
                 //endregion
 
-                mAry[indObj.plexNum] = pi.tolrefInt;
+                mAry[indObj.plexNum] = pi.totalRefInt;
                 fAbnMap.put(fName, mAry);
 
                 if(groupBy == 1) {
-                    NumPsm += pi.PsmLi.size();
+                    NumPsm += pi.psmList.size();
                 }
                 else if(groupBy == 0){
-                    NumPsm += pi.PsmLi.size();
+                    NumPsm += pi.psmList.size();
                 }
                 //endregion
             }
@@ -955,7 +368,7 @@ public class integrate
     {
         double GloMinRefInt = CalGloMinRefInt();
         for(String groupkey : gAbnMap.keySet()){
-            TreeMap<String, double[]> fAbnMap = gAbnMap.get(groupkey);
+            Map<String, double[]> fAbnMap = gAbnMap.get(groupkey);
 
             double AvgAbn = 0;
             //region M2: Calculate average abundance (using GlobalMinRefInt)
@@ -1004,7 +417,7 @@ public class integrate
         for(String fName : fNameLi){
             ds_Index indObj = param.indMap.get(fName);
             List<double[]> OrgLi = new ArrayList<double[]>();
-            for(TreeMap<String, double[]> fAbnMap : gAbnMap.values()){
+            for(Map<String, double[]> fAbnMap : gAbnMap.values()){
                 if (fAbnMap.containsKey(fName)){
                     OrgLi.add(fAbnMap.get(fName));
                 }
@@ -1040,7 +453,7 @@ public class integrate
         for(String fName : fNameLi){
             ds_Index indObj = param.indMap.get(fName);
             double[] sumAry = sumMap.get(fName);
-            for(TreeMap<String, double[]> fAbnMap : gAbnMap.values()) {
+            for(Map<String, double[]> fAbnMap : gAbnMap.values()) {
                 if (fAbnMap.containsKey(fName)) {
                     double[] mAry = fAbnMap.get(fName);
                     for(int i=0;i<indObj.totLen;i++){
@@ -1061,7 +474,7 @@ public class integrate
         for(String groupkey : gAbnMap.keySet()){
             double AvgRef=0;
             int count=0;
-            TreeMap<String, double[]> fAbnMap = gAbnMap.get(groupkey);
+            Map<String, double[]> fAbnMap = gAbnMap.get(groupkey);
             for(String fName : fNameLi){
                 if(fAbnMap.containsKey(fName)){
                     double[] mAry = fAbnMap.get(fName);
@@ -1092,7 +505,7 @@ public class integrate
             ds_Index indObj = param.indMap.get(fName);
             double[] MedianAry = new double[indObj.plexNum];
             List<double[]> OrgLi = new ArrayList<double[]>();
-            for(TreeMap<String, double[]> fAbnMap : gAbnMap.values()){
+            for(Map<String, double[]> fAbnMap : gAbnMap.values()){
                 if (fAbnMap.containsKey(fName)){
                     OrgLi.add(fAbnMap.get(fName));
                 }
@@ -1109,7 +522,7 @@ public class integrate
                         }
                     }
                 }
-                MedianAry[i] = TakeMedian(tmpLi);
+                MedianAry[i] = Utils.takeMedian(tmpLi);
             }
             MedMap.put(fName, MedianAry);
         }
@@ -1127,14 +540,14 @@ public class integrate
                 }
             }
         }
-        double Med0 = TakeMedian(tmpLi);
+        double Med0 = Utils.takeMedian(tmpLi);
         return Med0;
     }
 
     private static void SubtractProt(int NormIndex, TreeMap<String, double[]> MedMap, double m0, double Med0)
     {
         for(String groupkey : gAbnMap.keySet()){
-            TreeMap<String, double[]> fAbnMap = gAbnMap.get(groupkey);
+            Map<String, double[]> fAbnMap = gAbnMap.get(groupkey);
             for(String fName : fAbnMap.keySet()){
                 double[] MedianAry = MedMap.get(fName);
                 double[] mAry =  fAbnMap.get(fName);
@@ -1248,7 +661,7 @@ public class integrate
         for(String groupkey : gAbnMap.keySet()) {
             boolean isPrint = true;
 
-            TreeMap<String, double[]> fAbnMap = gAbnMap.get(groupkey);
+            Map<String, double[]> fAbnMap = gAbnMap.get(groupkey);
             double AvgAbn = 0;
 
             //region M2: Calculate average abundance (using GlobalMinRefInt)
@@ -1422,12 +835,10 @@ public class integrate
         double GloMinRefInt = 0;
         boolean isFirst = true;
         for(String groupkey : gAbnMap.keySet()) {
-            TreeMap<String, double[]> fAbnMap = gAbnMap.get(groupkey);
+            Map<String, double[]> fAbnMap = gAbnMap.get(groupkey);
             for(String fName : fAbnMap.keySet()){
                 ds_Index indObj = param.indMap.get(fName);
                 double[] mAry = fAbnMap.get(fName);
-                // FIXME 04: bug here, if refInt < 0 for the first one.
-                //   should take the first positive value as initial value, reproduce with luad_phosphoproteome dataset
                 if(isFirst) {//Assign initial intensity
                     GloMinRefInt =mAry[indObj.plexNum];
                     isFirst = false;
@@ -1438,40 +849,6 @@ public class integrate
             }
         }
         return GloMinRefInt;
-    }
-
-    private static double TakeMedian(List<Double> tmpLi)
-    {
-        Collections.sort(tmpLi);
-        double mValue;
-        if(tmpLi.size() == 0)
-        {
-            mValue = -9999;
-        }
-        else if(tmpLi.size() == 1)
-        {
-            mValue = tmpLi.get(0);
-        }
-        else if(tmpLi.size() == 2)
-        {
-            mValue = (tmpLi.get(0)+tmpLi.get(1))/2;
-        }
-        else
-        {
-            int mod = tmpLi.size()%2;
-            int i1= tmpLi.size()/2;
-            if(mod==0) //even
-            {
-                int i2 = i1-1;
-                mValue = (tmpLi.get(i1) + tmpLi.get(i2))/2 ;
-            }
-            else //odd
-            {
-                mValue = tmpLi.get(i1);
-            }
-        }
-
-        return mValue;
     }
 
     private static double TakeWeightedMedian(List<ds_Ratio> rObjLi)
@@ -1503,7 +880,7 @@ public class integrate
                 rObjLi.get(i).weight = rObjLi.get(i).weight/sum;
             }
 
-            //3. Sort ratios FIXME 00: should sort by weight to take the weighted median, reproduce with tmt10_pholoso_2 dataset
+            //3. Sort ratios
             Collections.sort(rObjLi, new Comparator<ds_Ratio>() {
                 @Override
                 public int compare(ds_Ratio r1, ds_Ratio r2) {
@@ -1573,7 +950,6 @@ public class integrate
     private static void GenerateSingleSite()
     {
         TreeMap<String, List<String>> keyMap = new TreeMap<String, List<String>>();
-        // FIXME 05: keyPepMap is populated during clustering but not used afterwards
         TreeMap<String, TreeMap<String, Integer>> keyPepMap = new TreeMap<String, TreeMap<String, Integer>>(); //to store the peptide start position
         int location=5;
         //region Cluster keys based on the index
@@ -1652,14 +1028,14 @@ public class integrate
         }
         //endregion
 
-        TreeMap<String, TreeMap<String, double[]>> NewgAbnMap = new TreeMap<String, TreeMap<String, double[]>>();
+        Map<String, Map<String, double[]>> NewgAbnMap = new TreeMap<>();
         //region Calculate the median abundance
         for(String key : keyMap.keySet()){
             List<String> strLi = keyMap.get(key);
             if(strLi.size()>1){
                 TreeMap<String, List<double[]>> gfAbnMap = new TreeMap<String, List<double[]>>();
                 for(String str : strLi){
-                    TreeMap<String, double[]> fAbnMap = gAbnMap.get(str);
+                    Map<String, double[]> fAbnMap = gAbnMap.get(str);
                     for(String fName : param.fNameLi) {
                         double[] mAry = fAbnMap.containsKey(fName) ? fAbnMap.get(fName) : null;
                         if(mAry!=null){
@@ -1690,7 +1066,7 @@ public class integrate
                                     vLi.add(mAry[i]);
                                 }
                             }
-                            fmAry[i] = TakeMedian(vLi);
+                            fmAry[i] = Utils.takeMedian(vLi);
                         }
                         upAbnMap.put(fName, fmAry);
                     }
@@ -1721,7 +1097,7 @@ public class integrate
             else{
                 String[] sAry = strLi.get(0).split("\t");
                 String newKey = key + "\t" + sAry[1] + "\t" + sAry[2] + "\t" + sAry[3] + "\t" + sAry[4] + "\t" + sAry[5] + "\t" + sAry[6] + "\t" + sAry[7];
-                TreeMap<String, double[]> fAbnMap = gAbnMap.get(strLi.get(0));
+                Map<String, double[]> fAbnMap = gAbnMap.get(strLi.get(0));
                 NewgAbnMap.put(newKey, fAbnMap);
             }
         }
@@ -1729,19 +1105,5 @@ public class integrate
 
         gAbnMap.clear();
         gAbnMap = NewgAbnMap;
-    }
-
-    private static String refineExtendedSequence(String s) {
-        int idx1 = s.indexOf('.');
-        if (idx1 < 0) {
-            return s;
-        } else {
-            int idx2 = s.indexOf('.', idx1 + 1);
-            if (idx2 < 0) {
-                return s.substring(Math.max(0, idx1 - 7));
-            } else {
-                return s.substring(Math.max(0, idx1 - 7), Math.min(idx2 + 8, s.length()));
-            }
-        }
     }
 }
