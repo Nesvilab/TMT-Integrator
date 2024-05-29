@@ -1,6 +1,7 @@
 package tmtintegrator;
 
-import tmtintegrator.pojo.ds_Parameters;
+import tmtintegrator.integrator.PsmPreProcessor;
+import tmtintegrator.pojo.Parameters;
 
 import java.io.File;
 import java.io.IOException;
@@ -8,10 +9,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class TMTIntegrator {
-    private final ds_Parameters param;
+    private final Parameters param;
     private List<String> proteinLi; // TODO: no usage
 
-    public TMTIntegrator(ds_Parameters param) {
+    public TMTIntegrator(Parameters param) {
         this.param = param;
         this.proteinLi = new ArrayList<>();
     }

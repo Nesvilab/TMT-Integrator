@@ -1,7 +1,7 @@
 package tmtintegrator.integrator;
 
-import tmtintegrator.pojo.ds_Index;
-import tmtintegrator.pojo.ds_Parameters;
+import tmtintegrator.pojo.Index;
+import tmtintegrator.pojo.Parameters;
 import tmtintegrator.utils.Utils;
 
 import java.util.*;
@@ -14,10 +14,10 @@ import java.util.*;
 
 public class PsmNormalizer {
 
-    private final ds_Parameters parameters;
+    private final Parameters parameters;
     public static final int BIN_NUM = 10;
 
-    public PsmNormalizer(ds_Parameters parameters) {
+    public PsmNormalizer(Parameters parameters) {
         this.parameters = parameters;
     }
 
@@ -30,7 +30,7 @@ public class PsmNormalizer {
         for (Map.Entry<String, List<String>> entry : fileMap.entrySet()) {
             String filePath = entry.getKey();
             List<String> psmList = entry.getValue();
-            ds_Index index = parameters.indMap.get(filePath);
+            Index index = parameters.indMap.get(filePath);
             List<String> normPsmList = logNormalizePsm(psmList, index);
             psmList.clear();
             psmList.addAll(normPsmList);
@@ -46,7 +46,7 @@ public class PsmNormalizer {
         for (Map.Entry<String, List<String>> entry : fileMap.entrySet()) {
             String filePath = entry.getKey();
             List<String> psmList = entry.getValue();
-            ds_Index index = parameters.indMap.get(filePath);
+            Index index = parameters.indMap.get(filePath);
             List<String> normPsmList = rtNormalizePsm(psmList, index);
             psmList.clear();
             psmList.addAll(normPsmList);
@@ -54,7 +54,7 @@ public class PsmNormalizer {
     }
 
     // region helper methods
-    private List<String> logNormalizePsm(List<String> psmList, ds_Index index) {
+    private List<String> logNormalizePsm(List<String> psmList, Index index) {
         List<String> normPsmList = new ArrayList<>();
         for (String psm : psmList) {
             // calculate log2 ratio values
@@ -76,7 +76,7 @@ public class PsmNormalizer {
         return normPsmList;
     }
 
-    private List<String> rtNormalizePsm(List<String> psmList, ds_Index index) {
+    private List<String> rtNormalizePsm(List<String> psmList, Index index) {
         double minRt = Double.MAX_VALUE;
         double maxRt = Double.MIN_VALUE;
 
@@ -117,7 +117,7 @@ public class PsmNormalizer {
         return Double.parseDouble(fields[rtIndex]);
     }
 
-    private List<String> normalizePsmList(List<String> psmList, ds_Index index) {
+    private List<String> normalizePsmList(List<String> psmList, Index index) {
         // convert to 2D array
         double[][] ratio2DValues = Utils.convertTo2DArray(psmList, index);
 
@@ -131,7 +131,7 @@ public class PsmNormalizer {
         return Utils.updatePsmRatios(psmList, ratio2DValues, index);
     }
 
-    private double[] calculateMedianByChannel(double[][] ratio2DValues, ds_Index index) {
+    private double[] calculateMedianByChannel(double[][] ratio2DValues, Index index) {
         double[] medianValues = new double[index.plexNum];
         for (int j = 0; j < index.plexNum; j++) {
             List<Double> channelValues = new ArrayList<>();

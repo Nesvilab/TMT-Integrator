@@ -1,9 +1,9 @@
 package tmtintegrator.integrator;
 
-import tmtintegrator.pojo.GroupBy;
+import tmtintegrator.constants.GroupBy;
 import tmtintegrator.pojo.ProcessedPsmEntry;
-import tmtintegrator.pojo.ds_Index;
-import tmtintegrator.pojo.ds_Parameters;
+import tmtintegrator.pojo.Index;
+import tmtintegrator.pojo.Parameters;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -17,9 +17,9 @@ import java.util.*;
  */
 public class PsmFileLoader {
 
-    private final ds_Parameters parameters;
+    private final Parameters parameters;
 
-    public PsmFileLoader(ds_Parameters parameter) {
+    public PsmFileLoader(Parameters parameter) {
         this.parameters = parameter;
     }
 
@@ -47,7 +47,7 @@ public class PsmFileLoader {
         try (BufferedReader reader = new BufferedReader(new FileReader(psmPath))) {
             String title = reader.readLine();
             parameters.TitleMap.put(fileName, title); // TODO: should be put somewhere other than in parameters
-            ds_Index index = parameters.indMap.get(fileName);
+            Index index = parameters.indMap.get(fileName);
 
             // read PSM entries
             String line;

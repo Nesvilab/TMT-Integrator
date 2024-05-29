@@ -1,6 +1,6 @@
 package tmtintegrator.pojo;
 
-public class ds_Ratio implements Comparable<ds_Ratio>
+public class Ratio implements Comparable<Ratio>
 {
     public double preInt = 0;
     public double rt = 0;
@@ -8,7 +8,7 @@ public class ds_Ratio implements Comparable<ds_Ratio>
     public double weight = 0;
 
     @Override
-    public int compareTo(ds_Ratio r) {
+    public int compareTo(Ratio r) {
         return r.toString().compareTo(r.toString());
     }
 }

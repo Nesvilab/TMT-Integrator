@@ -12,8 +12,8 @@ import java.util.List;
 public class PsmEntry {
 
     // region PSM file information
-    private final ds_Parameters parameters;
-    private final ds_Index index;
+    private final Parameters parameters;
+    private final Index index;
     private final String[] fields;
     // endregion
 
@@ -45,7 +45,7 @@ public class PsmEntry {
 
     private int geneCategory;
 
-    public PsmEntry(String psm, ds_Parameters parameters, ds_Index index) {
+    public PsmEntry(String psm, Parameters parameters, Index index) {
         this.parameters = parameters;
         this.index = index;
         this.fields = psm.split("\t");

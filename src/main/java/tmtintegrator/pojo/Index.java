@@ -1,6 +1,6 @@
 package tmtintegrator.pojo;
 
-public class ds_Index
+public class Index
 {
     public int pepcIndex = -1;
     public int pepProbcIndex = -1;

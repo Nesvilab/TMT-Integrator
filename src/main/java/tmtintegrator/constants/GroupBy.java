@@ -1,4 +1,4 @@
-package tmtintegrator.pojo;
+package tmtintegrator.constants;
 
 public enum GroupBy {
     GENE(0),

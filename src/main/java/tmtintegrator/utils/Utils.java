@@ -1,6 +1,7 @@
 package tmtintegrator.utils;
 
-import tmtintegrator.pojo.ds_Index;
+import tmtintegrator.pojo.Index;
+import tmtintegrator.pojo.Ratio;
 
 import java.util.*;
 
@@ -38,6 +39,25 @@ public final class Utils {
         } else {
             return numbers.get(middleIndex);
         }
+    }
+
+    public static double takeWeightedMedian(List<Ratio> ratioList) {
+        if (ratioList == null || ratioList.isEmpty()) {
+            return -9999; // FIXME: Double.NaN is better
+        } else if (ratioList.size() == 1) {
+            return ratioList.get(0).ratio;
+        } else if (ratioList.size() == 2) {
+            return (ratioList.get(0).ratio + ratioList.get(1).ratio) / 2.0;
+        }
+
+        // 1. Calculate weights and normalize
+        takeWeightsAndNormalize(ratioList);
+
+        // 3. Sort ratios by ratio values
+        ratioList.sort(Comparator.comparingDouble(r -> r.ratio));
+
+        // 4. Find the weighted median
+        return findWeightedMedian(ratioList);
     }
 
     public static double log2(double x) {
@@ -80,10 +100,10 @@ public final class Utils {
         double sRt = minRt;
         double eRt = maxRt + gap;
         while (sRt < eRt) {
-            binMap.put(sRt, new ArrayList<String>());
+            binMap.put(sRt, new ArrayList<>());
             sRt += gap;
         }
-        binMap.put((maxRt + gap), new ArrayList<String>());
+        binMap.put((maxRt + gap), new ArrayList<>());
 
         return binMap;
     }
@@ -109,7 +129,7 @@ public final class Utils {
         return extPep.substring(startIdx, endIdx);
     }
 
-    public static double[][] convertTo2DArray(List<String> psmList, ds_Index index) {
+    public static double[][] convertTo2DArray(List<String> psmList, Index index) {
         double[][] ratio2DValues = new double[psmList.size()][index.plexNum];
         for (int i = 0; i < psmList.size(); i++) {
             String[] fields = psmList.get(i).split("\t");
@@ -152,7 +172,7 @@ public final class Utils {
      * @param index         index of fields
      * @return updated list of PSMs
      */
-    public static List<String> updatePsmRatios(List<String> psmList, double[][] ratio2DValues, ds_Index index) {
+    public static List<String> updatePsmRatios(List<String> psmList, double[][] ratio2DValues, Index index) {
         List<String> newPsmList = new ArrayList<>();
         for (int i = 0; i < psmList.size(); i++) {
             StringBuilder psmBuilder = new StringBuilder();
@@ -164,4 +184,33 @@ public final class Utils {
         }
         return newPsmList;
     }
+
+    // region helper methods
+    private static void takeWeightsAndNormalize(List<Ratio> ratioList) {
+        double sum = 0;
+        double pow = 1; // FIXME: should be configurable
+        // Precursor intensity with power
+        for (Ratio ratio : ratioList) {
+            ratio.weight = Math.pow(ratio.preInt, pow); // FIXME: pow == 1?
+            sum += ratio.weight;
+        }
+        // Normalize weights
+        for (Ratio ratio : ratioList) {
+            ratio.weight /= sum;
+        }
+    }
+
+    private static double findWeightedMedian(List<Ratio> ratioList) {
+        double cumulativeWeight = 0.0;
+        for (Ratio ratio : ratioList) {
+            cumulativeWeight += ratio.weight;
+            if (cumulativeWeight >= 0.5) {
+                return ratio.ratio;
+            }
+        }
+        // Fall back to the ratio with the highest weight (should not happen)
+        ratioList.sort(Comparator.comparingDouble(r -> r.weight));
+        return ratioList.get(ratioList.size() - 1).ratio;
+    }
+    // endregion
 }

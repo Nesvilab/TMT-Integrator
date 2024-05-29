@@ -1,7 +1,7 @@
 package tmtintegrator.config;
 
-import tmtintegrator.pojo.ds_Index;
-import tmtintegrator.pojo.ds_Parameters;
+import tmtintegrator.pojo.Index;
+import tmtintegrator.pojo.Parameters;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -10,13 +10,13 @@ import java.io.IOException;
 import java.util.List;
 
 public class ConfigLoader {
-    private final ds_Parameters parameters;
+    private final Parameters parameters;
 
     public ConfigLoader() {
-        this.parameters = new ds_Parameters();
+        this.parameters = new Parameters();
     }
 
-    public ds_Parameters getParameters() {
+    public Parameters getParameters() {
         return parameters;
     }
 
@@ -47,7 +47,7 @@ public class ConfigLoader {
             String absolutePath = file.getAbsolutePath();
             parameters.fNameLi.add(absolutePath);
 
-            ds_Index index = new ds_Index();
+            Index index = new Index();
             parameters.indMap.put(absolutePath, index);
         }
     }

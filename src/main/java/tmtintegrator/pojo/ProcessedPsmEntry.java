@@ -1,14 +1,15 @@
 package tmtintegrator.pojo;
 
 import tmtintegrator.TMTIntegrator;
+import tmtintegrator.constants.GroupBy;
 
 import java.util.*;
 
 public class ProcessedPsmEntry {
 
     // region PSM file information
-    private final ds_Parameters parameters;
-    private final ds_Index index;
+    private final Parameters parameters;
+    private final Index index;
     private final String psmLine;
     private final String[] fields;
     // endregion
@@ -25,13 +26,13 @@ public class ProcessedPsmEntry {
     private int pepIndex;
     // endregion
 
-    private class PhosphoSiteData {
+    private static class PhosphoSiteData {
         private int siteLocalCount;
-        private StringBuilder siteLocalPos; // site localized position
-        private Map<Integer, List<String>> siteLocalMassMap; // Key: position; Value: site localized mass
-        private List<String> siteLocalPosList;
+        private final StringBuilder siteLocalPos; // site localized position
+        private final Map<Integer, List<String>> siteLocalMassMap; // Key: position; Value: site localized mass
+        private final List<String> siteLocalPosList;
         private int siteCount;
-        private Map<Integer, Double> probMap; // Key: position; Value: site probability
+        private final Map<Integer, Double> probMap; // Key: position; Value: site probability
         private int startIndex;
         private int endIndex;
 
@@ -45,7 +46,7 @@ public class ProcessedPsmEntry {
         }
     }
 
-    public ProcessedPsmEntry(ds_Parameters parameters, ds_Index index, String psm) {
+    public ProcessedPsmEntry(Parameters parameters, Index index, String psm) {
         this.parameters = parameters;
         this.index = index;
         this.psmLine = psm;
@@ -175,7 +176,7 @@ public class ProcessedPsmEntry {
             // extract probability
             double probability = Double.parseDouble(ptmLocal.substring(leftIndex + 1, rightIndex));
             // TODO: key updating logic needs to be reviewed
-            int key = -1;
+            int key;
             if (isFirst) {
                 key = leftIndex;
                 isFirst = false;

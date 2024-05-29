@@ -10,5 +10,5 @@ public class PsmInfo
     public String extpep = "";
     public int pepsIndex = -1;
     public double totalRefInt = 0;
-    public List<String> psmList = new ArrayList<String>();
+    public List<String> psmList = new ArrayList<>();
 }

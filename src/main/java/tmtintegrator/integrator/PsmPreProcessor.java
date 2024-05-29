@@ -1,8 +1,8 @@
-package tmtintegrator;
+package tmtintegrator.integrator;
 
 import tmtintegrator.pojo.PsmEntry;
-import tmtintegrator.pojo.ds_Index;
-import tmtintegrator.pojo.ds_Parameters;
+import tmtintegrator.pojo.Index;
+import tmtintegrator.pojo.Parameters;
 import tmtintegrator.utils.Utils;
 
 import java.io.*;
@@ -10,7 +10,7 @@ import java.util.*;
 
 public class PsmPreProcessor {
 
-    private final ds_Parameters parameters;
+    private final Parameters parameters;
     private final List<String> proteinList; // TODO: no usage
 
     // TODO: Just an example here to avoid magic numbers
@@ -34,7 +34,7 @@ public class PsmPreProcessor {
         }
     }
 
-    public PsmPreProcessor(ds_Parameters parameters) {
+    public PsmPreProcessor(Parameters parameters) {
         this.parameters = parameters;
         this.proteinList = new ArrayList<>();
     }
@@ -45,7 +45,7 @@ public class PsmPreProcessor {
      * Get all genes <br>
      * Create index for each PSM file
      *
-     * @throws IOException
+     * @throws IOException if an I/O error occurs
      */
     public void checkPsmAndBuildIndex() throws IOException {
         Collections.sort(parameters.fNameLi); // TODO: looks unnecessary
@@ -58,12 +58,11 @@ public class PsmPreProcessor {
     /**
      * Update PSM files based on the criteria, select best PSM if required, and print PSM files
      *
-     * @throws IOException if an I/O error occurs
      */
-    public void updatePsmFiles() throws IOException {
+    public void updatePsmFiles() {
         for (File psmFile : parameters.FileLi) {
             try {
-                ds_Index index = parameters.indMap.get(psmFile.getAbsolutePath());
+                Index index = parameters.indMap.get(psmFile.getAbsolutePath());
                 // read PSM file and preprocess each line
                 List<Double> tmtIntensities = new ArrayList<>();
                 List<String> processedLines = readPsmFile(psmFile, index, tmtIntensities);
@@ -94,7 +93,7 @@ public class PsmPreProcessor {
             // process header and column index
             String title = reader.readLine();
             getColumnIndex(title, psmFile);
-            ds_Index index = parameters.indMap.get(psmFile.getAbsolutePath());
+            Index index = parameters.indMap.get(psmFile.getAbsolutePath());
 
             // process data
             int totalCount = 0;
@@ -130,7 +129,7 @@ public class PsmPreProcessor {
      * @param type   type of field to check
      * @return true if the field is missing
      */
-    private boolean isFieldMissing(String[] fields, ds_Index index, String type) {
+    private boolean isFieldMissing(String[] fields, Index index, String type) {
         switch (type) {
             case "ms1":
                 return Double.parseDouble(fields[index.ms1IntIndex]) == 0;
@@ -142,14 +141,14 @@ public class PsmPreProcessor {
         }
     }
 
-    private void updateAllGenesList(String[] fields, ds_Index index) {
+    private void updateAllGenesList(String[] fields, Index index) {
         String gene = fields[index.genecIndex].trim();
         if (!parameters.AllGeneLi.contains(gene)) {
             parameters.AllGeneLi.add(gene);
         }
     }
 
-    private void updateProteins(String[] fields, ds_Index index) {
+    private void updateProteins(String[] fields, Index index) {
         if (!proteinList.contains(fields[index.proteincIndex])) {
             proteinList.add(fields[index.proteincIndex]);
         }
@@ -184,7 +183,7 @@ public class PsmPreProcessor {
      */
     private void getColumnIndex(String title, File psmFile) {
         String[] columns = title.split("\t");
-        ds_Index index = parameters.indMap.getOrDefault(psmFile.getAbsolutePath(), new ds_Index());
+        Index index = parameters.indMap.getOrDefault(psmFile.getAbsolutePath(), new Index());
 
         checkReferenceColumns(columns, index);
         // map column index to field name
@@ -196,7 +195,7 @@ public class PsmPreProcessor {
         validateColumns(index);
     }
 
-    private void checkReferenceColumns(String[] columns, ds_Index index) {
+    private void checkReferenceColumns(String[] columns, Index index) {
         int refCount = 0;
         StringBuilder refErrors = new StringBuilder();
 
@@ -228,7 +227,7 @@ public class PsmPreProcessor {
         }
     }
 
-    private void mapColumnIndex(String[] columns, ds_Index index) {
+    private void mapColumnIndex(String[] columns, Index index) {
         for (int i = 0; i < columns.length; i++) {
             String column = columns[i].trim();
             switch (column) {
@@ -311,13 +310,13 @@ public class PsmPreProcessor {
         }
     }
 
-    private void handleComplexCases(String column, int columnIdx, ds_Index index) {
+    private void handleComplexCases(String column, int columnIdx, Index index) {
         if (!parameters.columntag.isEmpty() && column.contains(parameters.columntag) && !column.contains("Best Localization")) {
             index.ptmLocalcIndex = columnIdx;
         }
     }
 
-    private void findChannels(String[] columns, ds_Index index) {
+    private void findChannels(String[] columns, Index index) {
         index.abnIndex = columns.length - parameters.channelNum;
         index.flength = columns.length;
 
@@ -326,11 +325,11 @@ public class PsmPreProcessor {
         }
     }
 
-    private void adjustRefIndex(String[] columns, ds_Index index) {
+    private void adjustRefIndex(String[] columns, Index index) {
         int t = 0;
         int cnum = 0;
         for (int i = index.abnIndex; i < columns.length; i++) {
-            if (!isNaColumn(columns[i])) {
+            if (notNaColumn(columns[i])) {
                 cnum++;
             } else if (i < index.refIndex) {
                 t++;
@@ -342,11 +341,11 @@ public class PsmPreProcessor {
         index.refIndex = (parameters.add_Ref < 0) ? index.refIndex : index.abnIndex + cnum;
     }
 
-    private boolean isNaColumn(String value) {
-        return value.trim().equalsIgnoreCase("na");
+    private boolean notNaColumn(String value) {
+        return !value.trim().equalsIgnoreCase("na");
     }
 
-    private void validateColumns(ds_Index index) {
+    private void validateColumns(Index index) {
         checkIndex(index.pepcIndex, "Peptide");
         checkIndex(index.pepProbcIndex, "Probability");
         checkIndex(index.assignedModcIndex, "Assigned Modifications");
@@ -387,11 +386,10 @@ public class PsmPreProcessor {
      * @return list of processed PSM lines
      * @throws IOException if an I/O error occurs
      */
-    private List<String> readPsmFile(File psmFile, ds_Index index, List<Double> tmtIntensities) throws IOException {
+    private List<String> readPsmFile(File psmFile, Index index, List<Double> tmtIntensities) throws IOException {
         List<String> allPsmLines = new ArrayList<>();
         try (BufferedReader reader = new BufferedReader(new FileReader(psmFile))) {
-            String title = reader.readLine();
-            // getColumnIndex(title, psmFile); // TODO: from old code, looks unnecessary
+            reader.readLine(); // skip header
             String line;
             while ((line = reader.readLine()) != null) {
                 allPsmLines.add(processLine(line, index, tmtIntensities));
@@ -400,7 +398,7 @@ public class PsmPreProcessor {
         return allPsmLines;
     }
 
-    private String processLine(String line, ds_Index index, List<Double> tmtIntensities) {
+    private String processLine(String line, Index index, List<Double> tmtIntensities) {
         String[] fields = line.split("\t");
         StringBuilder newPsm = new StringBuilder();
         double sumTmtIntensity = 0;
@@ -433,7 +431,7 @@ public class PsmPreProcessor {
         return tmtIntensities.isEmpty() ? 0 : tmtIntensities.get(tmtThresholdIndex);
     }
 
-    private void updateIndex(ds_Index index) {
+    private void updateIndex(Index index) {
         index.isUsedIndex = index.abnIndex;
         index.abnIndex++;
         index.refIndex++;
@@ -448,7 +446,7 @@ public class PsmPreProcessor {
      * @param tmtThreshold   TMT threshold
      * @param index          index for PSM file
      */
-    private void collapsePsmLines(List<String> processedLines, Map<String, List<String>> psmMap, double tmtThreshold, ds_Index index) {
+    private void collapsePsmLines(List<String> processedLines, Map<String, List<String>> psmMap, double tmtThreshold, Index index) {
         List<String> newModTagList = new ArrayList<>();
         for (String psm : processedLines) {
             processPsmEntry(psm, psmMap, newModTagList, tmtThreshold, index);
@@ -456,7 +454,7 @@ public class PsmPreProcessor {
         parameters.modTagLi.addAll(newModTagList);
     }
 
-    private void processPsmEntry(String psm, Map<String, List<String>> psmMap, List<String> newModTagList, double tmtThreshold, ds_Index index) {
+    private void processPsmEntry(String psm, Map<String, List<String>> psmMap, List<String> newModTagList, double tmtThreshold, Index index) {
         PsmEntry psmEntry = new PsmEntry(psm, parameters, index);
         psmEntry.parsePsmEntry();
         psmEntry.checkConfigurations(newModTagList);
@@ -472,7 +470,7 @@ public class PsmPreProcessor {
         }
     }
 
-    private void selectBestPsm(Map<String, List<String>> psmMap, ds_Index index) {
+    private void selectBestPsm(Map<String, List<String>> psmMap, Index index) {
         if (!parameters.bestPsm) {
             return;
         }
@@ -502,7 +500,7 @@ public class PsmPreProcessor {
         return bestPsmIndex;
     }
 
-    private void updatePsmList(List<String> psmList, int bestPsmIndex, ds_Index index) {
+    private void updatePsmList(List<String> psmList, int bestPsmIndex, Index index) {
         if (bestPsmIndex < 0) {
             return;
         }
@@ -525,7 +523,7 @@ public class PsmPreProcessor {
      * @param psmMap map of PSM lines (filtered by criteria)
      * @throws IOException if an I/O error occurs
      */
-    private void printPsmFile(File psmFile, ds_Index index, Map<String, List<String>> psmMap) throws IOException {
+    private void printPsmFile(File psmFile, Index index, Map<String, List<String>> psmMap) throws IOException {
         String newPath = psmFile.getAbsolutePath().replace(".tsv", ".ti");
         // get title line
         String title = getTitleLine(psmFile);
@@ -551,7 +549,7 @@ public class PsmPreProcessor {
         }
     }
 
-    private String writeHeader(BufferedWriter writer, String title, ds_Index index, File psmFile) throws IOException {
+    private String writeHeader(BufferedWriter writer, String title, Index index, File psmFile) throws IOException {
         String[] titles = title.split("\t");
         StringBuilder headerBuilder = new StringBuilder();
 
@@ -565,7 +563,7 @@ public class PsmPreProcessor {
 
         for (int i = index.abnIndex - 1; i < (index.abnIndex + parameters.channelNum - 1); i++) {
             headerBuilder.append(titles[i]).append("\t");
-            if (!isNaColumn(titles[i])) {
+            if (notNaColumn(titles[i])) {
                 writer.write(titles[i] + "\t");
             }
         }
@@ -580,11 +578,11 @@ public class PsmPreProcessor {
         return headerBuilder.toString();
     }
 
-    private void writePsm(BufferedWriter writer, String psm, String[] headers, ds_Index index) throws IOException {
+    private void writePsm(BufferedWriter writer, String psm, String[] headers, Index index) throws IOException {
         String[] fields = psm.split("\t");
         int printNum = index.abnIndex + parameters.channelNum;
         for (int i = 0; i < printNum; i++) {
-            if (!isNaColumn(headers[i])) {
+            if (notNaColumn(headers[i])) {
                 writer.write(fields[i] + "\t");
             }
         }
@@ -596,7 +594,7 @@ public class PsmPreProcessor {
         writer.newLine();
     }
 
-    private double calculateRefAbundance(String[] fields, String[] headers, ds_Index index, int printNum) {
+    private double calculateRefAbundance(String[] fields, String[] headers, Index index, int printNum) {
         ReferenceType method = ReferenceType.fromInteger(parameters.add_Ref); // TODO: magic number
         switch (method) {
             case SUMMATION:
@@ -609,10 +607,10 @@ public class PsmPreProcessor {
         return 0;
     }
 
-    private double calculateSummation(String[] fields, String[] headers, ds_Index index, int printNum) {
+    private double calculateSummation(String[] fields, String[] headers, Index index, int printNum) {
         double refAbundance = 0;
         for (int i = index.abnIndex; i < printNum; i++) {
-            if (!isNaColumn(headers[i])) {
+            if (notNaColumn(headers[i])) {
                 double value = Utils.tryParseDouble(fields[i]);
                 refAbundance += value > 0 ? value : 0;
             }
@@ -620,11 +618,11 @@ public class PsmPreProcessor {
         return refAbundance;
     }
 
-    private double calculateAverage(String[] fields, String[] headers, ds_Index index, int printNum) {
+    private double calculateAverage(String[] fields, String[] headers, Index index, int printNum) {
         double refAbundance = 0;
         int count = 0;
         for (int i = index.abnIndex; i < printNum; i++) {
-            if (!isNaColumn(headers[i])) {
+            if (notNaColumn(headers[i])) {
                 double value = Utils.tryParseDouble(fields[i]);
                 if (value > 0) {
                     refAbundance += value;
@@ -635,10 +633,10 @@ public class PsmPreProcessor {
         return count > 0 ? refAbundance / count : 0;
     }
 
-    private double calculateMedian(String[] fields, String[] headers, ds_Index index, int printNum) {
+    private double calculateMedian(String[] fields, String[] headers, Index index, int printNum) {
         List<Double> refAbundances = new ArrayList<>();
         for (int i = index.abnIndex; i < printNum; i++) {
-            if (!isNaColumn(headers[i])) {
+            if (notNaColumn(headers[i])) {
                 double value = Utils.tryParseDouble(fields[i]);
                 if (value > 0) {
                     refAbundances.add(value);

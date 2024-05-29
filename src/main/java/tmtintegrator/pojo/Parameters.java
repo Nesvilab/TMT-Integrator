@@ -5,9 +5,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.TreeMap;
 
-public class ds_Parameters
+public class Parameters
 {
-    public File fastaF;
+    public File fastaF; // FIXME: no usage
     public String reportPath;
     public File combinedF;
     public int channelNum;
@@ -36,7 +36,7 @@ public class ds_Parameters
     public int aggregation_method=0; //psm aggregation, 0: median; 1: weighted-ratio
     public String modAA="";
     public String columntag="";
-    public List<String> modTagLi = new ArrayList<String>();
+    public List<String> modTagLi = new ArrayList<>();
 
     public boolean geneflag = false;
     public boolean glycoflag = false;
@@ -46,14 +46,14 @@ public class ds_Parameters
     public String prefix = "rev_";
     public boolean log2transformed = true;
 
-    public List<File> FileLi = new ArrayList<File>();
-    public List<String> fNameLi = new ArrayList<String>();
+    public List<File> FileLi = new ArrayList<>();
+    public List<String> fNameLi = new ArrayList<>();
     //TreeMap<String, String> fastaMap = new TreeMap<String, String>(); //Key: z; Value: ds_Peak
-    public List<String> AllGeneLi = new ArrayList<String>();
-    public TreeMap<String, String> TitleMap = new TreeMap<String, String>();
-    public TreeMap<String, ds_Index> indMap = new TreeMap<String, ds_Index>();
+    public List<String> AllGeneLi = new ArrayList<>();
+    public TreeMap<String, String> TitleMap = new TreeMap<>();
+    public TreeMap<String, Index> indMap = new TreeMap<>();
     //ds_ColumnIndex ci = new ds_ColumnIndex();
 
-    public TreeMap<String, String> ppMap = new TreeMap<String, String>(); //proteinID-protein map
+    public TreeMap<String, String> ppMap = new TreeMap<>(); //proteinID-protein map
     //TreeMap<String, String> phMap = new TreeMap<String, String>(); //protein-fasta header map
 }
