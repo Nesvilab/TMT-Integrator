@@ -5,6 +5,10 @@ import tmtintegrator.constants.GroupBy;
 
 import java.util.*;
 
+/**
+ * Processed PSM entry class.
+ */
+
 public class ProcessedPsmEntry {
 
     // region PSM file information

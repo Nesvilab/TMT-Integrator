@@ -76,6 +76,9 @@ public class PsmProcessor {
         }
     }
 
+    /**
+     * Collapse PSMs into abundance map.
+     */
     public void collapse() {
         for (Map.Entry<String, Map<String, PsmInfo>> groupEntry : groupPsmMap.entrySet()) {
             Map<String, PsmInfo> fileMap = groupEntry.getValue();

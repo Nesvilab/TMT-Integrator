@@ -1,6 +1,7 @@
 package tmtintegrator.utils;
 
 import tmtintegrator.pojo.Index;
+import tmtintegrator.pojo.Parameters;
 import tmtintegrator.pojo.Ratio;
 
 import java.util.*;
@@ -62,6 +63,10 @@ public final class Utils {
 
     public static double log2(double x) {
         return Math.log(x) / Math.log(2);
+    }
+
+    public static double pow2(double x) {
+        return Math.pow(2, x);
     }
 
     /**
@@ -183,6 +188,35 @@ public final class Utils {
             newPsmList.add(psmBuilder.toString().trim());
         }
         return newPsmList;
+    }
+
+    public static double calculateGlobalMedian(Map<String, double[]> medianMap) {
+        List<Double> channelValues = new ArrayList<>();
+        for (double[] medianValues : medianMap.values()) {
+            for (double median : medianValues) {
+                if (median != -9999) { // FIXME: !Double.isNaN(median) is better
+                    channelValues.add(median);
+                }
+            }
+        }
+        return takeMedian(channelValues);
+    }
+
+    public static double calculateGlobalMinRefInt(Map<String, Map<String, double[]>> groupAbundanceMap, Parameters parameters) {
+        double globalMinRefInt = Double.MAX_VALUE;
+        for (Map<String, double[]> fileAbundanceMap : groupAbundanceMap.values()) {
+            for (Map.Entry<String, double[]> entry : fileAbundanceMap.entrySet()) {
+                String filename = entry.getKey();
+                double[] medianValues = entry.getValue();
+                Index index = parameters.indMap.get(filename);
+                double refInt = medianValues[index.plexNum];
+
+                if (refInt > 0 && refInt < globalMinRefInt) {
+                    globalMinRefInt = refInt;
+                }
+            }
+        }
+        return globalMinRefInt;
     }
 
     // region helper methods

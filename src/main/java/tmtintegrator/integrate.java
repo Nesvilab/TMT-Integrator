@@ -1,6 +1,7 @@
 package tmtintegrator;
 
 import tmtintegrator.constants.GroupBy;
+import tmtintegrator.constants.NormType;
 import tmtintegrator.integrator.PsmFileLoader;
 import tmtintegrator.integrator.PsmNormalizer;
 import tmtintegrator.integrator.PsmProcessor;
@@ -53,7 +54,8 @@ public class integrate
         long  end2 = System.currentTimeMillis();
         System.out.println("LoadPsms--- " + formatter.format((end2 - end1) / (1000d * 60)) + " min.");
 
-        PsmNormalizer normalizer = new PsmNormalizer(param);
+        NormType normTypeEnum = NormType.fromValue(protNorm); // TODO: temp implementation, to be refactored
+        PsmNormalizer normalizer = new PsmNormalizer(param, normTypeEnum);
 
         if(param.abn_type==0)
         {
@@ -88,7 +90,10 @@ public class integrate
         long  end6 = System.currentTimeMillis();
         System.out.println("Collapse--- " + formatter.format((end6 - end5) / (1000d * 60)) + " min.");
 
-        if(protNorm > 0){ProtNor();}
+        normalizer.setGroupAbundanceMap(gAbnMap);
+        if(protNorm > 0){
+            normalizer.proteinNormalize();
+        }
 
         long  end7 = System.currentTimeMillis();
         System.out.println("protNorm--- " + formatter.format((end7 - end6) / (1000d * 60)) + " min.");
@@ -118,230 +123,6 @@ public class integrate
 
         long end8 = System.currentTimeMillis();
         System.out.println("Report--- " + formatter.format((end8 - end7) / (1000d * 60)) + " min.");
-    }
-
-    private static void ProtNor()
-    {
-        if(protNorm==1 || protNorm==2){
-            TreeMap<String, double[]> MedMap = GetProtMedian(false); //get median
-            double m0= CalGlobalMed(MedMap);
-            SubtractProt(1, MedMap, -1, -1); //subtract protein ratios
-
-            if(protNorm==2){
-                TreeMap<String, double[]> AbsMedMap = GetProtMedian(true);
-                double Med0 = CalGlobalMed(AbsMedMap);
-                SubtractProt(2, AbsMedMap, m0, Med0); //subtract protein ratios
-            }
-        }
-        else if(protNorm==3){
-            if(param.abn_type==0){//have to convert ratio2Abn if not the raw-based abundance
-                Ratio2Abn();
-            }
-            SLNorm();
-            IRSNorm();
-        }
-    }
-
-    private static void Ratio2Abn()
-    {
-        double GloMinRefInt = CalGloMinRefInt();
-        for(String groupkey : gAbnMap.keySet()){
-            Map<String, double[]> fAbnMap = gAbnMap.get(groupkey);
-
-            double AvgAbn = 0;
-            //region M2: Calculate average abundance (using GlobalMinRefInt)
-            for(String fName : param.fNameLi)
-            {
-                Index indObj = param.indMap.get(fName);
-                double[] mAry = fAbnMap.containsKey(fName) ? fAbnMap.get(fName) : new double[indObj.totLen];
-                if(mAry [indObj.plexNum]>0)
-                {
-                    AvgAbn += mAry [indObj.plexNum];
-                }
-                else
-                {
-                    AvgAbn += GloMinRefInt;
-                }
-            }
-            AvgAbn = AvgAbn/param.fNameLi.size();
-            //endregion
-
-            //region Convert ratio to abundance
-            for(String fName : param.fNameLi)
-            {
-                double[] mAry = fAbnMap.containsKey(fName)?fAbnMap.get(fName):null;
-                Index indObj = param.indMap.get(fName);
-                int refIndex = indObj.refIndex - indObj.abnIndex;
-                if(mAry!=null){
-                    for(int i=0; i<indObj.plexNum; i++){
-                        if(mAry[i]!=-9999 && i!=refIndex){
-                            mAry[i] =  Log2(Math.pow(2, mAry[i]) * AvgAbn);
-                        }
-                    }
-                }
-            }
-            //endregion
-        }
-    }
-
-    private static void SLNorm()
-    {
-        List<String> fNameLi = new ArrayList<>(param.TitleMap.keySet());
-
-        TreeMap<String, double[] > sumMap = new TreeMap<String,double[] >();
-        //region 1. get the summation of all channels
-
-        //Need to check reference channel, need to be excluded from the summation
-        for(String fName : fNameLi){
-            Index indObj = param.indMap.get(fName);
-            List<double[]> OrgLi = new ArrayList<double[]>();
-            for(Map<String, double[]> fAbnMap : gAbnMap.values()){
-                if (fAbnMap.containsKey(fName)){
-                    OrgLi.add(fAbnMap.get(fName));
-                }
-            }
-            double[] sumAry = new double[indObj.totLen];
-            for(int i = 0; i < sumAry.length; i++) {
-                double sum = 0;
-                for(double[] mAry : OrgLi){
-                    if(mAry[i] != -9999){
-                        sum += mAry[i];
-                    }
-                }
-                sumAry[i] = sum;
-            }
-            sumMap.put(fName, sumAry);
-        }
-        //endregion
-
-        double sumAvg = 0;
-        //region 2. compute sum average
-        int count = 0;
-        for (double[] sumAry : sumMap.values()){
-            for(int i=0;i<sumAry.length;i++)
-            {
-                sumAvg += sumAry[i]>0?sumAry[i]:0;
-                count += sumAry[i]>0? 1:0;
-            }
-        }
-        sumAvg/=count;
-        //endregion
-
-        //region 3. adjust intensity using factors
-        for(String fName : fNameLi){
-            Index indObj = param.indMap.get(fName);
-            double[] sumAry = sumMap.get(fName);
-            for(Map<String, double[]> fAbnMap : gAbnMap.values()) {
-                if (fAbnMap.containsKey(fName)) {
-                    double[] mAry = fAbnMap.get(fName);
-                    for(int i=0;i<indObj.totLen;i++){
-                        if(mAry[i]!=-9999){
-                            mAry[i] = mAry[i]*(sumAvg/sumAry[i]);
-                        }
-                    }
-                }
-            }
-        }
-        //endregion
-    }
-
-    private static void IRSNorm()
-    {
-        double GloMinRefInt = CalGloMinRefInt();
-        List<String> fNameLi = new ArrayList<>(param.TitleMap.keySet());
-        for(String groupkey : gAbnMap.keySet()){
-            double AvgRef=0;
-            int count=0;
-            Map<String, double[]> fAbnMap = gAbnMap.get(groupkey);
-            for(String fName : fNameLi){
-                if(fAbnMap.containsKey(fName)){
-                    double[] mAry = fAbnMap.get(fName);
-                    AvgRef+=mAry[mAry.length-1]>0? Math.log(mAry[mAry.length-1]):0;
-                    count+=mAry[mAry.length-1]>0? 1:0;
-                }
-            }
-            AvgRef=Math.exp(AvgRef/count);
-            for(String fName : fNameLi) {
-                if (fAbnMap.containsKey(fName)) {
-                    double[] mAry = fAbnMap.get(fName);
-                    double fac = (mAry[mAry.length-1]>0)?AvgRef/mAry[mAry.length-1]:GloMinRefInt;
-                    for(int i=0;i<param.channelNum;i++){
-                        mAry[i] = (mAry[i]!=-9999) ? mAry[i]*fac:-9999;
-                    }
-                }
-            }
-        }
-    }
-
-    private static TreeMap<String, double[]> GetProtMedian(boolean UseAbsValue)
-    {
-        List<String> fNameLi = new ArrayList<>(param.TitleMap.keySet());
-        TreeMap<String, double[]> MedMap = new TreeMap<String, double[]>();
-        //region Get the median
-        for(String fName : fNameLi)
-        {
-            Index indObj = param.indMap.get(fName);
-            double[] MedianAry = new double[indObj.plexNum];
-            List<double[]> OrgLi = new ArrayList<double[]>();
-            for(Map<String, double[]> fAbnMap : gAbnMap.values()){
-                if (fAbnMap.containsKey(fName)){
-                    OrgLi.add(fAbnMap.get(fName));
-                }
-            }
-            for(int i = 0; i < MedianAry.length; i++) {
-                List<Double> tmpLi = new ArrayList<Double>();
-                for(double[] mAry : OrgLi){
-                    if(mAry[i] != -9999){
-                        if(UseAbsValue){
-                            tmpLi.add(Math.abs(mAry[i]));
-                        }
-                        else{
-                            tmpLi.add(mAry[i]);
-                        }
-                    }
-                }
-                MedianAry[i] = Utils.takeMedian(tmpLi);
-            }
-            MedMap.put(fName, MedianAry);
-        }
-
-        return MedMap;
-    }
-
-    private static Double CalGlobalMed(TreeMap<String, double[]> MedMap)
-    {
-        List<Double> tmpLi = new ArrayList<Double>();
-        for(double[] mAry : MedMap.values()){
-            for(double m : mAry){
-                if(m != -9999){
-                    tmpLi.add(m);
-                }
-            }
-        }
-        double Med0 = Utils.takeMedian(tmpLi);
-        return Med0;
-    }
-
-    private static void SubtractProt(int NormIndex, TreeMap<String, double[]> MedMap, double m0, double Med0)
-    {
-        for(String groupkey : gAbnMap.keySet()){
-            Map<String, double[]> fAbnMap = gAbnMap.get(groupkey);
-            for(String fName : fAbnMap.keySet()){
-                double[] MedianAry = MedMap.get(fName);
-                double[] mAry =  fAbnMap.get(fName);
-                for(int i = 0 ; i < MedianAry.length; i++){
-                    if(mAry[i] != -9999){
-                        if(NormIndex==1){
-                            mAry[i] = mAry[i] - MedianAry[i];
-                        }
-                        else if(NormIndex==2){
-                            //mAry[i] = (mAry[i]/MedianAry[i])*Med0+m0;
-                            mAry[i] = (mAry[i]/MedianAry[i])*Med0;
-                        }
-                    }
-                }
-            }
-        }
     }
 
     private static void Report(String flag) throws IOException

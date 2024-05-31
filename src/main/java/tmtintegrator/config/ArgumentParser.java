@@ -4,6 +4,11 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Parses command line arguments.
+ *
+ * @author rogerli on 05/2024
+ */
 public class ArgumentParser {
 
     private final File yamlFile;

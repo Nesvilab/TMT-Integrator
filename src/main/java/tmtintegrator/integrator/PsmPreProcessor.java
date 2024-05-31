@@ -1,5 +1,6 @@
 package tmtintegrator.integrator;
 
+import tmtintegrator.constants.ReferenceType;
 import tmtintegrator.pojo.PsmEntry;
 import tmtintegrator.pojo.Index;
 import tmtintegrator.pojo.Parameters;
@@ -8,31 +9,15 @@ import tmtintegrator.utils.Utils;
 import java.io.*;
 import java.util.*;
 
+/**
+ * Preprocess PSM files, check for missing values, create index for each PSM file
+ *
+ * @author rogerli on 05/2024
+ */
 public class PsmPreProcessor {
 
     private final Parameters parameters;
     private final List<String> proteinList; // TODO: no usage
-
-    // TODO: Just an example here to avoid magic numbers
-    //   Better to rewrite parameters and other data structures to use enums or constants
-    private enum ReferenceType {
-        SUMMATION,
-        AVERAGE,
-        MEDIAN;
-
-        public static ReferenceType fromInteger(int value) {
-            switch (value) {
-                case 0:
-                    return SUMMATION;
-                case 1:
-                    return AVERAGE;
-                case 2:
-                    return MEDIAN;
-                default:
-                    throw new IllegalArgumentException("Invalid reference type value: " + value);
-            }
-        }
-    }
 
     public PsmPreProcessor(Parameters parameters) {
         this.parameters = parameters;
@@ -595,7 +580,7 @@ public class PsmPreProcessor {
     }
 
     private double calculateRefAbundance(String[] fields, String[] headers, Index index, int printNum) {
-        ReferenceType method = ReferenceType.fromInteger(parameters.add_Ref); // TODO: magic number
+        ReferenceType method = ReferenceType.fromValue(parameters.add_Ref);
         switch (method) {
             case SUMMATION:
                 return calculateSummation(fields, headers, index, printNum);

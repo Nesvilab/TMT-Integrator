@@ -9,6 +9,11 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.List;
 
+/**
+ * Load configuration parameters from a YAML file and command line arguments.
+ *
+ * @author rogerli on 05/2024
+ */
 public class ConfigLoader {
     private final Parameters parameters;
 

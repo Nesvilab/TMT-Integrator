@@ -1,12 +1,18 @@
 package tmtintegrator.constants;
 
+/**
+ * Level of data summarization.
+ *
+ * @author rogerli on 05/2024
+ */
 public enum GroupBy {
-    GENE(0),
-    PROTEIN_ID(1),
-    PEPTIDE(2),
-    MULTI_PHOSPHO_SITE(3),
-    SINGLE_PHOSPHO_SITE(4),
-    MULTI_MASS_GLYCO(5);
+    ALL(-1), // generate reports for all levels
+    GENE(0), // PSM aggregation to the gene level
+    PROTEIN_ID(1), // protein level
+    PEPTIDE(2), // peptide sequence level
+    MULTI_PHOSPHO_SITE(3), // multiple PTM sites
+    SINGLE_PHOSPHO_SITE(4), // single PTM site
+    MULTI_MASS_GLYCO(5); // multi-mass for glycolysation
 
     private final int value;
 
