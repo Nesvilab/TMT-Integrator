@@ -1,5 +1,6 @@
 package tmtintegrator.integrator;
 
+import tmtintegrator.constants.Constants;
 import tmtintegrator.constants.NormType;
 import tmtintegrator.pojo.Index;
 import tmtintegrator.pojo.Parameters;
@@ -14,11 +15,9 @@ import java.util.*;
  */
 
 public class PsmNormalizer {
-
     private final Parameters parameters;
     private final NormType normType; // protein normalization type
     private Map<String, Map<String, double[]>> groupAbundanceMap; // <groupKey(proteinId), <fileName, abundance>>
-    public static final int BIN_NUM = 10;
 
     public PsmNormalizer(Parameters parameters, NormType normType) {
         this.parameters = parameters;
@@ -126,7 +125,7 @@ public class PsmNormalizer {
         }
 
         // define bins of retention time
-        NavigableMap<Double, List<String>> binMap = Utils.createBins(minRt, maxRt, BIN_NUM);
+        NavigableMap<Double, List<String>> binMap = Utils.createBins(minRt, maxRt, Constants.BIN_NUM);
 //        NavigableMap<Double, List<String>> binMap = Utils.createBinsToBeRefactor(minRt, maxRt, BIN_NUM); // FIXME: use createBins
 
         // assign PSMs to bins
@@ -240,26 +239,9 @@ public class PsmNormalizer {
     private void ratioToAbundance() {
         double globalMinRefInt = Utils.calculateGlobalMinRefInt(groupAbundanceMap, parameters);
         for (Map<String, double[]> fileAbundanceMap : groupAbundanceMap.values()) {
-            double avgAbundance = calculateAvgAbundance(fileAbundanceMap, globalMinRefInt);
+            double avgAbundance = Utils.calculateAvgAbundance(fileAbundanceMap, globalMinRefInt, parameters);
             convertRatioToAbundance(fileAbundanceMap, avgAbundance);
         }
-    }
-
-    /**
-     * M2: Calculate average abundance (using global min reference intensity).
-     *
-     * @param fileAbundanceMap map of file to abundance values
-     * @param globalMinRefInt  global minimum reference intensity
-     * @return average abundance
-     */
-    private double calculateAvgAbundance(Map<String, double[]> fileAbundanceMap, double globalMinRefInt) {
-        double avgAbundance = 0;
-        for (String filename : parameters.fNameLi) {
-            Index index = parameters.indMap.get(filename);
-            double[] medianValues = fileAbundanceMap.getOrDefault(filename, new double[index.totLen]);
-            avgAbundance += (medianValues[index.plexNum] > 0) ? medianValues[index.plexNum] : globalMinRefInt;
-        }
-        return avgAbundance / parameters.fNameLi.size();
     }
 
     private void convertRatioToAbundance(Map<String, double[]> fileAbundanceMap, double avgAbundance) {

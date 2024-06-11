@@ -26,6 +26,14 @@ public final class Utils {
         }
     }
 
+    public static int tryParseInt(String input) {
+        try {
+            return Integer.parseInt(input);
+        } catch (NumberFormatException e) {
+            return -1; // FIXME: use Integer.MIN_VALUE
+        }
+    }
+
     public static double takeMedian(List<Double> numbers) {
         if (numbers == null || numbers.isEmpty()) {
             return -9999; // FIXME: Double.NaN is better
@@ -217,6 +225,23 @@ public final class Utils {
             }
         }
         return globalMinRefInt;
+    }
+
+    /**
+     * M2: Calculate average abundance (using global min reference intensity).
+     *
+     * @param fileAbundanceMap map of file to abundance values
+     * @param globalMinRefInt  global minimum reference intensity
+     * @return average abundance
+     */
+    public static double calculateAvgAbundance(Map<String, double[]> fileAbundanceMap, double globalMinRefInt, Parameters parameters) {
+        double avgAbundance = 0;
+        for (String filename : parameters.fNameLi) {
+            Index index = parameters.indMap.get(filename);
+            double[] medians = fileAbundanceMap.getOrDefault(filename, new double[index.totLen]);
+            avgAbundance += (medians[index.plexNum] > 0) ? medians[index.plexNum] : globalMinRefInt;
+        }
+        return avgAbundance / parameters.fNameLi.size();
     }
 
     // region helper methods

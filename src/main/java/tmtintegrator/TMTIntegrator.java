@@ -102,7 +102,7 @@ public class TMTIntegrator {
         }
     }
 
-    // TODO: buggy logic, need to be reimplemented
+    // FIXME: buggy logic, need to be reimplemented
     private void processProtNorm(int startGroupBy, int endGroupBy, int normalizationOptions) throws IOException {
         if (param.groupBy >= 0) {
             for (int i = 0; i <= normalizationOptions; i++) {

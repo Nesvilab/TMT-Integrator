@@ -1,5 +1,6 @@
 package tmtintegrator.integrator;
 
+import tmtintegrator.constants.Constants;
 import tmtintegrator.constants.GroupBy;
 import tmtintegrator.pojo.Index;
 import tmtintegrator.pojo.Parameters;
@@ -8,6 +9,7 @@ import tmtintegrator.pojo.Ratio;
 import tmtintegrator.utils.Utils;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Utility class to process PSMs.
@@ -20,18 +22,18 @@ public class PsmProcessor {
     private final GroupBy groupBy;
     private final Map<String, Map<String, PsmInfo>> groupPsmMap; // <groupKey(proteinId), <fileName, psmInfo>>
     private final Map<String, Map<String, double[]>> groupAbundanceMap; // <groupKey(proteinId), <fileName, abundance>>
-    public static final int PSM_NUM_THRESHOLD = 4; // threshold for outlier removal
 
     public PsmProcessor(Parameters parameters, GroupBy groupBy) {
         this.parameters = parameters;
-        this.groupPsmMap = new TreeMap<>();
-        this.groupAbundanceMap = new TreeMap<>();
+        this.groupPsmMap = new TreeMap<>(); // TODO: HashMap?
+        this.groupAbundanceMap = new TreeMap<>(); // TODO: HashMap?
         this.groupBy = groupBy;
     }
 
     public Map<String, Map<String, PsmInfo>> getGroupPsmMap() {
         return groupPsmMap;
     }
+
     public Map<String, Map<String, double[]>> getGroupAbundanceMap() {
         return groupAbundanceMap;
     }
@@ -67,7 +69,7 @@ public class PsmProcessor {
                 PsmInfo psmInfo = entry.getValue();
                 Index index = parameters.indMap.get(filePath);
                 // Only process psmInfo with psmList over threshold for speed
-                if (psmInfo.psmList.size() >= PSM_NUM_THRESHOLD) {
+                if (psmInfo.psmList.size() >= Constants.PSM_NUM_THRESHOLD) {
                     List<String> normPsmList = processPsmListByIQR(psmInfo.psmList, index);
                     psmInfo.psmList.clear();
                     psmInfo.psmList.addAll(normPsmList);
@@ -120,6 +122,28 @@ public class PsmProcessor {
             groupKey = updateGroupKey(groupKey, globalGenePepSeq, maxPeptideProb);
             groupAbundanceMap.put(groupKey, fileAbundanceMap);
         }
+    }
+
+    /**
+     * Generate single site, remove multiple sites if single site exists.
+     * Calculate the median abundance and update the group abundance map.
+     */
+    public void generateSingleSite() {
+        // <groupKey, List<groupKey>>
+        Map<String, List<String>> keyMap = new TreeMap<>(); // TODO: HashMap?
+        // <groupKey, <peptide, pepIndex>> FIXME: keyPepMap is not used
+        Map<String, Map<String, Integer>> keyPepMap = new TreeMap<>(); // to store the peptide start position TODO: HashMap?
+        int location = 5; // FIXME: magic number
+
+        // Cluster keys based on the index
+        clusterKeys(keyMap, keyPepMap, location);
+        // Remove multiple sites if single site exists
+        removeMultiSites(keyMap);
+        // Calculate the median abundance
+        Map<String, Map<String, double[]>> newGroupAbundanceMap = calculateMedianAbundance(keyMap);
+        // Update the group abundance map
+        groupAbundanceMap.clear();
+        groupAbundanceMap.putAll(newGroupAbundanceMap);
     }
 
     // region helper methods
@@ -204,7 +228,7 @@ public class PsmProcessor {
             }
 
             // calculate IQR for outlier removal
-            if (ratios.size() >= PSM_NUM_THRESHOLD) {
+            if (ratios.size() >= Constants.PSM_NUM_THRESHOLD) {
                 double[] iqrBounds = Utils.computeIQR(ratios); // lower and upper bounds
                 for (double[] row : ratio2DValues) {
                     // remove outliers
@@ -387,6 +411,144 @@ public class PsmProcessor {
             return groupKey + "\t" + maxPeptideProb;
         }
         return groupKey + "\t" + globalGenePepSeq + "\t" + maxPeptideProb;
+    }
+
+    private void clusterKeys(Map<String, List<String>> keyMap, Map<String, Map<String, Integer>> keyPepMap, int location) {
+        for (String groupKey : groupAbundanceMap.keySet()) {
+            String[] keyParts = groupKey.split("\t");
+            String[] indexParts = keyParts[0].split("%");
+
+            if (Utils.tryParseInt(indexParts[indexParts.length - 1]) < 0) { // FIXME: not a good practice
+                // FIXME: review required, if this is just removing the modification tag to get the peptide sequence
+                //   index, then the parameters.modAA should be a regex pattern to match the modification tag
+                //   [STY] for example, not like "S|T|Y" which is current implementation
+                String[] parts = indexParts[location].split(parameters.modAA);
+
+                // find the peptide start position in the protein sequence
+                String pepseq = keyParts[3]; // FIXME: magic number
+                int firstIdx = findPepStartIndex(pepseq);
+                int pepStartIdx = Integer.parseInt(parts[1]) - firstIdx; // FIXME: magic number
+
+                for (int i = 1; i < parts.length; i++) {
+                    String newGroupKey = indexParts[0] + "%" +
+                            indexParts[location].charAt(indexParts[location].indexOf(parts[i]) - 1) + parts[i];
+
+                    // update keyMap
+                    List<String> keyList = keyMap.computeIfAbsent(newGroupKey, k -> new ArrayList<>());
+                    if (!keyList.contains(groupKey)) {
+                        keyList.add(groupKey);
+                    }
+                    // update keyPepMap
+                    int pepIndex = Integer.parseInt(parts[i]) - pepStartIdx;
+                    Map<String, Integer> indexMap = keyPepMap.computeIfAbsent(newGroupKey, k -> new TreeMap<>()); // TODO: HashMap?
+                    indexMap.put(pepseq, pepIndex);
+                }
+            }
+        }
+    }
+
+    private int findPepStartIndex(String peptide) {
+        for (int i = 0; i < peptide.length(); i++) {
+            if (Character.isLowerCase(peptide.charAt(i))) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private void removeMultiSites(Map<String, List<String>> keyMap) {
+        for (Map.Entry<String, List<String>> entry : keyMap.entrySet()) {
+            List<String> keyList = entry.getValue();
+            if (keyList.size() > 1) {
+                // filter out single site list
+                List<String> singleSiteList = keyList.stream()
+                        .filter(key -> key.split("[\t%]")[4].equalsIgnoreCase("1"))
+                        .collect(Collectors.toList());
+                if (!singleSiteList.isEmpty()) {
+                    entry.setValue(singleSiteList);
+                }
+            }
+        }
+    }
+
+    private Map<String, Map<String, double[]>> calculateMedianAbundance(Map<String, List<String>> keyMap) {
+        Map<String, Map<String, double[]>> newGroupAbundanceMap = new TreeMap<>(); // TODO: HashMap?
+        for (String key : keyMap.keySet()) {
+            List<String> keyList = keyMap.get(key);
+            if (keyList.size() > 1) {
+                // <fileName, abundances>
+                Map<String, List<double[]>> groupFileAbnMap = new TreeMap<>(); // TODO: HashMap?
+                aggregateAbundance(keyList, groupFileAbnMap);
+                Map<String, double[]> updatedAbnMap = calculateUpdatedAbundance(groupFileAbnMap);
+
+                String newKey = createNewGroupKey(key, keyList);
+                newGroupAbundanceMap.put(newKey, updatedAbnMap);
+            } else {
+                String[] keyParts = keyList.get(0).split("\t");
+                String newKey = key + "\t" + keyParts[1] + "\t" + keyParts[2] + "\t" + keyParts[3] + "\t"
+                        + keyParts[4] + "\t" + keyParts[5] + "\t" + keyParts[6] + "\t" + keyParts[7]; // FIXME: magic number
+                newGroupAbundanceMap.put(newKey, groupAbundanceMap.get(keyList.get(0)));
+            }
+        }
+        return newGroupAbundanceMap;
+    }
+
+    private void aggregateAbundance(List<String> keyList, Map<String, List<double[]>> groupFileAbnMap) {
+        for (String groupKey : keyList) {
+            Map<String, double[]> fileAbundanceMap = groupAbundanceMap.get(groupKey);
+            for (String fileName : parameters.fNameLi) {
+                double[] medians = fileAbundanceMap.get(fileName);
+                if (medians != null) {
+                    List<double[]> abundanceList = groupFileAbnMap.computeIfAbsent(fileName, k -> new ArrayList<>());
+                    abundanceList.add(medians);
+                }
+            }
+        }
+    }
+
+    private Map<String, double[]> calculateUpdatedAbundance(Map<String, List<double[]>> groupFileAbnMap) {
+        Map<String, double[]> updatedAbnMap = new TreeMap<>(); // TODO: HashMap?
+        for (String fileName : groupFileAbnMap.keySet()) {
+            Index index = parameters.indMap.get(fileName);
+            List<double[]> abundanceList = groupFileAbnMap.get(fileName);
+
+            if (abundanceList.size() > 1) {
+                double[] fileMedians = new double[index.totLen];
+                for (int i = 0; i < index.totLen; i++) {
+                    List<Double> channelValues = new ArrayList<>();
+                    for (double[] medians : abundanceList) {
+                        if (medians[i] != -9999) { // FIXME: !Double.isNaN(medians[i]) is better
+                            channelValues.add(medians[i]);
+                        }
+                    }
+                    fileMedians[i] = Utils.takeMedian(channelValues);
+                }
+                updatedAbnMap.put(fileName, fileMedians);
+            } else {
+                updatedAbnMap.put(fileName, abundanceList.get(0));
+            }
+        }
+        return updatedAbnMap;
+    }
+
+    private String createNewGroupKey(String groupKey, List<String> keyList) {
+        String[] keyParts = keyList.get(0).split("\t");
+        String gene = keyParts[1];
+        String proteinId = keyParts[2];
+        String extPepList = keyParts[4];
+        String start = keyParts[5];
+        String end = keyParts[6];
+
+        double maxPeptideProb = 0;
+        Set<String> peptideSet = new TreeSet<>(); // TODO: HashSet?
+        for (String key : keyList) {
+            String[] parts = key.split("\t");
+            peptideSet.add(parts[3]);
+            maxPeptideProb = Math.max(maxPeptideProb, Float.parseFloat(parts[7]));
+        }
+
+        return String.format("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s", groupKey, gene, proteinId,
+                String.join(";", peptideSet), extPepList, start, end, maxPeptideProb);
     }
     // endregion
 }
