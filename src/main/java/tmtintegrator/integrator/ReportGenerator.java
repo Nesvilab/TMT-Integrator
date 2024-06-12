@@ -18,6 +18,10 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Generate reports for the integrated data
+ */
+
 public class ReportGenerator {
     private final Parameters parameters;
     private final GroupBy groupBy;
@@ -34,7 +38,7 @@ public class ReportGenerator {
     }
 
 
-    public void generateReport() throws IOException {
+    public void generateReports() throws IOException {
         if (parameters.abn_type == 0) {
             if (normType == NormType.SL_IRS) {
                 report(ReportType.RATIO_ABUNDANCE); // report abundances
@@ -305,7 +309,7 @@ public class ReportGenerator {
                     writer.write("\tNA");
                 } else {
                     double abn = parameters.log2transformed ? Utils.log2(Utils.pow2(medians[i]) * avgAbundance)
-                                                            : Utils.pow2(medians[i]) * avgAbundance;
+                            : Utils.pow2(medians[i]) * avgAbundance;
                     writer.write("\t" + abn);
                 }
             }

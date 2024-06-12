@@ -1,5 +1,6 @@
 package tmtintegrator;
 
+import tmtintegrator.integrator.Integrator;
 import tmtintegrator.integrator.PsmPreProcessor;
 import tmtintegrator.pojo.Parameters;
 
@@ -40,7 +41,7 @@ public class TMTIntegrator {
                 return;
             }
             // options for groupBy and protNorm
-            // TODO: magic numbers
+            // FIXME: magic numbers
             int startGroupBy = (!param.geneflag) ? 0 : 1;
             int endGroupBy = (param.glycoflag) ? 5 : 4;
             if (param.minSiteProb < 0) { // not ptm data
@@ -59,29 +60,6 @@ public class TMTIntegrator {
         }
     }
 
-    /**
-     * Helper method for getting the part of a modification to use as the index. Supports using the glycan composition
-     * instead of mass if specified.
-     * Note: if observed mods is empty, default to using the mass value instead
-     *
-     * @param inputMod             single Assigned modification string
-     * @param glycanComposition    contents of the corresponding glycan composition column (only needed for glyco mode)
-     * @param useGlycanComposition whether to use the glycan composition or mass as the index
-     * @return mod string to use as index
-     */
-    public static String getAssignedModIndex(String inputMod, String glycanComposition, boolean useGlycanComposition) {
-        String mod;
-        if (useGlycanComposition && glycanComposition.length() > 0) {
-            // if using composition for index, read it from glycan composition column. Still get AA site from assigned mods
-            mod = inputMod.substring(inputMod.indexOf("(") - 1, inputMod.indexOf("("));
-            mod = String.format("%s(%s)", mod, glycanComposition);
-        } else {
-            // read mass from assigned mod, as would do for any other mod
-            mod = inputMod.substring(inputMod.indexOf("(") - 1);
-        }
-        return mod;
-    }
-
     // region helper methods
     private boolean inValidAbundanceType() {
         // TODO: Maybe a buggy condition here, type 1 need to be reimplemented
@@ -91,12 +69,13 @@ public class TMTIntegrator {
 
     // TODO: logic review required
     private void processGroupBy(int startGroupBy, int endGroupBy) throws IOException {
+        Integrator integrator = new Integrator(param);
         if (param.groupBy >= 0) {
-            integrate.run(param, param.groupBy, param.protNorm);
+            integrator.run(param.groupBy, param.protNorm);
         } else {
             for (int i = startGroupBy; i <= endGroupBy; i++) {
-                System.out.println("Start to process GroupBy=" + i);
-                integrate.run(param, i, param.protNorm);
+                System.out.println("Start to process GroupBy: " + i);
+                integrator.run(i, param.protNorm);
                 System.out.println("-----------------------------------------------------------------------");
             }
         }
@@ -104,14 +83,15 @@ public class TMTIntegrator {
 
     // FIXME: buggy logic, need to be reimplemented
     private void processProtNorm(int startGroupBy, int endGroupBy, int normalizationOptions) throws IOException {
+        Integrator integrator = new Integrator(param);
         if (param.groupBy >= 0) {
             for (int i = 0; i <= normalizationOptions; i++) {
                 if (param.abn_type == 1 && i < 1) {
                     System.out.println("Start to process protNorm=" + i);
-                    integrate.run(param, param.groupBy, i);
+                    integrator.run(param.groupBy, i);
                     System.out.println("-----------------------------------------------------------------------");
                 } else if (param.abn_type == 0) {
-                    integrate.run(param, param.groupBy, i);
+                    integrator.run(param.groupBy, i);
                     System.out.println("-----------------------------------------------------------------------");
                 }
             }
@@ -119,11 +99,11 @@ public class TMTIntegrator {
             for (int i = startGroupBy; i <= endGroupBy; i++) {
                 for (int j = 0; j <= normalizationOptions; j++) {
                     if ((param.abn_type == 1) && (i < 1 || i >= 3)) {
-                        System.out.println("Start to process GroupBy=" + i + "_protNorm=" + j);
-                        integrate.run(param, i, j);
+                        System.out.println("Start to process GroupBy: " + i + "_protNorm=" + j);
+                        integrator.run(i, j);
                         System.out.println("-----------------------------------------------------------------------");
                     } else if (param.abn_type == 0) {
-                        integrate.run(param, i, j);
+                        integrator.run(i, j);
                         System.out.println("-----------------------------------------------------------------------");
                     }
                 }

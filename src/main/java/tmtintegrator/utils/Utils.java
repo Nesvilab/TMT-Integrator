@@ -244,6 +244,30 @@ public final class Utils {
         return avgAbundance / parameters.fNameLi.size();
     }
 
+    /**
+     * Helper method for getting the part of a modification to use as the index. Supports using the glycan composition
+     * instead of mass if specified.
+     * Note: if observed mods is empty, default to using the mass value instead
+     *
+     * @param inputMod             single Assigned modification string
+     * @param glycanComposition    contents of the corresponding glycan composition column (only needed for glyco mode)
+     * @param useGlycanComposition whether to use the glycan composition or mass as the index
+     * @return mod string to use as index
+     * @author dpolasky
+     */
+    public static String getAssignedModIndex(String inputMod, String glycanComposition, boolean useGlycanComposition) {
+        String mod;
+        if (useGlycanComposition && !glycanComposition.isEmpty()) {
+            // if using composition for index, read it from glycan composition column. Still get AA site from assigned mods
+            mod = inputMod.substring(inputMod.indexOf("(") - 1, inputMod.indexOf("("));
+            mod = String.format("%s(%s)", mod, glycanComposition);
+        } else {
+            // read mass from assigned mod, as would do for any other mod
+            mod = inputMod.substring(inputMod.indexOf("(") - 1);
+        }
+        return mod;
+    }
+
     // region helper methods
     private static void takeWeightsAndNormalize(List<Ratio> ratioList) {
         double sum = 0;

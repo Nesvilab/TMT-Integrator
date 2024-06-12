@@ -2,6 +2,7 @@ package tmtintegrator.pojo;
 
 import tmtintegrator.TMTIntegrator;
 import tmtintegrator.constants.GroupBy;
+import tmtintegrator.utils.Utils;
 
 import java.util.*;
 
@@ -219,7 +220,7 @@ public class ProcessedPsmEntry {
         String[] assignedMods = assignedModification.split(",");
         for (String assignedMod : assignedMods) {
             String glycoComp = index.glycoCompositionIndex == -1 ? "" : fields[index.glycoCompositionIndex];
-            String mod = TMTIntegrator.getAssignedModIndex(assignedMod, glycoComp, parameters.useGlycoComposition);
+            String mod = Utils.getAssignedModIndex(assignedMod, glycoComp, parameters.useGlycoComposition);
             // FIXME: review required
             // In the old code, the mod is rounded to 2 decimal places to match a mod tag in parameters.modTagLi
             // But the old logic converted modTagLi to a long string split by ';' which is inefficient

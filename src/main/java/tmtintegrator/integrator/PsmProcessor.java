@@ -30,10 +30,6 @@ public class PsmProcessor {
         this.groupBy = groupBy;
     }
 
-    public Map<String, Map<String, PsmInfo>> getGroupPsmMap() {
-        return groupPsmMap;
-    }
-
     public Map<String, Map<String, double[]>> getGroupAbundanceMap() {
         return groupAbundanceMap;
     }
