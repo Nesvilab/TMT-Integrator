@@ -43,7 +43,6 @@ public class Parameters
     public boolean useGlycoComposition = false;    // whether to use glycan composition string or glycan mass for indexing
     public float glycoQval = -1;
 
-    public String prefix = "rev_";
     public boolean log2transformed = true;
 
     public List<File> FileLi = new ArrayList<>();

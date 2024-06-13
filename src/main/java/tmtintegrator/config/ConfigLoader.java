@@ -164,9 +164,6 @@ public class ConfigLoader {
                 case "use_glycan_composition":
                     parameters.useGlycoComposition = Boolean.parseBoolean(value);
                     break;
-                case "prefix":
-                    parameters.prefix = value;
-                    break;
                 case "log2transformed":
                     parameters.log2transformed = Boolean.parseBoolean(value);
                     break;
