@@ -12,10 +12,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class TMTIntegrator {
-    private final Parameters param;
+
     private final static String APP_NAME = "TMT Integrator";
     private final static String APP_VERSION = "5.0.9";
+    private final Parameters param;
     private List<String> proteinLi; // TODO: no usage
+
+    public TMTIntegrator(Parameters param) {
+        this.param = param;
+        this.proteinLi = new ArrayList<>();
+    }
 
     public static void main(String[] args) throws IOException {
 
@@ -52,12 +58,8 @@ public class TMTIntegrator {
         System.out.println("Execution time: " + (endTime - startTime) + " ms");
     }
 
-    public TMTIntegrator(Parameters param) {
-        this.param = param;
-        this.proteinLi = new ArrayList<>();
-    }
-
-    public void run() throws IOException {
+    // region helper methods
+    private void run() throws IOException {
         try {
             // region check PSM tables, get genes, and build index
             long start = System.currentTimeMillis();
@@ -99,7 +101,6 @@ public class TMTIntegrator {
         }
     }
 
-    // region helper methods
     private boolean inValidAbundanceType() {
         // TODO: Maybe a buggy condition here, type 1 need to be reimplemented
         // TODO: magic numbers
