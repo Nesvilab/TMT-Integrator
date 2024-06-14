@@ -240,15 +240,15 @@ public class PsmEntry {
             return true;
         }
         String firstAAtag = peptideSequence.charAt(0) + "(229."; // TODO: No usage, don't know what for
-        return assignedModification.contains("1S(229.") ||
+        return assignedModification.contains("n(42.") ||
+                assignedModification.contains("n(229.") ||
+                assignedModification.contains(", 1S(229.") ||
+                assignedModification.indexOf("1S(229.") == 0 ||
                 assignedModification.contains("N-term(42.") ||
                 assignedModification.contains("N-term(229.") ||
                 assignedModification.contains("N-term(144.1") ||
                 assignedModification.contains("9K(304.2") ||
                 assignedModification.contains("N-term(304.2");
-        // TODO: seems incorrect below
-        // assignedModification.contains("n(42.") ||
-        // assignedModification.contains("n(229.");
     }
 
     /**

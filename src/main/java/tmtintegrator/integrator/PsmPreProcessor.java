@@ -41,7 +41,7 @@ public class PsmPreProcessor {
     }
 
     /**
-     * Update PSM files based on the criteria, select best PSM if required, and print PSM files
+     * Update PSM files based on the criteria, select best PSM if required, and print temp PSM files
      *
      */
     public void updatePsmFiles() {
@@ -447,9 +447,8 @@ public class PsmPreProcessor {
             String newPsm = psmEntry.getProcessedPsm();
             String key = psmEntry.generatePsmKey();
             // update psmMap
-            List<String> psmList = psmMap.getOrDefault(key, new ArrayList<>());
+            List<String> psmList = psmMap.computeIfAbsent(key, k -> new ArrayList<>());
             psmList.add(newPsm);
-            psmMap.put(key, psmList);
         } else {
             psmMap.get("NotUsed").add(psm + "\t" + psmEntry.getGeneCategory());
         }
