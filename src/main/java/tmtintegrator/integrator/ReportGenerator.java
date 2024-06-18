@@ -40,7 +40,7 @@ public class ReportGenerator {
 
     public void generateReports() throws IOException {
         if (parameters.abn_type == 0) {
-            if (normType == NormType.SL_IRS) {
+            if (normType == NormType.ALL_NORM || normType == NormType.SL_IRS) {
                 report(ReportType.RATIO_ABUNDANCE); // report abundances
             } else {
                 report(ReportType.RATIO); // report ratios
