@@ -386,7 +386,7 @@ public class PsmEntry {
     }
 
     private int determineGeneCategory() {
-        if (mappedGenes == null || mappedGenes.trim().isEmpty()) {
+        if (mappedGenes == null || mappedGenes == "") { // FIXME: Just to match result from original code, should never use "==", no result for java 17
             // Assuming 0 for no mapping genes
             return 0; // TODO: magic number, use parameter
         }

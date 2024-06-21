@@ -346,7 +346,7 @@ public class PsmProcessor {
             int highestEnd = Integer.MIN_VALUE;
 
             List<String> peptideList = entry.getValue();
-            for (String peptide : peptideList) {
+            for (String peptide : peptideList) { // peptide format: peptide@pepIndex@extendedPeptide
                 String[] parts = peptide.split("@");
                 int pepIndex = Integer.parseInt(parts[1]);
                 int endIdx = pepIndex + parts[0].length();

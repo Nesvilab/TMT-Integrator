@@ -295,7 +295,7 @@ public final class Utils {
         double cumulativeWeight = 0.0;
         for (Ratio ratio : ratioList) {
             cumulativeWeight += ratio.weight;
-            if (cumulativeWeight >= 0.5) {
+            if (cumulativeWeight > 0.5) {
                 return ratio.ratio;
             }
         }
