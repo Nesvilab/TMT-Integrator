@@ -63,7 +63,7 @@ public final class Utils {
         takeWeightsAndNormalize(ratioList);
 
         // 3. Sort ratios by ratio values
-        ratioList.sort(Comparator.comparingDouble(r -> r.ratio));
+        ratioList.sort(Comparator.comparingDouble(r -> r.ratio)); // FIXME 00: should sort by weight to take weighted median
 
         // 4. Find the weighted median
         return findWeightedMedian(ratioList);
@@ -292,16 +292,40 @@ public final class Utils {
     }
 
     private static double findWeightedMedian(List<Ratio> ratioList) {
-        double cumulativeWeight = 0.0;
-        for (Ratio ratio : ratioList) {
-            cumulativeWeight += ratio.weight;
-            if (cumulativeWeight > 0.5) {
-                return ratio.ratio;
+        // FIXME 00: This is a correct way to find weighted median
+//        double cumulativeWeight = 0.0;
+//        for (Ratio ratio : ratioList) {
+//            cumulativeWeight += ratio.weight;
+//            if (cumulativeWeight >= 0.5) {
+//                return ratio.ratio;
+//            }
+//        }
+//        // Fall back to the ratio with the highest weight (should not happen)
+//        ratioList.sort(Comparator.comparingDouble(r -> r.weight));
+//        return ratioList.get(ratioList.size() - 1).ratio;
+        // FIXME 00: to match the original result, reuse the old code here, will removed once FIXME 00 is fixed
+        // region Old code
+        int index = 1;
+        while (index < ratioList.size()) {
+            double weight1 = 0;
+            double weight2 = 0;
+            for (int i = 0; i < index; i++) {
+                weight1 += ratioList.get(i).weight;
             }
+            for (int i = index + 1; i < ratioList.size(); i++) {
+                weight2 += ratioList.get(i).weight;
+            }
+            if (weight1 <= 0.5 && weight2 <= 0.5) {
+                break;
+            }
+            index++;
         }
-        // Fall back to the ratio with the highest weight (should not happen)
-        ratioList.sort(Comparator.comparingDouble(r -> r.weight));
-        return ratioList.get(ratioList.size() - 1).ratio;
+        if (index == ratioList.size()) {
+            ratioList.sort(Comparator.comparingDouble(r -> r.weight));
+            return ratioList.get(ratioList.size() - 1).ratio;
+        }
+        return ratioList.get(index).ratio;
+        // endregion
     }
     // endregion
 }
