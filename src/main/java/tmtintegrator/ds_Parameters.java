@@ -7,7 +7,7 @@ import java.util.TreeMap;
 
 public class ds_Parameters
 {
-    File fastaF;
+    File fastaF; // FIXME 03: no usage
     String reportPath;
     File combinedF;
     int channelNum;

@@ -91,6 +91,7 @@ public class TMTIntegrator
                     }
                 }
             }
+            // FIXME 01: protNorm < 0 and abn_type == 1 never gets executed, reimplemented required.
             else if((param.groupBy>=0) && (param.protNorm<0)){
                 for(int i=0;i<=nop;i++) {//protNorm
                     if((param.abn_type==1) && (i<1 || i>=3)){
@@ -657,6 +658,7 @@ public class TMTIntegrator
             AllPsmLi.add(NewPsm);
         }
         br.close();
+        // endregion
         Collections.sort(TmtIntLi);
 
         int TmtThresIndex = (int) Math.floor(AllPsmLi.size()*param.minPercent);
@@ -817,6 +819,8 @@ public class TMTIntegrator
             int gene_category = 0;
             //region gene category
 
+            // FIXME 08: should not use == compare for string, use equals() instead, this will have mapGenes = "" as true in java 11
+            //   reproduce with tmt10_pholoso_2 dataset
             if(mapGenes!="")
             {
                 String[] gAry = mapGenes.trim().split(",");

@@ -239,8 +239,9 @@ public class integrate
                             for(String aMod : aModAry){
                                 String glycoComp = indObj.glycoCompositionIndex == -1 ? "" : strAry[indObj.glycoCompositionIndex];
                                 String mod = TMTIntegrator.getAssignedModIndex(aMod, glycoComp, param.useGlycoComposition);
+                                // FIXME 07: review required, detail in refactored code
                                 mod = mod.substring(0,mod.indexOf(".")+3);
-                                if(allModTagStr.contains(mod))
+                                if(allModTagStr.contains(mod)) // FIXME 07: inefficient, use parameters.modTagLi.contains(mod) instead without rounding
                                 {
                                     int pos = Integer.valueOf(aMod.substring(0,aMod.indexOf("(")-1).trim());
                                     positionLi.add(pos);
@@ -435,7 +436,7 @@ public class integrate
 
         int bin = 10;
         TreeMap<Double, List<String>> binMap = new TreeMap<Double, List<String>>();
-        //region Generate bins
+        //region Generate bins FIXME 02: bin number mismatch with this implementation, two more bins are generated here
         double gap = (maxRt - minRt)/bin;
         double sRt = minRt;
         double eRt = maxRt + gap;
@@ -443,7 +444,7 @@ public class integrate
             binMap.put(sRt, new ArrayList<String>());
             sRt += gap;
         }
-        binMap.put((maxRt+gap), new ArrayList<String>());
+        binMap.put((maxRt+gap), new ArrayList<String>()); // FIXME 02: this bin never gets used
         //endregion
 
         List<Double> keyLi = new ArrayList<Double>(binMap.keySet());
@@ -570,7 +571,8 @@ public class integrate
                         pi.gene = gene;
                         pi.peptide = (pi.peptide.length() < NewPepSeq.length()) ? NewPepSeq : pi.peptide;
                         pi.extpep = ExtPepSeq;
-                        pi.pepsIndex = (pi.peptide.length() < NewPepSeq.length()) ? pepsIndex: pi.pepsIndex;
+                        // FIXME 06: should be updated, but it will always be the first pepsIndex
+                        pi.pepsIndex = (pi.peptide.length() < NewPepSeq.length()) ? pepsIndex: pi.pepsIndex; // FIXME 06: pepIndex will never be updated
                         pi.PsmLi.add(Psm);
                     }
                     else
@@ -1419,6 +1421,8 @@ public class integrate
             for(String fName : fAbnMap.keySet()){
                 ds_Index indObj = param.indMap.get(fName);
                 double[] mAry = fAbnMap.get(fName);
+                // FIXME 04: bug here, if refInt < 0 for the first one.
+                //   should take the first positive value as initial value, reproduce with luad_phosphoproteome dataset
                 if(isFirst) {//Assign initial intensity
                     GloMinRefInt =mAry[indObj.plexNum];
                     isFirst = false;
@@ -1494,7 +1498,7 @@ public class integrate
                 rObjLi.get(i).weight = rObjLi.get(i).weight/sum;
             }
 
-            //3. Sort ratios
+            //3. Sort ratios FIXME 00: should sort by weight to take the weighted median, reproduce with tmt10_pholoso_2 dataset
             Collections.sort(rObjLi, new Comparator<ds_Ratio>() {
                 @Override
                 public int compare(ds_Ratio r1, ds_Ratio r2) {
@@ -1564,6 +1568,7 @@ public class integrate
     private static void GenerateSingleSite()
     {
         TreeMap<String, List<String>> keyMap = new TreeMap<String, List<String>>();
+        // FIXME 05: keyPepMap is populated during clustering but not used afterwards
         TreeMap<String, TreeMap<String, Integer>> keyPepMap = new TreeMap<String, TreeMap<String, Integer>>(); //to store the peptide start position
         int location=5;
         //region Cluster keys based on the index
