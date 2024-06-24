@@ -94,29 +94,13 @@ public final class Utils {
 //            binMap.put(binStart, new ArrayList<>());
 //        }
 
-        // FIXME: This creates one more bin than expected (including a bin starting from maxRt)
+        // FIXME 02: This creates one more bin than expected (including a bin starting from maxRt)
         //   just to keep the decimal precision, should be refactored to code above
         double binStart = minRt;
         while (binStart <= maxRt) {
             binMap.put(binStart, new ArrayList<>());
             binStart += binWidth;
         }
-
-        return binMap;
-    }
-
-    // FIXME: This method is kept for double decimal precision, should be refactored to use createBins
-    public static NavigableMap<Double, List<String>> createBinsToBeRefactor(double minRt, double maxRt, int binNum) {
-        NavigableMap<Double, List<String>> binMap = new TreeMap<>();
-        //region Generate bins
-        double gap = (maxRt - minRt) / binNum;
-        double sRt = minRt;
-        double eRt = maxRt + gap;
-        while (sRt < eRt) {
-            binMap.put(sRt, new ArrayList<>());
-            sRt += gap;
-        }
-        binMap.put((maxRt + gap), new ArrayList<>());
 
         return binMap;
     }
@@ -219,8 +203,8 @@ public final class Utils {
                 double[] medianValues = entry.getValue();
                 Index index = parameters.indMap.get(filename);
                 double refInt = medianValues[index.plexNum];
-                // FIXME: potential bug here, if refInt < 0 for the first one.
-                //   should take the first positive value as initial value
+                // FIXME 04: bug here, if refInt < 0 for the first one.
+                //   should take the first positive value as initial value, reproduce with luad_phosphoproteome dataset
                 // Solution: just remove isFirst flag, and use globalMinRefInt = Double.MAX_VALUE
                 if (isFirst) {
                     globalMinRefInt = refInt;
@@ -304,6 +288,7 @@ public final class Utils {
 //        ratioList.sort(Comparator.comparingDouble(r -> r.weight));
 //        return ratioList.get(ratioList.size() - 1).ratio;
         // FIXME 00: to match the original result, reuse the old code here, will removed once FIXME 00 is fixed
+        //   reproduce with tmt10_pholoso_2 dataset
         // region Old code
         int index = 1;
         while (index < ratioList.size()) {

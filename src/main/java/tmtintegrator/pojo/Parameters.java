@@ -7,7 +7,7 @@ import java.util.TreeMap;
 
 public class Parameters
 {
-    public File fastaF; // FIXME: no usage
+    public File fastaF; // FIXME 03: no usage
     public String reportPath;
     public File combinedF;
     public int channelNum;

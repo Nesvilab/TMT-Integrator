@@ -127,12 +127,12 @@ public class PsmProcessor {
     public void generateSingleSite() {
         // <groupKey, List<groupKey>>
         Map<String, List<String>> keyMap = new TreeMap<>(); // TODO: HashMap?
-        // <groupKey, <peptide, pepIndex>> FIXME: keyPepMap is not used
+        // <groupKey, <peptide, pepIndex>> FIXME 05: keyPepMap is not used
         Map<String, Map<String, Integer>> keyPepMap = new TreeMap<>(); // to store the peptide start position TODO: HashMap?
         int location = 5; // FIXME: magic number
 
         // Cluster keys based on the index
-        clusterKeys(keyMap, keyPepMap, location);
+        clusterKeys(keyMap, keyPepMap, location); // FIXME 05: keyPepMap is populated during clustering but not used afterwards
         // Remove multiple sites if single site exists
         removeMultiSites(keyMap);
         // Calculate the median abundance
@@ -163,12 +163,11 @@ public class PsmProcessor {
         } else if (psmInfo.peptide.length() < newPepSequence.length()) {
             // update peptide and pepsIndex if new peptide is longer
             psmInfo.peptide = newPepSequence;
-//            psmInfo.pepsIndex = pepsIndex; // FIXME: should be updated, but it will always be the first pepsIndex
-            // FIXME: Here is the original code, where seems the intention is to update pepsIndex as well
+//            psmInfo.pepsIndex = pepsIndex; // FIXME 06: should be updated, but it will always be the first pepsIndex
+            // FIXME 06: Here is the original code, where seems the intention is to update pepsIndex as well
             //   however, with the current implementation, it will always be the first pepsIndex
             //   psmInfo.peptide = (psmInfo.peptide.length() < newPepSequence.length()) ? newPepSequence : psmInfo.peptide;
             //   psmInfo.pepsIndex = (psmInfo.peptide.length() < newPepSequence.length()) ? pepsIndex: psmInfo.pepsIndex; // pepIndex will never be updated
-            // FIXME END
         }
         psmInfo.extpep = extPepSequence;
         psmInfo.psmList.add(psm);
@@ -253,7 +252,7 @@ public class PsmProcessor {
             String peptideIndex = psmInfo.peptide + "@" + psmInfo.pepsIndex + "@" + psmInfo.extpep;
             List<String> peptideIndices = proteinMap.computeIfAbsent(proteinId, k -> new ArrayList<>());
             if (!peptideIndices.contains(peptideIndex)) {
-                peptideIndices.add(peptideIndex); // FIXME: potential bug, remove this fixme once tested.
+                peptideIndices.add(peptideIndex);
             }
         }
         return maxPeptideProb;

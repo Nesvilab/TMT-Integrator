@@ -121,7 +121,7 @@ public class TMTIntegrator {
         }
     }
 
-    // FIXME: buggy logic, need to be reimplemented
+    // FIXME 01: buggy logic, need to be reimplemented for abn_type == 1
     private void processProtNorm(int startGroupBy, int endGroupBy, int normalizationOptions) throws IOException {
         Integrator integrator = new Integrator(param);
         if (param.groupBy >= 0) {

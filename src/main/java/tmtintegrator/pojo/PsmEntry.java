@@ -386,7 +386,9 @@ public class PsmEntry {
     }
 
     private int determineGeneCategory() {
-        if (mappedGenes == null || mappedGenes == "") { // FIXME: Just to match result from original code, should never use "==", no result for java 17
+        // FIXME 08: Just to match result from original code, should never use "==", no result for java 17
+        //   reproduce with tmt10_pholoso_2 dataset
+        if (mappedGenes == null || mappedGenes == "") {
             // Assuming 0 for no mapping genes
             return 0; // TODO: magic number, use parameter
         }

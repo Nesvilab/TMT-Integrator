@@ -221,7 +221,7 @@ public class ProcessedPsmEntry {
         for (String assignedMod : assignedMods) {
             String glycoComp = index.glycoCompositionIndex == -1 ? "" : fields[index.glycoCompositionIndex];
             String mod = Utils.getAssignedModIndex(assignedMod, glycoComp, parameters.useGlycoComposition);
-            // FIXME: review required
+            // FIXME 07: review required
             // In the old code, the mod is rounded to 2 decimal places to match a mod tag in parameters.modTagLi
             // But the old logic converted modTagLi to a long string split by ';' which is inefficient
             // Potential issue:
@@ -234,7 +234,7 @@ public class ProcessedPsmEntry {
                 allModTags.append(modTag).append(";");
             }
 
-            if (allModTags.toString().contains(mod)) { // FIXME: inefficient, use parameters.modTagLi.contains(mod) instead without rounding
+            if (allModTags.toString().contains(mod)) { // FIXME 07: inefficient, use parameters.modTagLi.contains(mod) instead without rounding
                 // extract position number, ex: 11N(2569.9045) -> 11
                 int position = Integer.parseInt(assignedMod.substring(0, assignedMod.indexOf("(") - 1).trim());
                 positions.add(position);

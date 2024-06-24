@@ -126,7 +126,6 @@ public class PsmNormalizer {
 
         // define bins of retention time
         NavigableMap<Double, List<String>> binMap = Utils.createBins(minRt, maxRt, Constants.BIN_NUM);
-//        NavigableMap<Double, List<String>> binMap = Utils.createBinsToBeRefactor(minRt, maxRt, BIN_NUM); // FIXME: use createBins
 
         // assign PSMs to bins
         for (String psm : psmList) {
