@@ -5,8 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.TreeMap;
 
-public class Parameters
-{
+public class Parameters {
     public File fastaF; // FIXME 03: no usage
     public String reportPath;
     public File combinedF;
@@ -27,15 +26,15 @@ public class Parameters
     public boolean allow_unlabeled;
     public float minSiteProb;
     public boolean ms1Int;
-    public boolean  top3Pep;
+    public boolean top3Pep;
     public boolean print_RefInt;
-    public int add_Ref=-1;
-    public double max_pep_prob_thres=0;
-    public int min_ntt=0;
-    public int abn_type=0; //0: ratio-based; 1: raw-based
-    public int aggregation_method=0; //psm aggregation, 0: median; 1: weighted-ratio
-    public String modAA="";
-    public String columntag="";
+    public int add_Ref = -1;
+    public double max_pep_prob_thres = 0;
+    public int min_ntt = 0;
+    public int abn_type = 0; //0: ratio-based; 1: raw-based
+    public int aggregation_method = 0; //psm aggregation, 0: median; 1: weighted-ratio
+    public String modAA = "";
+    public String columntag = "";
     public List<String> modTagLi = new ArrayList<>();
 
     public boolean geneflag = false;

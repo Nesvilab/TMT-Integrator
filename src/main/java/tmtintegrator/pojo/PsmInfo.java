@@ -3,8 +3,7 @@ package tmtintegrator.pojo;
 import java.util.ArrayList;
 import java.util.List;
 
-public class PsmInfo
-{
+public class PsmInfo {
     public String gene = "";
     public String peptide = "";
     public String extpep = "";

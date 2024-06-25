@@ -1,7 +1,6 @@
 package tmtintegrator.pojo;
 
-public class Index
-{
+public class Index {
     public int pepcIndex = -1;
     public int pepProbcIndex = -1;
     public int assignedModcIndex = -1;
@@ -28,8 +27,8 @@ public class Index
     public int protsIndex = -1;
     public int proteIndex = -1;
     public int extpepIndex = -1;
-    public int refIndex=-1;
-    public int abnIndex=-1;
-    public int isUsedIndex=-1;
-    public int flength=-1;
+    public int refIndex = -1;
+    public int abnIndex = -1;
+    public int isUsedIndex = -1;
+    public int flength = -1;
 }
