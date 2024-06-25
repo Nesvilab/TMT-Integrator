@@ -35,7 +35,7 @@ public class ConfigLoader {
         try (BufferedReader reader = new BufferedReader(new FileReader(yamlFile))) {
             String line;
             while ((line = reader.readLine()) != null) {
-                parseLine(line);
+                parseLine(line.trim());
             }
         }
     }
@@ -168,9 +168,6 @@ public class ConfigLoader {
                     parameters.log2transformed = Boolean.parseBoolean(value);
                     break;
             }
-        } catch (NumberFormatException e) {
-            System.err.println("Error parsing value: " + value);
-            throw new RuntimeException("Failed to parse YAML file", e);
         } catch (Exception e) {
             System.err.println("Error parsing line: " + line);
             throw new RuntimeException("Failed to parse YAML file", e);
