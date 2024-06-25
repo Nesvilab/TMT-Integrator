@@ -1,5 +1,6 @@
 package tmtintegrator.integrator;
 
+import tmtintegrator.constants.Constants;
 import tmtintegrator.constants.GroupBy;
 import tmtintegrator.constants.NormType;
 import tmtintegrator.constants.ReportType;
@@ -27,7 +28,6 @@ public class ReportGenerator {
     private final GroupBy groupBy;
     private final NormType normType;
     private final Map<String, Map<String, double[]>> groupAboundanceMap; // <groupKey, <filename, abundance[]>>
-    private static final Pattern PATTERN = Pattern.compile("([^%]+)%([ncA-Z])(\\d+)"); // Example: A0A096%S13
 
     public ReportGenerator(Parameters parameters, GroupBy groupBy, NormType normType,
                            Map<String, Map<String, double[]>> groupAboundanceMap) {
@@ -185,7 +185,7 @@ public class ReportGenerator {
 
     private String updateGroupKeyForSingleSite(String groupKey) {
         String[] keyParts = groupKey.split("\t");
-        Matcher matcher = PATTERN.matcher(keyParts[0]);
+        Matcher matcher = Constants.KEY_PATTERN.matcher(keyParts[0]);
         int site;
         if (matcher.matches()) {
             site = Integer.parseInt(matcher.group(3)); // Match the site number, the last match group in the PATTERN (\\d+)

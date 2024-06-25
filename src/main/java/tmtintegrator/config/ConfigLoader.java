@@ -1,5 +1,6 @@
 package tmtintegrator.config;
 
+import tmtintegrator.constants.Constants;
 import tmtintegrator.pojo.Index;
 import tmtintegrator.pojo.Parameters;
 
@@ -8,6 +9,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.List;
+import java.util.regex.Matcher;
 
 /**
  * Load configuration parameters from a YAML file and command line arguments.
@@ -175,9 +177,8 @@ public class ConfigLoader {
     }
 
     private void handleModTag(String value) {
-        value = (value.isEmpty()) ? "none" : value;
-        if (value.equalsIgnoreCase("none")) {
-            parameters.modTagLi.add(value);
+        if (value.isEmpty() || value.equalsIgnoreCase("none")) {
+            parameters.modTagLi.add("none");
             return;
         }
 
@@ -186,26 +187,20 @@ public class ConfigLoader {
         String targetMass = "";
 
         for (int i = 0; i < parts.length; i++) {
-            String mass = extractMass(parts[i]);
-            String formattedMass = formatValue(parts[i], mass);
-            parameters.modTagLi.add(formattedMass.trim());
+            String modTag = parts[i].trim();
+            String mass = extractMass(modTag);
+            parameters.modTagLi.add(modTag);
 
             if (i == 0 && !mass.isEmpty()) {
                 targetMass = mass;
             }
 
-            if (formattedMass.equalsIgnoreCase("n-glyco")
-                    || formattedMass.equalsIgnoreCase("o-glyco")) {
+            if (modTag.equalsIgnoreCase("n-glyco")
+                    || modTag.equalsIgnoreCase("o-glyco")) {
                 parameters.glycoflag = true;
             }
 
-            if (parts[i].contains("(")) {
-                int end = parts[i].indexOf("(");
-                String aminoAcid = parts[i].substring(end - 1, end);
-                if (!modifiedAA.toString().contains(aminoAcid)) {
-                    modifiedAA.append(aminoAcid).append("|");
-                }
-            }
+            extractAA(modTag, modifiedAA);
         }
 
         // Remove the last pipe character if it exists
@@ -216,27 +211,29 @@ public class ConfigLoader {
         parameters.columntag = targetMass.isEmpty() ? "" : modAAWithMass(parameters.modAA, targetMass);
     }
 
-    private String extractMass(String value) {
-        if (value.contains("(") && value.contains(")")) {
-            int start = value.indexOf("(");
-            int end = value.indexOf(")");
-            return value.substring(start + 1, end);
+    private void extractAA(String modTag, StringBuilder modifiedAA) {
+        Matcher matcher = Constants.MOD_TAG_PATTERN.matcher(modTag); // Match Pattern: A(123.456)
+        if (matcher.find()) {
+            String aminoAcid = matcher.group(Constants.AA_GROUP);
+            if (!modifiedAA.toString().contains(aminoAcid)) {
+                modifiedAA.append(aminoAcid).append("|");
+            }
         }
-        return "";
     }
 
-    private String formatValue(String value, String mass) {
-        if (value.contains("(")) {
-            return value.substring(0, value.indexOf("(")) + "(" + mass + ")";
+    private String extractMass(String modTag) {
+        Matcher matcher = Constants.MOD_TAG_PATTERN.matcher(modTag); // Match Pattern: A(123.456)
+        if (matcher.find()) {
+            return matcher.group(Constants.MASS_GROUP);
         }
-        return value;
+        return ""; // for glyco
     }
 
     private String modAAWithMass(String modAA, String mass) {
         // extract amino acids
         modAA = modAA.replace("|", "");
         // truncate the mass to 2 decimal places
-        // TODO: check if this is the correct way to truncate the mass
+        // FIXME: not a good practice to truncate mass number
         // mass = String.format("%.2f", Float.parseFloat(mass));
         mass = mass.substring(0, mass.indexOf(".") + 3);
         return modAA + ":" + mass;

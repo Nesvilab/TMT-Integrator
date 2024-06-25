@@ -1,8 +1,10 @@
 package tmtintegrator.pojo;
 
+import tmtintegrator.constants.Constants;
 import tmtintegrator.utils.Utils;
 
 import java.util.List;
+import java.util.regex.Matcher;
 
 /**
  * PSM entry class representing a single line in the PSM file
@@ -338,10 +340,12 @@ public class PsmEntry {
     }
 
     private double extractMass(String modification) {
+        Matcher matcher = Constants.GLYCO_MOD_PATTERN.matcher(modification);
         try {
-            int start = modification.indexOf("(") + 1;
-            int end = modification.indexOf(")");
-            return Double.parseDouble(modification.substring(start, end));
+            if (matcher.find()) {
+                return Double.parseDouble(matcher.group(Constants.MASS_GROUP));
+            }
+            return Double.NaN; // TODO: need test
         } catch (NumberFormatException e) {
             return Double.NaN; // TODO: need test
         }
