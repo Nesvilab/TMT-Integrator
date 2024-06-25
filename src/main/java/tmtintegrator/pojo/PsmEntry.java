@@ -372,7 +372,7 @@ public class PsmEntry {
 
     private boolean checkProteinExclusion() {
         // exclude contaminants
-        if (proteinName.contains("contam")) {
+        if (proteinName.contains("contam_")) {
             return false;
         }
         if (parameters.protExcludeAry != null && !parameters.protExcludeAry[0].contains("none")) {
