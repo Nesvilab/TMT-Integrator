@@ -84,7 +84,7 @@ public class PsmProcessor {
             Map<String, List<String>> proteinMap = new TreeMap<>(); // <proteinId, peptideIndices> TODO: HashMap?
             int numPsm = 0;
             double maxPeptideProb = 0;
-            List<String> geneList = new ArrayList<>();
+            Set<String> geneSet = new HashSet<>();
 
             for (Map.Entry<String, PsmInfo> entry : fileMap.entrySet()) {
                 String filePath = entry.getKey();
@@ -95,7 +95,7 @@ public class PsmProcessor {
                 Ratio[][] ratioObj2DValues = new Ratio[psmInfo.psmList.size()][index.plexNum];
 
                 // get max peptide probability and all peptide sequences
-                maxPeptideProb = updateMaxPepProbAndProteinMap(psmInfo, index, maxPeptideProb, geneList, proteinMap);
+                maxPeptideProb = updateMaxPepProbAndProteinMap(psmInfo, index, maxPeptideProb, geneSet, proteinMap);
 
                 // get ratio values
                 if (parameters.aggregation_method == 0) {
@@ -113,7 +113,7 @@ public class PsmProcessor {
                 }
             }
 
-            String globalGenePepSeq = createGlobalGenePepSeq(geneList, proteinMap, numPsm);
+            String globalGenePepSeq = createGlobalGenePepSeq(geneSet, proteinMap, numPsm);
             String groupKey = groupEntry.getKey();
             groupKey = updateGroupKey(groupKey, globalGenePepSeq, maxPeptideProb);
             groupAbundanceMap.put(groupKey, fileAbundanceMap);
@@ -236,7 +236,7 @@ public class PsmProcessor {
     }
 
     private double updateMaxPepProbAndProteinMap(PsmInfo psmInfo, Index index, double maxPeptideProb,
-                                                 List<String> geneList, Map<String, List<String>> proteinMap) {
+                                                 Set<String> geneSet, Map<String, List<String>> proteinMap) {
         for (String psm : psmInfo.psmList) {
             String[] fields = psm.split("\t");
             double peptideProb = Double.parseDouble(fields[index.pepProbcIndex]);
@@ -244,9 +244,7 @@ public class PsmProcessor {
             // update max peptide probability
             maxPeptideProb = Math.max(maxPeptideProb, peptideProb);
             // add gene to gene list
-            if (!geneList.contains(psmInfo.gene)) {
-                geneList.add(psmInfo.gene);
-            }
+            geneSet.add(psmInfo.gene);
 
             // add peptide index to protein map
             String peptideIndex = psmInfo.peptide + "@" + psmInfo.pepsIndex + "@" + psmInfo.extpep;
@@ -307,8 +305,8 @@ public class PsmProcessor {
         }
     }
 
-    private String createGlobalGenePepSeq(List<String> geneList, Map<String, List<String>> proteinMap, int numPsm) {
-        String globalGenePepSeq = String.join(";", geneList);
+    private String createGlobalGenePepSeq(Set<String> geneSet, Map<String, List<String>> proteinMap, int numPsm) {
+        String globalGenePepSeq = String.join(";", geneSet);
         String proteinIdSeq = String.join(";", proteinMap.keySet());
         switch (groupBy) {
             case GENE:

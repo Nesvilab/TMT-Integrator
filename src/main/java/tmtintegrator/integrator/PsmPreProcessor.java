@@ -17,11 +17,11 @@ import java.util.*;
 public class PsmPreProcessor {
 
     private final Parameters parameters;
-    private final List<String> proteinList; // TODO: no usage
+    private final Set<String> proteinSet; // TODO: no usage
 
     public PsmPreProcessor(Parameters parameters) {
         this.parameters = parameters;
-        this.proteinList = new ArrayList<>();
+        this.proteinSet = new HashSet<>();
     }
 
     /**
@@ -134,9 +134,7 @@ public class PsmPreProcessor {
     }
 
     private void updateProteins(String[] fields, Index index) {
-        if (!proteinList.contains(fields[index.proteincIndex])) {
-            proteinList.add(fields[index.proteincIndex]);
-        }
+        proteinSet.add(fields[index.proteincIndex]);
         if (!parameters.ppMap.containsKey(fields[index.proteinIDcIndex])) {
             parameters.ppMap.put(fields[index.proteinIDcIndex], fields[index.proteincIndex]);
         }
