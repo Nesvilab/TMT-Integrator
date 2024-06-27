@@ -409,14 +409,14 @@ public class PsmEntry {
         if (mappedGene.isEmpty() || mappedGene.equalsIgnoreCase(gene.trim())) {
             return 2; // TODO: magic number, use parameter
         } else {
-            return parameters.AllGeneLi.contains(mappedGene) ? 0 : 1; // TODO: magic number, use parameter
+            return parameters.allGeneSet.contains(mappedGene) ? 0 : 1; // TODO: magic number, use parameter
         }
     }
 
     private int handleMultipleGenes(String[] mappedGenes) {
         for (String mappedGene : mappedGenes) {
             mappedGene = mappedGene.trim();
-            if (!mappedGene.equalsIgnoreCase(gene.trim()) && parameters.AllGeneLi.contains(mappedGene)) {
+            if (!mappedGene.equalsIgnoreCase(gene.trim()) && parameters.allGeneSet.contains(mappedGene)) {
                 // found a gene in the list that is not the target gene
                 return 0; // TODO: magic number, use parameter
             }

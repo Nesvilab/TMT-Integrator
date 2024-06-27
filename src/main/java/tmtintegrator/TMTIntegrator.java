@@ -152,7 +152,7 @@ public class TMTIntegrator {
     }
 
     private void cleanUp() {
-        for (File file : param.FileLi) {
+        for (File file : param.fileList) {
             String tempPath = file.getAbsolutePath().substring(0, file.getAbsolutePath().lastIndexOf(".")) + ".ti";
             File tempFile = new File(tempPath);
             if (tempFile.delete()) {

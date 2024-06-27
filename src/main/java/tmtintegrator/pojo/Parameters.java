@@ -1,9 +1,7 @@
 package tmtintegrator.pojo;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.TreeMap;
+import java.util.*;
 
 public class Parameters {
     public File fastaF; // FIXME 03: no usage
@@ -44,11 +42,11 @@ public class Parameters {
 
     public boolean log2transformed = true;
 
-    public List<File> FileLi = new ArrayList<>();
+    public List<File> fileList = new ArrayList<>();
     public List<String> fNameLi = new ArrayList<>();
     //TreeMap<String, String> fastaMap = new TreeMap<String, String>(); //Key: z; Value: ds_Peak
-    public List<String> AllGeneLi = new ArrayList<>();
-    public TreeMap<String, String> TitleMap = new TreeMap<>();
+    public Set<String> allGeneSet = new HashSet<>();
+    public TreeMap<String, String> titleMap = new TreeMap<>();
     public TreeMap<String, Index> indMap = new TreeMap<>();
     //ds_ColumnIndex ci = new ds_ColumnIndex();
 

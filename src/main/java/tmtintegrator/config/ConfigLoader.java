@@ -48,7 +48,7 @@ public class ConfigLoader {
      * @param inputFiles List of input files from the command line
      */
     public void loadFileList(List<File> inputFiles) {
-        parameters.FileLi.addAll(inputFiles);
+        parameters.fileList.addAll(inputFiles);
         // add file names to fNameLi and indMap
         for (File file : inputFiles) {
             String absolutePath = file.getAbsolutePath();

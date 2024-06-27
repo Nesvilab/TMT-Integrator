@@ -17,7 +17,6 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Generate reports for the integrated data
@@ -134,7 +133,7 @@ public class ReportGenerator {
 
         for (String fileName : parameters.fNameLi) {
             Index index = parameters.indMap.get(fileName);
-            String[] titles = parameters.TitleMap.get(fileName).split("\t");
+            String[] titles = parameters.titleMap.get(fileName).split("\t");
             for (int i = index.abnIndex; i < titles.length; i++) {
                 if (!titles[i].contains(parameters.refTag)) {
                     writer.write("\t" + titles[i].replace(" Abundance", ""));
@@ -146,7 +145,7 @@ public class ReportGenerator {
             for (String fileName : parameters.fNameLi) {
                 Index index = parameters.indMap.get(fileName);
                 File file = new File(fileName);
-                String[] titles = parameters.TitleMap.get(fileName).split("\t");
+                String[] titles = parameters.titleMap.get(fileName).split("\t");
                 String parentDir = file.getParent().substring(file.getParent().lastIndexOf(File.separator) + 1);
                 writer.write("\tRefInt_" + (parameters.add_Ref < 0
                         ? titles[index.refIndex].replace(" Abundance", "") : parentDir));

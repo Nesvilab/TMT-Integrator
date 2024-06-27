@@ -35,7 +35,7 @@ public class PsmPreProcessor {
     public void checkPsmAndBuildIndex() throws IOException {
         Collections.sort(parameters.fNameLi); // TODO: looks unnecessary
 
-        for (File psmFile : parameters.FileLi) {
+        for (File psmFile : parameters.fileList) {
             checkPsmFile(psmFile);
         }
     }
@@ -45,7 +45,7 @@ public class PsmPreProcessor {
      *
      */
     public void updatePsmFiles() {
-        for (File psmFile : parameters.FileLi) {
+        for (File psmFile : parameters.fileList) {
             try {
                 Index index = parameters.indMap.get(psmFile.getAbsolutePath());
                 // read PSM file and preprocess each line
@@ -128,9 +128,7 @@ public class PsmPreProcessor {
 
     private void updateAllGenesList(String[] fields, Index index) {
         String gene = fields[index.genecIndex].trim();
-        if (!parameters.AllGeneLi.contains(gene)) {
-            parameters.AllGeneLi.add(gene);
-        }
+        parameters.allGeneSet.add(gene);
     }
 
     private void updateProteins(String[] fields, Index index) {

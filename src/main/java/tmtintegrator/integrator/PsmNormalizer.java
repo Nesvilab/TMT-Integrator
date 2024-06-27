@@ -190,7 +190,7 @@ public class PsmNormalizer {
     private Map<String, double[]> getProtMedianMap(boolean useAbsValue) {
         Map<String, double[]> protMedianMap = new TreeMap<>(); // <filename, medianValues> TODO: HashMap?
         // get the median
-        for (String filename : parameters.TitleMap.keySet()) {
+        for (String filename : parameters.titleMap.keySet()) {
             Index index = parameters.indMap.get(filename);
             double[] medianValues = new double[index.plexNum];
             List<double[]> mediansList = new ArrayList<>();
@@ -273,7 +273,7 @@ public class PsmNormalizer {
     private Map<String, double[]> getSumMap() {
         Map<String, double[]> sumMap = new TreeMap<>(); // <filename, sumValues> TODO: HashMap?
         // Reference channel should be excluded from the summation
-        for (String filename : parameters.TitleMap.keySet()) {
+        for (String filename : parameters.titleMap.keySet()) {
             Index index = parameters.indMap.get(filename);
             List<double[]> mediansList = new ArrayList<>();
             for (Map<String, double[]> fileAbundanceMap : groupAbundanceMap.values()) {
@@ -311,7 +311,7 @@ public class PsmNormalizer {
     }
 
     private void adjustIntensity(Map<String, double[]> sumMap, double sumAvg) {
-        for (String filename : parameters.TitleMap.keySet()) {
+        for (String filename : parameters.titleMap.keySet()) {
             Index index = parameters.indMap.get(filename);
             double[] sumValues = sumMap.get(filename);
             for (Map<String, double[]> fileAbundanceMap : groupAbundanceMap.values()) {
@@ -341,7 +341,7 @@ public class PsmNormalizer {
     private double calculateAvgRefInt(Map<String, double[]> fileAbundanceMap) {
         double sumRefInt = 0;
         int count = 0;
-        for (String filename : parameters.TitleMap.keySet()) {
+        for (String filename : parameters.titleMap.keySet()) {
             if (fileAbundanceMap.containsKey(filename)) {
                 double[] medians = fileAbundanceMap.get(filename);
                 double refInt = medians[medians.length - 1];
@@ -355,7 +355,7 @@ public class PsmNormalizer {
     }
 
     private void adjustIntensityForIRS(Map<String, double[]> fileAbundanceMap, double avgRefInt, double globalMinRefInt) {
-        for (String filename : parameters.TitleMap.keySet()) {
+        for (String filename : parameters.titleMap.keySet()) {
             if (fileAbundanceMap.containsKey(filename)) {
                 double[] medians = fileAbundanceMap.get(filename);
                 double refInt = medians[medians.length - 1];

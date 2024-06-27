@@ -31,7 +31,7 @@ public class PsmFileLoader {
      */
     public Map<String, List<String>> loadPsmFiles(GroupBy groupBy) {
         Map<String, List<String>> fileMap = new TreeMap<>(); // TODO: HashMap?
-        for (File file : parameters.FileLi) {
+        for (File file : parameters.fileList) {
             List<String> psmList = processFile(file, groupBy);
             fileMap.put(file.getAbsolutePath(), psmList);
         }
@@ -46,7 +46,7 @@ public class PsmFileLoader {
         String psmPath = fileName.replace(".tsv", ".ti");
         try (BufferedReader reader = new BufferedReader(new FileReader(psmPath))) {
             String title = reader.readLine();
-            parameters.TitleMap.put(fileName, title); // TODO: should be put somewhere other than in parameters
+            parameters.titleMap.put(fileName, title); // TODO: should be put somewhere other than in parameters
             Index index = parameters.indMap.get(fileName);
 
             // read PSM entries
