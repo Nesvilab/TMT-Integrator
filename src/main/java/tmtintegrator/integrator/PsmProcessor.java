@@ -525,7 +525,7 @@ public class PsmProcessor {
     }
 
     private String createNewGroupKey(String groupKey, List<String> keyList) {
-        String[] keyParts = keyList.get(0).split("\t");
+        String[] keyParts = keyList.get(0).split("\t"); // FIXME 09: buggy logic here, all parts after the first part should be identical, in fact not.
         String gene = keyParts[1];
         String proteinId = keyParts[2];
         String extPepList = keyParts[4];
