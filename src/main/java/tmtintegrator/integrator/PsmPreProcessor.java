@@ -430,17 +430,17 @@ public class PsmPreProcessor {
      * @param index          index for PSM file
      */
     private void collapsePsmLines(List<String> processedLines, Map<String, List<String>> psmMap, double tmtThreshold, Index index) {
-        List<String> newModTagList = new ArrayList<>();
+        Set<String> newModTagSet = new HashSet<>();
         for (String psm : processedLines) {
-            processPsmEntry(psm, psmMap, newModTagList, tmtThreshold, index);
+            processPsmEntry(psm, psmMap, newModTagSet, tmtThreshold, index);
         }
-        parameters.modTagLi.addAll(newModTagList);
+        parameters.modTagLi.addAll(newModTagSet);
     }
 
-    private void processPsmEntry(String psm, Map<String, List<String>> psmMap, List<String> newModTagList, double tmtThreshold, Index index) {
+    private void processPsmEntry(String psm, Map<String, List<String>> psmMap, Set<String> newModTagSet, double tmtThreshold, Index index) {
         PsmEntry psmEntry = new PsmEntry(psm, parameters, index);
         psmEntry.parsePsmEntry();
-        psmEntry.checkConfigurations(newModTagList);
+        psmEntry.checkConfigurations(newModTagSet);
         if (psmEntry.isPassCriteria(tmtThreshold)) {
             String newPsm = psmEntry.getProcessedPsm();
             String key = psmEntry.generatePsmKey();

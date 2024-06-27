@@ -3,7 +3,7 @@ package tmtintegrator.pojo;
 import tmtintegrator.constants.Constants;
 import tmtintegrator.utils.Utils;
 
-import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 
 /**
@@ -165,12 +165,12 @@ public class PsmEntry {
      * Check the configurations for the PSM entry and update the flags <br>
      * Update modTagList if new mod tags are found
      *
-     * @param newModTagList list of new mod tags
+     * @param newModTagSet list of new mod tags
      */
-    public void checkConfigurations(List<String> newModTagList) {
+    public void checkConfigurations(Set<String> newModTagSet) {
         allowOverLabel = parameters.allow_overlabel || (!assignedModification.contains("S(229."));
         labelFlag = updateLabelFlag();
-        modficationFlag = checkModifications(newModTagList);
+        modficationFlag = checkModifications(newModTagSet);
         uniquePeptideFlag = !parameters.uniquePep || isUnique; // TODO: seems like a bug
         proteinExclusionFlag = checkProteinExclusion();
         geneCategory = determineGeneCategory();
@@ -256,10 +256,10 @@ public class PsmEntry {
     /**
      * Check if the assigned modification meets the criteria
      *
-     * @param newModTagList list of new mod tags
+     * @param newModTagSet list of new mod tags
      * @return true if the modification is valid
      */
-    private boolean checkModifications(List<String> newModTagList) {
+    private boolean checkModifications(Set<String> newModTagSet) {
         if (parameters.modTagLi.get(0).trim().equalsIgnoreCase("none")) {
             // If 'none' is the specified modification, all PSMs are valid in terms of modification.
             return true;
@@ -283,7 +283,7 @@ public class PsmEntry {
             // Special handling for glycans
             if (term.equalsIgnoreCase("N-glyco") || term.equalsIgnoreCase("O-glyco")) {
                 updateModAAParameter(term);
-                if (processGlycoModification(term, newModTagList)) {
+                if (processGlycoModification(term, newModTagSet)) {
                     return true;
                 }
             }
@@ -316,11 +316,11 @@ public class PsmEntry {
     /**
      * Process glycan modification
      *
-     * @param term          N-glyco or O-glyco
-     * @param newModTagList list of new mod tags
+     * @param term         N-glyco or O-glyco
+     * @param newModTagSet list of new mod tags
      * @return true if glycan modification is processed
      */
-    private boolean processGlycoModification(String term, List<String> newModTagList) {
+    private boolean processGlycoModification(String term, Set<String> newModTagSet) {
         String[] modifications = assignedModification.split(",");
         for (String modification : modifications) {
             if ((term.equalsIgnoreCase("N-glyco") && modification.contains("N(")) ||
@@ -329,9 +329,7 @@ public class PsmEntry {
                 double mass = extractMass(modification); // TODO: this only works for modification with one "(mass)"
                 if (mass >= 100) {
                     String modIndex = getAssignedModIndex(modification, glycanComposition, parameters.useGlycoComposition);
-                    if (!newModTagList.contains(modIndex)) {
-                        newModTagList.add(modIndex);
-                    }
+                    newModTagSet.add(modIndex);
                     return true;
                 }
             }
