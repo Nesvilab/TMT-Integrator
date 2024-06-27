@@ -1694,7 +1694,7 @@ public class integrate
                     }
                 }
 
-                String str = strLi.get(0);
+                String str = strLi.get(0); // FIXME 09: buggy logic here, all parts after the first part should be identical, in fact not.
                 String[] sAry = str.split("\t");
                 String gene = sAry[1];
                 String proteinID = sAry[2];
