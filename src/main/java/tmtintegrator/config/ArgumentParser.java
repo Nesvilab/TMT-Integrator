@@ -31,7 +31,7 @@ public class ArgumentParser {
         } else {
             this.validateParameters = false;
             for (int i = 1; i < args.length; i++) {
-                inputFiles.add(new File(args[i]));
+                inputFiles.add((new File(args[i])).getAbsoluteFile());
             }
         }
     }
