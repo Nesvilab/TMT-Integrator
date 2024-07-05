@@ -22,7 +22,7 @@ public final class Utils {
         try {
             return Double.parseDouble(input);
         } catch (NumberFormatException e) {
-            return Double.NaN; // TODO: need test
+            return Double.NaN;
         }
     }
 
@@ -36,7 +36,7 @@ public final class Utils {
 
     public static double takeMedian(List<Double> numbers) {
         if (numbers == null || numbers.isEmpty()) {
-            return -9999; // FIXME: Double.NaN is better
+            return Double.NaN;
         }
 
         Collections.sort(numbers);
@@ -52,7 +52,7 @@ public final class Utils {
 
     public static double takeWeightedMedian(List<Ratio> ratioList) {
         if (ratioList == null || ratioList.isEmpty()) {
-            return -9999; // FIXME: Double.NaN is better
+            return Double.NaN;
         } else if (ratioList.size() == 1) {
             return ratioList.get(0).ratio;
         } else if (ratioList.size() == 2) {
@@ -186,7 +186,7 @@ public final class Utils {
         List<Double> channelValues = new ArrayList<>();
         for (double[] medianValues : medianMap.values()) {
             for (double median : medianValues) {
-                if (median != -9999) { // FIXME: !Double.isNaN(median) is better
+                if (!Double.isNaN(median)) {
                     channelValues.add(median);
                 }
             }

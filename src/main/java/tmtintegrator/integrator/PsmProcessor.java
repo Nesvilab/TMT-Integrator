@@ -217,7 +217,7 @@ public class PsmProcessor {
         for (int j = 0; j < index.plexNum; j++) {
             List<Double> ratios = new ArrayList<>();
             for (double[] row : ratio2DValues) {
-                if (row[j] != -9999) { // FIXME: !Double.isNaN(row[j]) is better
+                if (!Double.isNaN(row[j])) {
                     ratios.add(row[j]);
                 }
             }
@@ -228,7 +228,7 @@ public class PsmProcessor {
                 for (double[] row : ratio2DValues) {
                     // remove outliers
                     if (!Double.isNaN(row[j]) && (row[j] < iqrBounds[0] || row[j] > iqrBounds[1])) {
-                        row[j] = -9999; // FIXME: Double.NaN is better
+                        row[j] = Double.NaN;
                     }
                 }
             }
@@ -263,7 +263,7 @@ public class PsmProcessor {
                 try {
                     ratio2DValues[i][j - index.abnIndex] = Double.parseDouble(fields[j]);
                 } catch (NumberFormatException e) {
-                    ratio2DValues[i][j - index.abnIndex] = -9999; // FIXME: Double.NaN is better
+                    ratio2DValues[i][j - index.abnIndex] = Double.NaN;
                 }
             }
         }
@@ -288,7 +288,7 @@ public class PsmProcessor {
             if (parameters.aggregation_method == 0) {
                 List<Double> channelValues = new ArrayList<>();
                 for (double[] ratios : ratio2DValues) {
-                    if (ratios[j] != -9999) { // FIXME: !Double.isNaN(ratios[j]) is better
+                    if (!Double.isNaN(ratios[j])) {
                         channelValues.add(ratios[j]);
                     }
                 }
@@ -296,7 +296,7 @@ public class PsmProcessor {
             } else if (parameters.aggregation_method == 1) {
                 List<Ratio> channelValues = new ArrayList<>();
                 for (Ratio[] ratios : ratioObj2DValues) {
-                    if (ratios[j].ratio != -9999) { // FIXME: !Double.isNaN(ratios[j].ratio) is better
+                    if (!Double.isNaN(ratios[j].ratio)) {
                         channelValues.add(ratios[j]);
                     }
                 }
@@ -510,7 +510,7 @@ public class PsmProcessor {
                 for (int i = 0; i < index.totLen; i++) {
                     List<Double> channelValues = new ArrayList<>();
                     for (double[] medians : abundanceList) {
-                        if (medians[i] != -9999) { // FIXME: !Double.isNaN(medians[i]) is better
+                        if (!Double.isNaN(medians[i])) {
                             channelValues.add(medians[i]);
                         }
                     }

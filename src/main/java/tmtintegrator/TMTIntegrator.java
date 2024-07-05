@@ -8,19 +8,15 @@ import tmtintegrator.pojo.Parameters;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
 public class TMTIntegrator {
 
     private final static String APP_NAME = "TMT Integrator";
     private final static String APP_VERSION = "6.0.0";
     private final Parameters param;
-    private List<String> proteinLi; // TODO: no usage
 
     public TMTIntegrator(Parameters param) {
         this.param = param;
-        this.proteinLi = new ArrayList<>();
     }
 
     public static void main(String[] args) throws IOException {

@@ -236,7 +236,7 @@ public class ReportGenerator {
             Index index = parameters.indMap.get(fileName);
             int refIndex = index.refIndex - index.abnIndex;
             double[] nanArray = new double[index.totLen];
-            Arrays.fill(nanArray, -9999); // FIXME: Double.NaN is better
+            Arrays.fill(nanArray, Double.NaN);
             double[] medians = fileAbundanceMap.getOrDefault(fileName, nanArray);
 
             // record reference abundances
@@ -291,7 +291,7 @@ public class ReportGenerator {
     private void writeRatioValues(BufferedWriter writer, double[] medians, int refIndex) throws IOException {
         for (int i = 0; i < medians.length - 1; i++) {
             if (i != refIndex) {
-                if (medians[i] == -9999) { // FIXME: Double.isNaN(medians[i]) is better
+                if (Double.isNaN(medians[i])) {
                     writer.write("\tNA");
                 } else {
                     writer.write("\t" + (parameters.log2transformed ? medians[i] : Utils.pow2(medians[i])));
@@ -304,7 +304,7 @@ public class ReportGenerator {
                                      double avgAbundance) throws IOException {
         for (int i = 0; i < medians.length - 1; i++) {
             if (i != refIndex) {
-                if (medians[i] == -9999) { // FIXME: Double.isNaN(medians[i]) is better
+                if (Double.isNaN(medians[i])) {
                     writer.write("\tNA");
                 } else {
                     double abn = parameters.log2transformed ? Utils.log2(Utils.pow2(medians[i]) * avgAbundance)
@@ -318,7 +318,7 @@ public class ReportGenerator {
     private void writeAbnValues(BufferedWriter writer, double[] medians, int refIndex) throws IOException {
         for (int i = 0; i < medians.length - 1; i++) {
             if (i != refIndex) {
-                if (medians[i] == -9999) { // FIXME: Double.isNaN(medians[i]) is better
+                if (Double.isNaN(medians[i])) {
                     writer.write("\tNA");
                 } else {
                     writer.write("\t" + medians[i]);

@@ -97,7 +97,7 @@ public class PsmNormalizer {
             double[] ratioValues = new double[index.plexNum];
             for (int i = index.abnIndex; i < fields.length; i++) {
                 ratioValues[i - index.abnIndex] = Double.parseDouble(fields[i]) > 0 ?
-                        Utils.log2(Double.parseDouble(fields[i])) - refValue : -9999; // FIXME: Double.NaN is better
+                        Utils.log2(Double.parseDouble(fields[i])) - refValue : Double.NaN;
             }
             // generate normalized PSM
             StringBuilder normPsm = new StringBuilder();
@@ -168,7 +168,7 @@ public class PsmNormalizer {
         for (int j = 0; j < index.plexNum; j++) {
             List<Double> channelValues = new ArrayList<>();
             for (double[] row : ratio2DValues) {
-                if (row[j] != -9999) { // FIXME: !Double.isNaN(row[j]) is better
+                if (!Double.isNaN(row[j])) {
                     channelValues.add(row[j]);
                 }
             }
@@ -180,7 +180,7 @@ public class PsmNormalizer {
     private void adjustRationsByMedian(double[][] ratio2DValues, double[] medianValues) {
         for (double[] row : ratio2DValues) {
             for (int j = 0; j < row.length; j++) {
-                if (row[j] != -9999) { // FIXME: !Double.isNaN(row[j]) is better
+                if (!Double.isNaN(row[j])) {
                     row[j] -= medianValues[j];
                 }
             }
@@ -204,7 +204,7 @@ public class PsmNormalizer {
             for (int j = 0; j < medianValues.length; j++) {
                 List<Double> channelValues = new ArrayList<>();
                 for (double[] medians : mediansList) {
-                    if (medians[j] != -9999) { // FIXME: !Double.isNaN(medians[j]) is better
+                    if (!Double.isNaN(medians[j])) {
                         channelValues.add(useAbsValue ? Math.abs(medians[j]) : medians[j]);
                     }
                 }
@@ -222,7 +222,7 @@ public class PsmNormalizer {
                 double[] protMedianValues = protMedianMap.get(filename);
                 double[] medianValues = fileAbundanceMap.get(filename);
                 for (int j = 0; j < protMedianValues.length; j++) {
-                    if (medianValues[j] != -9999) { // FIXME: !Double.isNaN(medianValues[j]) is better
+                    if (!Double.isNaN(medianValues[j])) {
                         if (forMC) {
                             medianValues[j] -= protMedianValues[j];
                         } else { // for GN variance scaling
@@ -250,7 +250,7 @@ public class PsmNormalizer {
                 Index index = parameters.indMap.get(filename);
                 int refIndex = index.refIndex - index.abnIndex;
                 for (int j = 0; j < index.plexNum; j++) {
-                    if (medianValues[j] != -9999 && j != refIndex) { // FIXME: !Double.isNaN(medianValues[j]) is better
+                    if (!Double.isNaN(medianValues[j]) && j != refIndex) {
                         medianValues[j] = Utils.log2(Utils.pow2(medianValues[j]) * avgAbundance);
                     }
                 }
@@ -285,7 +285,7 @@ public class PsmNormalizer {
             for (int j = 0; j < sumValues.length; j++) {
                 double sum = 0;
                 for (double[] medians : mediansList) {
-                    if (medians[j] != -9999) { // FIXME: !Double.isNaN(medians[j]) is better
+                    if (!Double.isNaN(medians[j])) {
                         sum += medians[j];
                     }
                 }
@@ -318,7 +318,7 @@ public class PsmNormalizer {
                 if (fileAbundanceMap.containsKey(filename)) {
                     double[] medians = fileAbundanceMap.get(filename);
                     for (int j = 0; j < index.totLen; j++) {
-                        if (medians[j] != -9999) { // FIXME: !Double.isNaN(medians[j]) is better
+                        if (!Double.isNaN(medians[j])) {
                             medians[j] *= (sumAvg / sumValues[j]);
                         }
                     }
@@ -361,7 +361,7 @@ public class PsmNormalizer {
                 double refInt = medians[medians.length - 1];
                 double factor = (refInt > 0) ? avgRefInt / refInt : globalMinRefInt;
                 for (int j = 0; j < parameters.channelNum; j++) {
-                    if (medians[j] != -9999) { // FIXME: !Double.isNaN(medians[j]) is better
+                    if (!Double.isNaN(medians[j])) {
                         medians[j] *= factor;
                     }
                 }

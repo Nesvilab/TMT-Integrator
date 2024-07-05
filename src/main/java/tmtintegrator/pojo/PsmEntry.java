@@ -343,9 +343,9 @@ public class PsmEntry {
             if (matcher.find()) {
                 return Double.parseDouble(matcher.group(Constants.MASS_GROUP));
             }
-            return Double.NaN; // TODO: need test
+            return Double.NaN;
         } catch (NumberFormatException e) {
-            return Double.NaN; // TODO: need test
+            return Double.NaN;
         }
     }
 
