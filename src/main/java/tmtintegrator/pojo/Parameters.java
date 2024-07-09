@@ -4,7 +4,6 @@ import java.io.File;
 import java.util.*;
 
 public class Parameters {
-    public File fastaF; // FIXME 03: no usage
     public String reportPath;
     public File combinedF;
     public int channelNum;
@@ -33,8 +32,7 @@ public class Parameters {
     public int aggregation_method = 0; //psm aggregation, 0: median; 1: weighted-ratio
     public String modAA = "";
     public String columntag = "";
-    public List<String> modTagLi = new ArrayList<>();
-
+    public Set<String> modTagSet = new HashSet<>();
     public boolean geneflag = false;
     public boolean glycoflag = false;
     public boolean useGlycoComposition = false;    // whether to use glycan composition string or glycan mass for indexing

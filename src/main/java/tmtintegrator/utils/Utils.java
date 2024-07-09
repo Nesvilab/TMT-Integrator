@@ -1,5 +1,6 @@
 package tmtintegrator.utils;
 
+import tmtintegrator.constants.Constants;
 import tmtintegrator.pojo.Index;
 import tmtintegrator.pojo.Parameters;
 import tmtintegrator.pojo.Ratio;
@@ -30,7 +31,7 @@ public final class Utils {
         try {
             return Integer.parseInt(input);
         } catch (NumberFormatException e) {
-            return -1; // FIXME: use Integer.MIN_VALUE
+            return Integer.MIN_VALUE;
         }
     }
 
@@ -149,8 +150,9 @@ public final class Utils {
      */
     public static double[] computeIQR(List<Double> ratios) {
         Collections.sort(ratios);
-        // TODO: In old code, q1List range [0, size / 4] and q3List range [size - size / 4 - 1, size - 1]
+        // FIXME 10: In old code, q1List range [0, size / 4] and q3List range [size - size / 4 - 1, size - 1]
         //   which seems incorrect according to IQR definition, should be [0, size / 2] and [(size + 1) / 2, size - 1]
+        //   otherwise, nothing will be removed in the outlier removal step
         int n = ratios.size() / 4;
         List<Double> q1List = new ArrayList<>(ratios.subList(0, n + 1));
         List<Double> q3List = new ArrayList<>(ratios.subList(ratios.size() - n - 1, ratios.size()));
@@ -252,6 +254,11 @@ public final class Utils {
         if (useGlycanComposition && !glycanComposition.isEmpty()) {
             // if using composition for index, read it from glycan composition column. Still get AA site from assigned mods
             mod = inputMod.substring(inputMod.indexOf("(") - 1, inputMod.indexOf("("));
+
+            // remove extra whitespace
+            // original format "modTags % 123.45" -> "modTags%123.45"
+            glycanComposition = glycanComposition.replaceAll("\\s+", "");
+
             mod = String.format("%s(%s)", mod, glycanComposition);
         } else {
             // read mass from assigned mod, as would do for any other mod
@@ -260,13 +267,41 @@ public final class Utils {
         return mod;
     }
 
+    /**
+     * Check if the mod tag matches a mod tag in the modTagSet with tolerance 0.01 for glycan mass
+     * Mod tag is in the format "N(HexNAc(5)Hex(6)NeuAc(3)%2861.0000)"
+     *
+     * @param targetMod mod tag to check
+     * @return true if matches
+     */
+    public static boolean isModTagMatch(String targetMod, Set<String> modTagSet) {
+        String[] targetParts = targetMod.split("%");
+        String targetSeq = targetParts[0];
+        double targetMass = Double.parseDouble(targetParts[1].substring(0, targetParts[1].length() - 1)); // remove trailing ')'
+        for (String modTag : modTagSet) {
+            if (modTag.equals(targetMod)) {
+                return true;
+            }
+            // check if the mod tag matches with tolerance 0.01 for glycan mass
+            String[] parts = modTag.split("%");
+            if (parts.length == 2) { // exclude the case where there is no mass
+                String seq = parts[0];
+                double mass = Double.parseDouble(parts[1].substring(0, parts[1].length() - 1)); // remove trailing ')'
+                if (seq.equals(targetSeq) && Math.abs(mass - targetMass) <= Constants.GLYCAN_MASS_TOLERANCE) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     // region helper methods
     private static void takeWeightsAndNormalize(List<Ratio> ratioList) {
         double sum = 0;
-        double pow = 1; // FIXME: should be configurable
+        double pow = Constants.POWER_NUM;
         // Precursor intensity with power
         for (Ratio ratio : ratioList) {
-            ratio.weight = Math.pow(ratio.preInt, pow); // FIXME: pow == 1?
+            ratio.weight = Math.pow(ratio.preInt, pow);
             sum += ratio.weight;
         }
         // Normalize weights

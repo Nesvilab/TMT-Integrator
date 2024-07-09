@@ -1,6 +1,5 @@
 package tmtintegrator.pojo;
 
-import tmtintegrator.TMTIntegrator;
 import tmtintegrator.constants.GroupBy;
 import tmtintegrator.utils.Utils;
 
@@ -221,20 +220,8 @@ public class ProcessedPsmEntry {
         for (String assignedMod : assignedMods) {
             String glycoComp = index.glycoCompositionIndex == -1 ? "" : fields[index.glycoCompositionIndex];
             String mod = Utils.getAssignedModIndex(assignedMod, glycoComp, parameters.useGlycoComposition);
-            // FIXME 07: review required
-            // In the old code, the mod is rounded to 2 decimal places to match a mod tag in parameters.modTagLi
-            // But the old logic converted modTagLi to a long string split by ';' which is inefficient
-            // Potential issue:
-            //   1. modTagLi have 4 decimal places so the rounding may unnecessary
-            //   2. therefore we may check mod directly in modTagLi
-            mod = mod.substring(0, mod.indexOf(".") + 3); // round to 2 decimal places
 
-            StringBuilder allModTags = new StringBuilder();
-            for (String modTag : parameters.modTagLi) {
-                allModTags.append(modTag).append(";");
-            }
-
-            if (allModTags.toString().contains(mod)) { // FIXME 07: inefficient, use parameters.modTagLi.contains(mod) instead without rounding
+            if (Utils.isModTagMatch(mod, parameters.modTagSet)) {
                 // extract position number, ex: 11N(2569.9045) -> 11
                 int position = Integer.parseInt(assignedMod.substring(0, assignedMod.indexOf("(") - 1).trim());
                 positions.add(position);

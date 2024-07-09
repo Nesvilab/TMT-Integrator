@@ -178,7 +178,7 @@ public class ConfigLoader {
 
     private void handleModTag(String value) {
         if (value.isEmpty() || value.equalsIgnoreCase("none")) {
-            parameters.modTagLi.add("none");
+            parameters.modTagSet.add("none");
             return;
         }
 
@@ -189,7 +189,7 @@ public class ConfigLoader {
         for (int i = 0; i < parts.length; i++) {
             String modTag = parts[i].trim();
             String mass = extractMass(modTag);
-            parameters.modTagLi.add(modTag);
+            parameters.modTagSet.add(modTag);
 
             if (i == 0 && !mass.isEmpty()) {
                 targetMass = mass;

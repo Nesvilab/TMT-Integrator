@@ -432,7 +432,7 @@ public class PsmPreProcessor {
         for (String psm : processedLines) {
             processPsmEntry(psm, psmMap, newModTagSet, tmtThreshold, index);
         }
-        parameters.modTagLi.addAll(newModTagSet);
+        parameters.modTagSet.addAll(newModTagSet);
     }
 
     private void processPsmEntry(String psm, Map<String, List<String>> psmMap, Set<String> newModTagSet, double tmtThreshold, Index index) {

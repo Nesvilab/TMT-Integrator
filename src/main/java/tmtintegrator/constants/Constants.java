@@ -23,4 +23,6 @@ public final class Constants {
     public static final Pattern KEY_PATTERN = Pattern.compile("([^%]+)%([ncA-Z])(\\d+)"); // Example: A0A096%S13
     public static final int BIN_NUM = 10; // number of bins for retention time
     public static final int PSM_NUM_THRESHOLD = 4; // threshold for outlier removal
+    public static final int POWER_NUM = 1; // power for ratio weight calculation
+    public static final double GLYCAN_MASS_TOLERANCE = 0.01; // tolerance for glycan mass
 }

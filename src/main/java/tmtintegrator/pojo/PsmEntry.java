@@ -260,7 +260,7 @@ public class PsmEntry {
      * @return true if the modification is valid
      */
     private boolean checkModifications(Set<String> newModTagSet) {
-        if (parameters.modTagLi.get(0).trim().equalsIgnoreCase("none")) {
+        if (parameters.modTagSet.contains("none")) { // NOTE: This is originally a list of strings potentially with "none" as the first element if no mod_tag is specified in the yml file
             // If 'none' is the specified modification, all PSMs are valid in terms of modification.
             return true;
         }
@@ -270,7 +270,7 @@ public class PsmEntry {
             // (shouldn't happen, but can if two mods are reported on same site and Philosopher can't separate them)
             return false;
         }
-        for (String term : parameters.modTagLi) {
+        for (String term : parameters.modTagSet) {
             // skip if psm glycan q-value is above threshold
             if (isSkipModification(term)) {
                 continue;
@@ -328,7 +328,7 @@ public class PsmEntry {
                             (modification.contains("S(") || modification.contains("T(")))) {
                 double mass = extractMass(modification); // TODO: this only works for modification with one "(mass)"
                 if (mass >= 100) {
-                    String modIndex = getAssignedModIndex(modification, glycanComposition, parameters.useGlycoComposition);
+                    String modIndex = Utils.getAssignedModIndex(modification, glycanComposition, parameters.useGlycoComposition);
                     newModTagSet.add(modIndex);
                     return true;
                 }
@@ -347,29 +347,6 @@ public class PsmEntry {
         } catch (NumberFormatException e) {
             return Double.NaN;
         }
-    }
-
-    /**
-     * Helper method for getting the part of a modification to use as the index. Supports using the glycan composition
-     * instead of mass if specified.
-     * Note: if observed mods is empty, default to using the mass value instead
-     *
-     * @param inputMod             single Assigned modification string
-     * @param glycanComposition    contents of the corresponding glycan composition column (only needed for glyco mode)
-     * @param useGlycanComposition whether to use the glycan composition or mass as the index
-     * @return mod string to use as index
-     */
-    public String getAssignedModIndex(String inputMod, String glycanComposition, boolean useGlycanComposition) {
-        String mod;
-        if (useGlycanComposition && !glycanComposition.isEmpty()) {
-            // if using composition for index, read it from glycan composition column. Still get AA site from assigned mods
-            mod = inputMod.substring(inputMod.indexOf("(") - 1, inputMod.indexOf("("));
-            mod = String.format("%s(%s)", mod, glycanComposition);
-        } else {
-            // read mass from assigned mod, as would do for any other mod
-            mod = inputMod.substring(inputMod.indexOf("(") - 1);
-        }
-        return mod;
     }
 
     private boolean checkProteinExclusion() {
