@@ -303,41 +303,15 @@ public final class Utils {
     }
 
     private static double findWeightedMedian(List<Ratio> ratioList) {
-        // FIXME 00: This is a correct way to find weighted median
-//        double cumulativeWeight = 0.0;
-//        for (Ratio ratio : ratioList) {
-//            cumulativeWeight += ratio.weight;
-//            if (cumulativeWeight >= 0.5) {
-//                return ratio.ratio;
-//            }
-//        }
-//        // Fall back to the ratio with the highest weight (should not happen)
-//        ratioList.sort(Comparator.comparingDouble(r -> r.weight));
-//        return ratioList.get(ratioList.size() - 1).ratio;
-        // FIXME 00: to match the original result, reuse the old code here, will removed once FIXME 00 is fixed
-        //   reproduce with tmt10_pholoso_2 dataset
-        // region Old code
-        int index = 1;
-        while (index < ratioList.size()) {
-            double weight1 = 0;
-            double weight2 = 0;
-            for (int i = 0; i < index; i++) {
-                weight1 += ratioList.get(i).weight;
+        double cumulativeWeight = 0.0;
+        for (Ratio ratio : ratioList) {
+            cumulativeWeight += ratio.weight;
+            if (cumulativeWeight >= 0.5) {
+                return ratio.ratio;
             }
-            for (int i = index + 1; i < ratioList.size(); i++) {
-                weight2 += ratioList.get(i).weight;
-            }
-            if (weight1 <= 0.5 && weight2 <= 0.5) {
-                break;
-            }
-            index++;
         }
-        if (index == ratioList.size()) {
-            ratioList.sort(Comparator.comparingDouble(r -> r.weight));
-            return ratioList.get(ratioList.size() - 1).ratio;
-        }
-        return ratioList.get(index).ratio;
-        // endregion
+        ratioList.sort(Comparator.comparingDouble(r -> r.weight));
+        return ratioList.get(ratioList.size() - 1).ratio;
     }
     // endregion
 }
