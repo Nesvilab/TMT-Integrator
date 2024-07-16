@@ -190,21 +190,12 @@ public final class Utils {
 
     public static double calculateGlobalMinRefInt(Map<String, Map<String, double[]>> groupAbundanceMap, Parameters parameters) {
         double globalMinRefInt = Double.MAX_VALUE;
-        boolean isFirst = true;
         for (Map<String, double[]> fileAbundanceMap : groupAbundanceMap.values()) {
             for (Map.Entry<String, double[]> entry : fileAbundanceMap.entrySet()) {
                 String filename = entry.getKey();
                 double[] medianValues = entry.getValue();
                 Index index = parameters.indMap.get(filename);
                 double refInt = medianValues[index.plexNum];
-                // FIXME 04: bug here, if refInt < 0 for the first one.
-                //   should take the first positive value as initial value, reproduce with luad_phosphoproteome dataset
-                // Solution: just remove isFirst flag, and use globalMinRefInt = Double.MAX_VALUE
-                if (isFirst) {
-                    globalMinRefInt = refInt;
-                    isFirst = false;
-                }
-
                 if (refInt > 0 && refInt < globalMinRefInt) {
                     globalMinRefInt = refInt;
                 }
