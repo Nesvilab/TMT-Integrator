@@ -163,11 +163,7 @@ public class PsmProcessor {
         } else if (psmInfo.peptide.length() < newPepSequence.length()) {
             // update peptide and pepsIndex if new peptide is longer
             psmInfo.peptide = newPepSequence;
-//            psmInfo.pepsIndex = pepsIndex; // FIXME 06: should be updated, but it will always be the first pepsIndex
-            // FIXME 06: Here is the original code, where seems the intention is to update pepsIndex as well
-            //   however, with the current implementation, it will always be the first pepsIndex
-            //   psmInfo.peptide = (psmInfo.peptide.length() < newPepSequence.length()) ? newPepSequence : psmInfo.peptide;
-            //   psmInfo.pepsIndex = (psmInfo.peptide.length() < newPepSequence.length()) ? pepsIndex: psmInfo.pepsIndex; // pepIndex will never be updated
+            psmInfo.pepsIndex = pepsIndex; 
         }
         psmInfo.extpep = extPepSequence;
         psmInfo.psmList.add(psm);
