@@ -142,12 +142,9 @@ public final class Utils {
      */
     public static double[] computeIQR(List<Double> ratios) {
         Collections.sort(ratios);
-        // FIXME 10: In old code, q1List range [0, size / 4] and q3List range [size - size / 4 - 1, size - 1]
-        //   which seems incorrect according to IQR definition, should be [0, size / 2] and [(size + 1) / 2, size - 1]
-        //   otherwise, nothing will be removed in the outlier removal step
-        int n = ratios.size() / 4;
-        List<Double> q1List = new ArrayList<>(ratios.subList(0, n + 1));
-        List<Double> q3List = new ArrayList<>(ratios.subList(ratios.size() - n - 1, ratios.size()));
+        int n = ratios.size() / 2;
+        List<Double> q1List = new ArrayList<>(ratios.subList(0, n));
+        List<Double> q3List = new ArrayList<>(ratios.subList(n, ratios.size()));
 
         double q1 = takeMedian(q1List);
         double q3 = takeMedian(q3List);
