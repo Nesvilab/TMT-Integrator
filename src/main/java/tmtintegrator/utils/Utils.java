@@ -64,7 +64,7 @@ public final class Utils {
         takeWeightsAndNormalize(ratioList);
 
         // 3. Sort ratios by ratio values
-        ratioList.sort(Comparator.comparingDouble(r -> r.ratio)); // FIXME 00: should sort by weight to take weighted median
+        ratioList.sort(Comparator.comparingDouble(r -> r.ratio));
 
         // 4. Find the weighted median
         return findWeightedMedian(ratioList);
@@ -89,14 +89,6 @@ public final class Utils {
     public static NavigableMap<Double, List<String>> createBins(double minRt, double maxRt, double binNum) {
         NavigableMap<Double, List<String>> binMap = new TreeMap<>();
         double binWidth = (maxRt - minRt) / binNum;
-        // create bins as empty lists
-//        for (int i = 0; i < binNum; i++) {
-//            double binStart = minRt + i * binWidth;
-//            binMap.put(binStart, new ArrayList<>());
-//        }
-
-        // FIXME 02: This creates one more bin than expected (including a bin starting from maxRt)
-        //   just to keep the decimal precision, should be refactored to code above
         double binStart = minRt;
         while (binStart <= maxRt) {
             binMap.put(binStart, new ArrayList<>());

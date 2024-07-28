@@ -80,7 +80,7 @@ public class ReportGenerator {
             case MULTI_MASS_GLYCO:
                 return "multi-mass";
             default:
-                return ""; // FIXME: throw exception
+                throw new RuntimeException("Invalid groupBy: " + groupBy);
         }
     }
 
@@ -95,7 +95,7 @@ public class ReportGenerator {
             case SL_IRS:
                 return "SL+IRS";
             default:
-                return ""; // FIXME: throw exception
+                throw new RuntimeException("Invalid protNorm: " + normType);
         }
     }
 
@@ -192,7 +192,7 @@ public class ReportGenerator {
             throw new IllegalArgumentException("Error: cannot parse site from " + keyParts[0]);
         }
 
-        int offset = site - Integer.parseInt(keyParts[5]); // Start position FIXME: magic number
+        int offset = site - Integer.parseInt(keyParts[5]);
         String pepSeq = keyParts[4].replace(".", "");
 
         int dotIndex = keyParts[4].indexOf(".");
@@ -200,8 +200,8 @@ public class ReportGenerator {
             throw new IllegalArgumentException("Error: cannot find dot in " + keyParts[4]);
         }
 
-        int startIndex = dotIndex + offset - 7; // FIXME: magic number
-        int endIndex = dotIndex + offset + 8; // FIXME: magic number
+        int startIndex = dotIndex + offset - 7;
+        int endIndex = dotIndex + offset + 8;
 
         if (startIndex < 0) {
             pepSeq = "_".repeat(-startIndex) + pepSeq;

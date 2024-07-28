@@ -358,7 +358,6 @@ public class ProcessedPsmEntry {
         StringBuilder newPeptideSeq = new StringBuilder();
         for (int i = 0; i < peptide.length(); i++) {
             char aa = peptide.charAt(i);
-            // FIXME: should be > or >=, this is the only difference in multi mass glyco
             if (data.probMap.containsKey(i + 1) && data.probMap.get(i + 1) > parameters.minSiteProb) {
                 newPeptideSeq.append(Character.toLowerCase(aa));
             } else {

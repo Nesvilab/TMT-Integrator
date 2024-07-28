@@ -129,7 +129,7 @@ public class PsmProcessor {
         Map<String, List<String>> keyMap = new TreeMap<>(); // TODO: HashMap?
         // <groupKey, <peptide, pepIndex>> FIXME 05: keyPepMap is not used
         Map<String, Map<String, Integer>> keyPepMap = new TreeMap<>(); // to store the peptide start position TODO: HashMap?
-        int location = 5; // FIXME: magic number
+        int location = 5;
 
         // Cluster keys based on the index
         clusterKeys(keyMap, keyPepMap, location); // FIXME 05: keyPepMap is populated during clustering but not used afterwards
@@ -411,16 +411,13 @@ public class PsmProcessor {
             String[] keyParts = groupKey.split("\t");
             String[] indexParts = keyParts[0].split("%");
 
-            if (Utils.tryParseInt(indexParts[indexParts.length - 1]) < 0) { // FIXME: not a good practice
-                // FIXME: review required, if this is just removing the modification tag to get the peptide sequence
-                //   index, then the parameters.modAA should be a regex pattern to match the modification tag
-                //   [STY] for example, not like "S|T|Y" which is current implementation
+            if (Utils.tryParseInt(indexParts[indexParts.length - 1]) < 0) {
                 String[] parts = indexParts[location].split(parameters.modAA);
 
                 // find the peptide start position in the protein sequence
-                String pepseq = keyParts[3]; // FIXME: magic number
+                String pepseq = keyParts[3];
                 int firstIdx = findPepStartIndex(pepseq);
-                int pepStartIdx = Integer.parseInt(parts[1]) - firstIdx; // FIXME: magic number
+                int pepStartIdx = Integer.parseInt(parts[1]) - firstIdx;
 
                 for (int i = 1; i < parts.length; i++) {
                     String newGroupKey = indexParts[0] + "%" +
@@ -479,7 +476,7 @@ public class PsmProcessor {
             } else {
                 String[] keyParts = keyList.get(0).split("\t");
                 String newKey = key + "\t" + keyParts[1] + "\t" + keyParts[2] + "\t" + keyParts[3] + "\t"
-                        + keyParts[4] + "\t" + keyParts[5] + "\t" + keyParts[6] + "\t" + keyParts[7]; // FIXME: magic number
+                        + keyParts[4] + "\t" + keyParts[5] + "\t" + keyParts[6] + "\t" + keyParts[7];
                 newGroupAbundanceMap.put(newKey, groupAbundanceMap.get(keyList.get(0)));
             }
         }

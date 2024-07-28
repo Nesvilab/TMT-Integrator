@@ -233,7 +233,7 @@ public class ConfigLoader {
         // extract amino acids
         modAA = modAA.replace("|", "");
         // truncate the mass to 2 decimal places
-        // FIXME: not a good practice to truncate mass number
+        // FIXME 03: not a good practice to truncate mass number
         // mass = String.format("%.2f", Float.parseFloat(mass));
         mass = mass.substring(0, mass.indexOf(".") + 3);
         return modAA + ":" + mass;

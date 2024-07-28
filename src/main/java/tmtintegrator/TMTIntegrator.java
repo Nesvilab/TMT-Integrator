@@ -78,7 +78,6 @@ public class TMTIntegrator {
                 return;
             }
             // options for groupBy and protNorm
-            // FIXME: magic numbers
             int startGroupBy = (!param.geneflag) ? 0 : 1;
             int endGroupBy = (param.glycoflag) ? 5 : 4;
             if (param.minSiteProb < 0) { // not ptm data
