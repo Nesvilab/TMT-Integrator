@@ -127,12 +127,10 @@ public class PsmProcessor {
     public void generateSingleSite() {
         // <groupKey, List<groupKey>>
         Map<String, List<String>> keyMap = new TreeMap<>(); // TODO: HashMap?
-        // <groupKey, <peptide, pepIndex>> FIXME 05: keyPepMap is not used
-        Map<String, Map<String, Integer>> keyPepMap = new TreeMap<>(); // to store the peptide start position TODO: HashMap?
         int location = 5;
 
         // Cluster keys based on the index
-        clusterKeys(keyMap, keyPepMap, location); // FIXME 05: keyPepMap is populated during clustering but not used afterwards
+        clusterKeys(keyMap, location);
         // Remove multiple sites if single site exists
         removeMultiSites(keyMap);
         // Calculate the median abundance
@@ -402,7 +400,7 @@ public class PsmProcessor {
         return groupKey + "\t" + globalGenePepSeq + "\t" + maxPeptideProb;
     }
 
-    private void clusterKeys(Map<String, List<String>> keyMap, Map<String, Map<String, Integer>> keyPepMap, int location) {
+    private void clusterKeys(Map<String, List<String>> keyMap, int location) {
         for (String groupKey : groupAbundanceMap.keySet()) {
             String[] keyParts = groupKey.split("\t");
             String[] indexParts = keyParts[0].split("%");
@@ -426,7 +424,7 @@ public class PsmProcessor {
                     }
                     // update keyPepMap
                     int pepIndex = Integer.parseInt(parts[i]) - pepStartIdx;
-                    Map<String, Integer> indexMap = keyPepMap.computeIfAbsent(newGroupKey, k -> new TreeMap<>()); // TODO: HashMap?
+                    Map<String, Integer> indexMap = new TreeMap<>(); // TODO: HashMap?
                     indexMap.put(pepseq, pepIndex);
                 }
             }

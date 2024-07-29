@@ -17,11 +17,9 @@ import java.util.*;
 public class PsmPreProcessor {
 
     private final Parameters parameters;
-    private final Set<String> proteinSet; // TODO: no usage
 
     public PsmPreProcessor(Parameters parameters) {
         this.parameters = parameters;
-        this.proteinSet = new HashSet<>();
     }
 
     /**
@@ -121,8 +119,8 @@ public class PsmPreProcessor {
             case "gene":
                 return fields[index.genecIndex].trim().isEmpty();
             default:
-                // TODO: log error
-                return false; // This should never happen
+                System.err.println("Invalid type: " + type);
+                return false;
         }
     }
 
@@ -132,7 +130,6 @@ public class PsmPreProcessor {
     }
 
     private void updateProteins(String[] fields, Index index) {
-        proteinSet.add(fields[index.proteincIndex]);
         if (!parameters.ppMap.containsKey(fields[index.proteinIDcIndex])) {
             parameters.ppMap.put(fields[index.proteinIDcIndex], fields[index.proteincIndex]);
         }
@@ -469,8 +466,6 @@ public class PsmPreProcessor {
         int bestPsmIndex = -1;
         for (int i = 0; i < psmList.size(); i++) {
             String[] fields = psmList.get(i).split("\t");
-            // Index for TMT intensity: fields.length - 2
-            // TODO: magic number
             double tmtIntensity = Double.parseDouble(fields[fields.length - 2]);
             if (tmtIntensity > maxIntensity) {
                 maxIntensity = tmtIntensity;

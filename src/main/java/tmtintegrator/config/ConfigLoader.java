@@ -70,7 +70,7 @@ public class ConfigLoader {
         // Split the line into key and value
         String[] parts = line.split(":", 2);
         if (parts.length < 2) {
-            // TODO: handle invalid line
+            System.out.println("Error parsing line: " + line + ". Ignore it.");
             return;
         }
 

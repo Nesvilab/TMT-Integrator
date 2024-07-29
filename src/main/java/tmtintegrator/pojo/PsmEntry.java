@@ -241,7 +241,6 @@ public class PsmEntry {
         if (parameters.allow_unlabeled) {
             return true;
         }
-        String firstAAtag = peptideSequence.charAt(0) + "(229."; // TODO: No usage, don't know what for
         return assignedModification.contains("n(42.") ||
                 assignedModification.contains("n(229.") ||
                 assignedModification.contains(", 1S(229.") ||
@@ -381,9 +380,9 @@ public class PsmEntry {
     private int handleSingleGene(String mappedGene) {
         mappedGene = mappedGene.trim();
         if (mappedGene.isEmpty() || mappedGene.equalsIgnoreCase(gene.trim())) {
-            return 2; // TODO: magic number, use parameter
+            return 2;
         } else {
-            return parameters.allGeneSet.contains(mappedGene) ? 0 : 1; // TODO: magic number, use parameter
+            return parameters.allGeneSet.contains(mappedGene) ? 0 : 1;
         }
     }
 
@@ -392,10 +391,10 @@ public class PsmEntry {
             mappedGene = mappedGene.trim();
             if (!mappedGene.equalsIgnoreCase(gene.trim()) && parameters.allGeneSet.contains(mappedGene)) {
                 // found a gene in the list that is not the target gene
-                return 0; // TODO: magic number, use parameter
+                return 0;
             }
         }
-        return 1; // TODO: magic number, use parameter
+        return 1;
     }
     // endregion========================================================================================================
 }

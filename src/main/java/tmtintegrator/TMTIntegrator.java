@@ -46,8 +46,8 @@ public class TMTIntegrator {
             TMTIntegrator integrator = new TMTIntegrator(configLoader.getParameters());
             integrator.run();
         } catch (Exception e) {
-            // TODO: handle exception, log error
             e.printStackTrace();
+            System.exit(1);
         }
 
         long endTime = System.currentTimeMillis();
@@ -98,7 +98,6 @@ public class TMTIntegrator {
 
     private boolean inValidAbundanceType() {
         // TODO: Maybe a buggy condition here, type 1 need to be reimplemented
-        // TODO: magic numbers
         return param.abn_type == 1 && (param.protNorm >= 1 && param.protNorm < 3);
     }
 
