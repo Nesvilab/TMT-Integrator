@@ -30,7 +30,7 @@ public class PsmFileLoader {
      * @return map of file path to list of PSM entries
      */
     public Map<String, List<String>> loadPsmFiles(GroupBy groupBy) {
-        Map<String, List<String>> fileMap = new TreeMap<>(); // TODO: HashMap?
+        Map<String, List<String>> fileMap = new HashMap<>();
         for (File file : parameters.fileList) {
             List<String> psmList = processFile(file, groupBy);
             fileMap.put(file.getAbsolutePath(), psmList);

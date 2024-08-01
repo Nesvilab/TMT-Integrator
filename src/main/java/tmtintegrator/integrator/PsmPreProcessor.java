@@ -31,7 +31,7 @@ public class PsmPreProcessor {
      * @throws IOException if an I/O error occurs
      */
     public void checkPsmAndBuildIndex() throws IOException {
-        Collections.sort(parameters.fNameLi); // TODO: looks unnecessary
+        Collections.sort(parameters.fNameLi);
 
         for (File psmFile : parameters.fileList) {
             checkPsmFile(psmFile);
@@ -53,7 +53,7 @@ public class PsmPreProcessor {
                 updateIndex(index);
 
                 // collapse PSM lines based on the criteria
-                Map<String, List<String>> psmMap = new TreeMap<>(); // TODO: HashMap?
+                Map<String, List<String>> psmMap = new HashMap<>();
                 psmMap.put("NotUsed", new ArrayList<>());
                 collapsePsmLines(processedLines, psmMap, tmtThreshold, index);
 

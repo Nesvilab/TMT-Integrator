@@ -25,8 +25,8 @@ public class PsmProcessor {
 
     public PsmProcessor(Parameters parameters, GroupBy groupBy) {
         this.parameters = parameters;
-        this.groupPsmMap = new TreeMap<>(); // TODO: HashMap?
-        this.groupAbundanceMap = new TreeMap<>(); // TODO: HashMap?
+        this.groupPsmMap = new TreeMap<>();
+        this.groupAbundanceMap = new TreeMap<>();
         this.groupBy = groupBy;
     }
 
@@ -80,8 +80,8 @@ public class PsmProcessor {
     public void collapse() {
         for (Map.Entry<String, Map<String, PsmInfo>> groupEntry : groupPsmMap.entrySet()) {
             Map<String, PsmInfo> fileMap = groupEntry.getValue();
-            Map<String, double[]> fileAbundanceMap = new TreeMap<>(); // TODO: HashMap?
-            Map<String, List<String>> proteinMap = new TreeMap<>(); // <proteinId, peptideIndices> TODO: HashMap?
+            Map<String, double[]> fileAbundanceMap = new HashMap<>();
+            Map<String, List<String>> proteinMap = new TreeMap<>();
             int numPsm = 0;
             double maxPeptideProb = 0;
             Set<String> geneSet = new HashSet<>();
@@ -126,7 +126,7 @@ public class PsmProcessor {
      */
     public void generateSingleSite() {
         // <groupKey, List<groupKey>>
-        Map<String, List<String>> keyMap = new TreeMap<>(); // TODO: HashMap?
+        Map<String, List<String>> keyMap = new HashMap<>();
         int location = 5;
 
         // Cluster keys based on the index
@@ -151,7 +151,7 @@ public class PsmProcessor {
         int pepsIndex = Integer.parseInt(fields[index.protsIndex]) - 1;
 
         // Ensure the group key exists, and create a new PSM info if necessary
-        Map<String, PsmInfo> fileMap = groupPsmMap.computeIfAbsent(groupKey, k -> new TreeMap<>());
+        Map<String, PsmInfo> fileMap = groupPsmMap.computeIfAbsent(groupKey, k -> new HashMap<>());
         PsmInfo psmInfo = fileMap.computeIfAbsent(filePath, k -> new PsmInfo());
         psmInfo.gene = gene;
         if (psmInfo.peptide.isEmpty()) {
@@ -329,7 +329,7 @@ public class PsmProcessor {
      */
     private String handleMultiSiteAndMass(Map<String, List<String>> proteinMap, String globalGenePepSeq,
                                           String proteinIdSeq) {
-        Map<String, String> map = new TreeMap<>(); // <peptide, extendedPeptide> // TODO: HashMap?
+        Map<String, String> map = new TreeMap<>();
         String peptideIdxSeq = "";
 
         for (Map.Entry<String, List<String>> entry : proteinMap.entrySet()) {
@@ -364,7 +364,7 @@ public class PsmProcessor {
 
     private String createDefaultGenePepSeq(Map<String, List<String>> proteinMap, String globalGenePepSeq,
                                            String proteinIdSeq) {
-        Set<String> peptideSet = new TreeSet<>(); // TODO: HashSet?
+        Set<String> peptideSet = new TreeSet<>();
         String extendedPeptideSeq = "";
         String peptideIdxSeq = "";
 
@@ -424,7 +424,7 @@ public class PsmProcessor {
                     }
                     // update keyPepMap
                     int pepIndex = Integer.parseInt(parts[i]) - pepStartIdx;
-                    Map<String, Integer> indexMap = new TreeMap<>(); // TODO: HashMap?
+                    Map<String, Integer> indexMap = new HashMap<>();
                     indexMap.put(pepseq, pepIndex);
                 }
             }
@@ -456,12 +456,12 @@ public class PsmProcessor {
     }
 
     private Map<String, Map<String, double[]>> calculateMedianAbundance(Map<String, List<String>> keyMap) {
-        Map<String, Map<String, double[]>> newGroupAbundanceMap = new TreeMap<>(); // TODO: HashMap?
+        Map<String, Map<String, double[]>> newGroupAbundanceMap = new HashMap<>();
         for (String key : keyMap.keySet()) {
             List<String> keyList = keyMap.get(key);
             if (keyList.size() > 1) {
                 // <fileName, abundances>
-                Map<String, List<double[]>> groupFileAbnMap = new TreeMap<>(); // TODO: HashMap?
+                Map<String, List<double[]>> groupFileAbnMap = new HashMap<>();
                 aggregateAbundance(keyList, groupFileAbnMap);
                 Map<String, double[]> updatedAbnMap = calculateUpdatedAbundance(groupFileAbnMap);
 
@@ -491,7 +491,7 @@ public class PsmProcessor {
     }
 
     private Map<String, double[]> calculateUpdatedAbundance(Map<String, List<double[]>> groupFileAbnMap) {
-        Map<String, double[]> updatedAbnMap = new TreeMap<>(); // TODO: HashMap?
+        Map<String, double[]> updatedAbnMap = new HashMap<>();
         for (String fileName : groupFileAbnMap.keySet()) {
             Index index = parameters.indMap.get(fileName);
             List<double[]> abundanceList = groupFileAbnMap.get(fileName);
@@ -524,7 +524,7 @@ public class PsmProcessor {
         String end = keyParts[6];
 
         double maxPeptideProb = 0;
-        Set<String> peptideSet = new TreeSet<>(); // TODO: HashSet?
+        Set<String> peptideSet = new HashSet<>();
         for (String key : keyList) {
             String[] parts = key.split("\t");
             peptideSet.add(parts[3]);

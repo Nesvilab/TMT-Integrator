@@ -44,10 +44,10 @@ public class Parameters {
     public List<String> fNameLi = new ArrayList<>();
     //TreeMap<String, String> fastaMap = new TreeMap<String, String>(); //Key: z; Value: ds_Peak
     public Set<String> allGeneSet = new HashSet<>();
-    public TreeMap<String, String> titleMap = new TreeMap<>();
-    public TreeMap<String, Index> indMap = new TreeMap<>();
+    public Map<String, String> titleMap = new HashMap<>();
+    public Map<String, Index> indMap = new HashMap<>();
     //ds_ColumnIndex ci = new ds_ColumnIndex();
 
-    public TreeMap<String, String> ppMap = new TreeMap<>(); //proteinID-protein map
+    public Map<String, String> ppMap = new HashMap<>(); //proteinID-protein map
     //TreeMap<String, String> phMap = new TreeMap<String, String>(); //protein-fasta header map
 }

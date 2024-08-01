@@ -188,7 +188,7 @@ public class PsmNormalizer {
     }
 
     private Map<String, double[]> getProtMedianMap(boolean useAbsValue) {
-        Map<String, double[]> protMedianMap = new TreeMap<>(); // <filename, medianValues> TODO: HashMap?
+        Map<String, double[]> protMedianMap = new HashMap<>();
         // get the median
         for (String filename : parameters.titleMap.keySet()) {
             Index index = parameters.indMap.get(filename);
@@ -271,7 +271,7 @@ public class PsmNormalizer {
     }
 
     private Map<String, double[]> getSumMap() {
-        Map<String, double[]> sumMap = new TreeMap<>(); // <filename, sumValues> TODO: HashMap?
+        Map<String, double[]> sumMap = new HashMap<>();
         // Reference channel should be excluded from the summation
         for (String filename : parameters.titleMap.keySet()) {
             Index index = parameters.indMap.get(filename);

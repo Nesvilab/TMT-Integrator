@@ -1,9 +1,12 @@
 package tmtintegrator.pojo;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import tmtintegrator.constants.GroupBy;
 import tmtintegrator.utils.Utils;
-
-import java.util.*;
 
 /**
  * Processed PSM entry class.
@@ -43,10 +46,10 @@ public class ProcessedPsmEntry {
         private PhosphoSiteData() {
             siteLocalCount = 0;
             siteLocalPos = new StringBuilder();
-            siteLocalMassMap = new TreeMap<>(); // TODO: HashMap?
+            siteLocalMassMap = new TreeMap<>();
             siteLocalPosList = new ArrayList<>();
             siteCount = 0;
-            probMap = new TreeMap<>(); // TODO: HashMap?
+            probMap = new TreeMap<>();
         }
     }
 
