@@ -25,7 +25,7 @@ public class PsmProcessor {
 
     public PsmProcessor(Parameters parameters, GroupBy groupBy) {
         this.parameters = parameters;
-        this.groupPsmMap = new TreeMap<>();
+        this.groupPsmMap = new HashMap<>();
         this.groupAbundanceMap = new TreeMap<>();
         this.groupBy = groupBy;
     }
@@ -524,7 +524,7 @@ public class PsmProcessor {
         String end = keyParts[6];
 
         double maxPeptideProb = 0;
-        Set<String> peptideSet = new HashSet<>();
+        Set<String> peptideSet = new TreeSet<>();
         for (String key : keyList) {
             String[] parts = key.split("\t");
             peptideSet.add(parts[3]);

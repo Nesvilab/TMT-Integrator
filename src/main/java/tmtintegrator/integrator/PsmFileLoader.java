@@ -46,7 +46,7 @@ public class PsmFileLoader {
         String psmPath = fileName.replace(".tsv", ".ti");
         try (BufferedReader reader = new BufferedReader(new FileReader(psmPath))) {
             String title = reader.readLine();
-            parameters.titleMap.put(fileName, title); // TODO: should be put somewhere other than in parameters
+            parameters.titleMap.put(fileName, title);
             Index index = parameters.indMap.get(fileName);
 
             // read PSM entries
