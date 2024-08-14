@@ -500,6 +500,7 @@ public class PsmPreProcessor {
      */
     private void printPsmFile(File psmFile, Index index, Map<String, List<String>> psmMap) throws IOException {
         String newPath = psmFile.getAbsolutePath().replace(".tsv", ".ti");
+        (new File(newPath)).deleteOnExit();
         // get title line
         String title = getTitleLine(psmFile);
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(newPath))) {

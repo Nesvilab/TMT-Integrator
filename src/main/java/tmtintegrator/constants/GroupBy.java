@@ -6,7 +6,7 @@ package tmtintegrator.constants;
  * @author rogerli on 05/2024
  */
 public enum GroupBy {
-    ALL(-1), // generate reports for all levels
+
     GENE(0), // PSM aggregation to the gene level
     PROTEIN_ID(1), // protein level
     PEPTIDE(2), // peptide sequence level

@@ -1,13 +1,11 @@
 package tmtintegrator;
 
+import java.io.IOException;
 import tmtintegrator.config.ArgumentParser;
 import tmtintegrator.config.ConfigLoader;
 import tmtintegrator.integrator.Integrator;
 import tmtintegrator.integrator.PsmPreProcessor;
 import tmtintegrator.pojo.Parameters;
-
-import java.io.File;
-import java.io.IOException;
 
 public class TMTIntegrator {
 
@@ -56,43 +54,38 @@ public class TMTIntegrator {
 
     // region helper methods
     private void run() throws IOException {
-        try {
-            // region check PSM tables, get genes, and build index
-            long start = System.currentTimeMillis();
-            PsmPreProcessor processor = new PsmPreProcessor(param);
-            processor.checkPsmAndBuildIndex();
-            System.out.println("Check PSM tables, get genes, and build index: " + (System.currentTimeMillis() - start) + " ms");
-            // endregion
+        // region check PSM tables, get genes, and build index
+        long start = System.currentTimeMillis();
+        PsmPreProcessor processor = new PsmPreProcessor(param);
+        processor.checkPsmAndBuildIndex();
+        System.out.println("Check PSM tables, get genes, and build index: " + (System.currentTimeMillis() - start) + " ms");
+        // endregion
 
-            // region preprocess PSM files
-            start = System.currentTimeMillis();
-            processor.updatePsmFiles();
-            System.out.println("Update PSM files: " + (System.currentTimeMillis() - start) + " ms");
-            System.out.println("Preprocessing finished.\n");
-            // endregion
+        // region preprocess PSM files
+        start = System.currentTimeMillis();
+        processor.updatePsmFiles();
+        System.out.println("Update PSM files: " + (System.currentTimeMillis() - start) + " ms");
+        System.out.println("Preprocessing finished.\n");
+        // endregion
 
-            // region integrate PSM files
-            if (inValidAbundanceType()) {
-                System.out.println("For raw-based abundance reports, TMT-Integrator only supports " +
-                        "(1) no normlization, and (2) sample loading and internal reference scaling (SL+IRS).");
-                return;
-            }
-            // options for groupBy and protNorm
-            int startGroupBy = (!param.geneflag) ? 0 : 1;
-            int endGroupBy = (param.glycoflag) ? 5 : 4;
-            if (param.minSiteProb < 0) { // not ptm data
-                endGroupBy = 2;
-            }
-            int normalizationOptions = 2;
+        // region integrate PSM files
+        if (inValidAbundanceType()) {
+            System.out.println("For raw-based abundance reports, TMT-Integrator only supports " +
+                    "(1) no normlization, and (2) sample loading and internal reference scaling (SL+IRS).");
+            return;
+        }
+        // options for groupBy and protNorm
+        int startGroupBy = (!param.geneflag) ? 0 : 1;
+        int endGroupBy = (param.glycoflag) ? 5 : 4;
+        if (param.minSiteProb < 0) { // not ptm data
+            endGroupBy = 2;
+        }
+        int normalizationOptions = 2;
 
-            if (param.protNorm >= 0) {
-                processGroupBy(startGroupBy, endGroupBy);
-            } else {
-                processProtNorm(startGroupBy, endGroupBy, normalizationOptions);
-            }
-            // endregion
-        } finally {
-            cleanUp();
+        if (param.protNorm >= 0) {
+            processGroupBy(startGroupBy, endGroupBy);
+        } else {
+            processProtNorm(startGroupBy, endGroupBy, normalizationOptions);
         }
     }
 
@@ -144,17 +137,4 @@ public class TMTIntegrator {
             }
         }
     }
-
-    private void cleanUp() {
-        for (File file : param.fileList) {
-            String tempPath = file.getAbsolutePath().substring(0, file.getAbsolutePath().lastIndexOf(".")) + ".ti";
-            File tempFile = new File(tempPath);
-            if (tempFile.delete()) {
-                System.out.println("Deleted: " + tempPath);
-            } else {
-                System.err.println("Failed to delete: " + tempPath);
-            }
-        }
-    }
-    // endregion
 }
