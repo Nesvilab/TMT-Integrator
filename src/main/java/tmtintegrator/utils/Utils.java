@@ -98,25 +98,18 @@ public final class Utils {
         return binMap;
     }
 
-    /**
-     * Make sure there are <= 7 amino acids on both sides of the extended peptide sequence.
-     *
-     * @param extPep extended peptide sequence
-     * @return refined extended peptide sequence
-     * @author Fengchao
-     */
-    public static String refineExtendedSequence(String extPep) {
+    public static String[] getLRStrings(String extPep) {
         int firstPeriodIdx = extPep.indexOf(".");
         if (firstPeriodIdx == -1) {
-            return extPep;
+            return new String[]{"", ""};
         }
         int startIdx = Math.max(0, firstPeriodIdx - 7);
         int lastPeriodIdx = extPep.indexOf(".", firstPeriodIdx + 1);
         if (lastPeriodIdx == -1) {
-            return extPep.substring(startIdx);
+            return new String[]{extPep.substring(startIdx, firstPeriodIdx), ""};
         }
         int endIdx = Math.min(extPep.length(), lastPeriodIdx + 8);
-        return extPep.substring(startIdx, endIdx);
+        return new String[]{extPep.substring(startIdx, firstPeriodIdx), extPep.substring(lastPeriodIdx + 1, endIdx)};
     }
 
     public static double[][] convertTo2DArray(List<String> psmList, Index index) {
