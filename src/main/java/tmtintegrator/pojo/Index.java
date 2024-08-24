@@ -1,12 +1,15 @@
 package tmtintegrator.pojo;
 
 public class Index {
+    public int spectrumIndex = -1;
     public int pepcIndex = -1;
     public int pepProbcIndex = -1;
     public int assignedModcIndex = -1;
     public int ptmLocalcIndex = -1;
     public int proteinIDcIndex = -1;
     public int proteincIndex = -1;
+    public int proteinDescIndex = -1;
+    public int entryNameIndex = -1;
     public int genecIndex = -1;
     public int isUniquecIndex = -1;
     public int rtIndex = -1;
@@ -17,6 +20,7 @@ public class Index {
     public int observedMzIndex = -1;
     public int pepMassIndex = -1;
     public int mapGeneIndex = -1;
+    public int mappedProteinsIndex = -1;
     public int modifiedPeptideIndex = -1;
     public int numEnzyTermi = -1;
     public int glycoCompositionIndex = -1;

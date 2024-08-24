@@ -6,6 +6,8 @@ import tmtintegrator.constants.NormType;
 import tmtintegrator.constants.ReportType;
 import tmtintegrator.pojo.Index;
 import tmtintegrator.pojo.Parameters;
+import tmtintegrator.pojo.ReportInfo;
+import tmtintegrator.utils.ReportData;
 import tmtintegrator.utils.Utils;
 
 import java.io.BufferedWriter;
@@ -24,13 +26,15 @@ import java.util.regex.Matcher;
 
 public class ReportGenerator {
     private final Parameters parameters;
+    private final ReportData reportData;
     private final GroupBy groupBy;
     private final NormType normType;
     private final Map<String, Map<String, double[]>> groupAboundanceMap; // <groupKey, <filename, abundance[]>>
 
-    public ReportGenerator(Parameters parameters, GroupBy groupBy, NormType normType,
+    public ReportGenerator(Parameters parameters, ReportData reportData, GroupBy groupBy, NormType normType,
                            Map<String, Map<String, double[]>> groupAboundanceMap) {
         this.parameters = parameters;
+        this.reportData = reportData;
         this.groupBy = groupBy;
         this.normType = normType;
         this.groupAboundanceMap = groupAboundanceMap;
@@ -115,21 +119,21 @@ public class ReportGenerator {
     private void writeTitle(BufferedWriter writer) throws IOException {
         switch (groupBy) {
             case PROTEIN_ID:
-                writer.write("Index\tNumberPSM\tGene");
+                writer.write(ReportInfo.HEADER_PROTEIN);
                 break;
             case PEPTIDE:
             case MULTI_PHOSPHO_SITE:
             case SINGLE_PHOSPHO_SITE:
             case MULTI_MASS_GLYCO:
-                writer.write("Index\tGene\tProteinID\tPeptide\tSequenceWindow\tStart\tEnd");
+                writer.write(ReportInfo.HEADER);
                 break;
             case GENE:
-                writer.write("Index\tNumberPSM\tProteinID");
+                writer.write("Index\tNumberPSM\tProteinID\tMaxPepProb");
                 break;
             default:
                 throw new IllegalArgumentException("Invalid groupBy: " + groupBy);
         }
-        writer.write("\tMaxPepProb\tReferenceIntensity");
+        writer.write("\tReferenceIntensity");
 
         for (String fileName : parameters.fNameLi) {
             Index index = parameters.indMap.get(fileName);
@@ -175,7 +179,12 @@ public class ReportGenerator {
             }
 
             if (isPrint) {
-                writer.write(groupKey.replace("%", "_"));
+                if (groupBy == GroupBy.GENE) {
+                    writer.write(groupKey.replace("%", "_"));
+                } else {
+                    // peptide and site level, protein level
+                    reportData.writeReportInfo(writer, groupKey, groupBy);
+                }
                 writeData(writer, type, avgAbundance, fileAbundanceMap);
                 writer.newLine();
             }

@@ -4,6 +4,7 @@ package tmtintegrator.integrator;
 import tmtintegrator.constants.GroupBy;
 import tmtintegrator.constants.NormType;
 import tmtintegrator.pojo.Parameters;
+import tmtintegrator.utils.ReportData;
 
 import java.io.IOException;
 import java.util.List;
@@ -15,10 +16,12 @@ import java.util.Map;
 
 public class Integrator {
     private final Parameters parameters;
+    private final ReportData reportData;
     private long phaseStartTime;
 
-    public Integrator(Parameters parameters) {
+    public Integrator(Parameters parameters, ReportData reportData) {
         this.parameters = parameters;
+        this.reportData = reportData;
     }
 
     public void run(int groupByVal, int protNormVal) throws IOException {
@@ -83,7 +86,7 @@ public class Integrator {
         }
 
         // Generate reports
-        ReportGenerator reporter = new ReportGenerator(parameters, groupBy, protNorm, groupAbundanceMap);
+        ReportGenerator reporter = new ReportGenerator(parameters, reportData, groupBy, protNorm, groupAbundanceMap);
         reporter.generateReports();
 
         printTime("Generate reports");

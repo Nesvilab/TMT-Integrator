@@ -1,9 +1,11 @@
 package tmtintegrator.integrator;
 
 import tmtintegrator.constants.ReferenceType;
+import tmtintegrator.pojo.ProteinIndex;
 import tmtintegrator.pojo.PsmEntry;
 import tmtintegrator.pojo.Index;
 import tmtintegrator.pojo.Parameters;
+import tmtintegrator.utils.ReportData;
 import tmtintegrator.utils.Utils;
 
 import java.io.*;
@@ -17,16 +19,19 @@ import java.util.*;
 public class PsmPreProcessor {
 
     private final Parameters parameters;
+    private final ReportData reportData;
 
-    public PsmPreProcessor(Parameters parameters) {
+    public PsmPreProcessor(Parameters parameters, ReportData reportData) {
         this.parameters = parameters;
+        this.reportData = reportData;
     }
 
     /**
      * Check PSM tables for missing values <br>
      * Update protein list <br>
      * Get all genes <br>
-     * Create index for each PSM file
+     * Create index for each PSM file <br>
+     * Maintain extra info of each PSM for final report
      *
      * @throws IOException if an I/O error occurs
      */
@@ -35,6 +40,28 @@ public class PsmPreProcessor {
 
         for (File psmFile : parameters.fileList) {
             checkPsmFile(psmFile);
+        }
+    }
+
+    /**
+     * Collect protein information from protein.tsv files <br>
+     * - Protein ID <br>
+     * - Organism <br>
+     * - Indistinguishable Proteins <br>
+     */
+    public void collectProteinInfo() throws IOException {
+        for (File proteinFile : parameters.proteinFileList) {
+            try (BufferedReader reader = new BufferedReader(new FileReader(proteinFile))) {
+                String titleLine = reader.readLine();
+                ProteinIndex proteinIndex = parameters.proteinIndexMap.get(proteinFile.getAbsolutePath());
+                mapColumnIndex(titleLine, proteinIndex);
+
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    String[] fields = line.split("\t");
+                    reportData.updateExtraProteinInfo(fields, proteinIndex);
+                }
+            }
         }
     }
 
@@ -96,7 +123,7 @@ public class PsmPreProcessor {
                 } else {
                     updateAllGenesList(fields, index);
                 }
-                updateProteins(fields, index);
+                reportData.updateExtraPsmInfo(fields, index);
             }
 
             checkAndWarn(totalCount, ms1MissingCount, psmFile, "ms1");
@@ -127,12 +154,6 @@ public class PsmPreProcessor {
     private void updateAllGenesList(String[] fields, Index index) {
         String gene = fields[index.genecIndex].trim();
         parameters.allGeneSet.add(gene);
-    }
-
-    private void updateProteins(String[] fields, Index index) {
-        if (!parameters.ppMap.containsKey(fields[index.proteinIDcIndex])) {
-            parameters.ppMap.put(fields[index.proteinIDcIndex], fields[index.proteincIndex]);
-        }
     }
 
     private void checkAndWarn(int totalCount, int missingCount, File psmFile, String type) {
@@ -209,6 +230,9 @@ public class PsmPreProcessor {
         for (int i = 0; i < columns.length; i++) {
             String column = columns[i].trim();
             switch (column) {
+                case "Spectrum":
+                    index.spectrumIndex = i;
+                    break;
                 case "PeptideProphet Probability":
                 case "Probability":
                     index.pepProbcIndex = i;
@@ -228,6 +252,12 @@ public class PsmPreProcessor {
                     break;
                 case "Protein":
                     index.proteincIndex = i;
+                    break;
+                case "Protein Description":
+                    index.proteinDescIndex = i;
+                    break;
+                case "Entry Name":
+                    index.entryNameIndex = i;
                     break;
                 case "Gene":
                     index.genecIndex = i;
@@ -257,6 +287,9 @@ public class PsmPreProcessor {
                 case "Mapped Genes":
                     index.mapGeneIndex = i;
                     break;
+                case "Mapped Proteins":
+                    index.mappedProteinsIndex = i;
+                    break;
                 case "Modified Peptide":
                     index.modifiedPeptideIndex = i;
                     break;
@@ -284,6 +317,25 @@ public class PsmPreProcessor {
                 default:
                     // handle cases require complex evaluation
                     handleComplexCases(column, i, index);
+            }
+        }
+    }
+
+    private void mapColumnIndex(String title, ProteinIndex proteinIndex) {
+        // Only mapping necessary columns
+        String[] columns = title.split("\t");
+        for (int i = 0; i < columns.length; i++) {
+            String column = columns[i].trim();
+            switch (column) {
+                case "Protein ID":
+                    proteinIndex.proteinIDIdx = i;
+                    break;
+                case "Organism":
+                    proteinIndex.organismIdx = i;
+                    break;
+                case "Indistinguishable Proteins":
+                    proteinIndex.indistinguishableProteinsIdx = i;
+                    break;
             }
         }
     }

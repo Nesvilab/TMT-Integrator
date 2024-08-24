@@ -6,15 +6,18 @@ import tmtintegrator.config.ConfigLoader;
 import tmtintegrator.integrator.Integrator;
 import tmtintegrator.integrator.PsmPreProcessor;
 import tmtintegrator.pojo.Parameters;
+import tmtintegrator.utils.ReportData;
 
 public class TMTIntegrator {
 
     private final static String APP_NAME = "TMT Integrator";
     private final static String APP_VERSION = "6.0.0";
     private final Parameters param;
+    private final ReportData reportData;
 
     public TMTIntegrator(Parameters param) {
         this.param = param;
+        this.reportData = new ReportData();
     }
 
     public static void main(String[] args) throws IOException {
@@ -56,8 +59,9 @@ public class TMTIntegrator {
     private void run() throws IOException {
         // region check PSM tables, get genes, and build index
         long start = System.currentTimeMillis();
-        PsmPreProcessor processor = new PsmPreProcessor(param);
+        PsmPreProcessor processor = new PsmPreProcessor(param, reportData);
         processor.checkPsmAndBuildIndex();
+        processor.collectProteinInfo();
         System.out.println("Check PSM tables, get genes, and build index: " + (System.currentTimeMillis() - start) + " ms");
         // endregion
 
@@ -96,7 +100,7 @@ public class TMTIntegrator {
 
     // TODO: logic review required
     private void processGroupBy(int startGroupBy, int endGroupBy) throws IOException {
-        Integrator integrator = new Integrator(param);
+        Integrator integrator = new Integrator(param, reportData);
         if (param.groupBy >= 0) {
             integrator.run(param.groupBy, param.protNorm);
         } else {
@@ -110,7 +114,7 @@ public class TMTIntegrator {
 
     // FIXME 01: buggy logic, need to be reimplemented for abn_type == 1
     private void processProtNorm(int startGroupBy, int endGroupBy, int normalizationOptions) throws IOException {
-        Integrator integrator = new Integrator(param);
+        Integrator integrator = new Integrator(param, reportData);
         if (param.groupBy >= 0) {
             for (int i = 0; i <= normalizationOptions; i++) {
                 if (param.abn_type == 1 && i < 1) {

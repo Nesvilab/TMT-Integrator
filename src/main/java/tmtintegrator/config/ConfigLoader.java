@@ -3,6 +3,7 @@ package tmtintegrator.config;
 import tmtintegrator.constants.Constants;
 import tmtintegrator.pojo.Index;
 import tmtintegrator.pojo.Parameters;
+import tmtintegrator.pojo.ProteinIndex;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -53,9 +54,19 @@ public class ConfigLoader {
         for (File file : inputFiles) {
             String absolutePath = file.getAbsolutePath();
             parameters.fNameLi.add(absolutePath);
+            // Check existence of protein.tsv file in the same folder and record if exists
+            String proteinPath = absolutePath.replace("psm.tsv", "protein.tsv");
+            File proteinFile = new File(proteinPath);
+            if (proteinFile.exists()) {
+                parameters.proteinFileList.add(proteinFile);
+            } else {
+                System.out.println("Protein file not found: " + proteinPath);
+            }
 
             Index index = new Index();
+            ProteinIndex proteinIndex = new ProteinIndex();
             parameters.indMap.put(absolutePath, index);
+            parameters.proteinIndexMap.put(proteinPath, proteinIndex);
         }
     }
 

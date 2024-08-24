@@ -41,13 +41,10 @@ public class Parameters {
     public boolean log2transformed = true;
 
     public List<File> fileList = new ArrayList<>();
+    public List<File> proteinFileList = new ArrayList<>();
     public List<String> fNameLi = new ArrayList<>();
-    //TreeMap<String, String> fastaMap = new TreeMap<String, String>(); //Key: z; Value: ds_Peak
     public Set<String> allGeneSet = new HashSet<>();
     public Map<String, String> titleMap = new HashMap<>();
     public Map<String, Index> indMap = new HashMap<>();
-    //ds_ColumnIndex ci = new ds_ColumnIndex();
-
-    public Map<String, String> ppMap = new HashMap<>(); //proteinID-protein map
-    //TreeMap<String, String> phMap = new TreeMap<String, String>(); //protein-fasta header map
+    public Map<String, ProteinIndex> proteinIndexMap = new HashMap<>();
 }
