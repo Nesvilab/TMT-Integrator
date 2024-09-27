@@ -1,11 +1,19 @@
 package tmtintegrator.utils;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.NavigableMap;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import tmtintegrator.constants.Constants;
 import tmtintegrator.pojo.Index;
 import tmtintegrator.pojo.Parameters;
 import tmtintegrator.pojo.Ratio;
-
-import java.util.*;
 
 /**
  * Utility class for common arithmetic operations, and psm processing.
@@ -225,7 +233,6 @@ public final class Utils {
     public static String getAssignedModIndex(String inputMod, String glycanComposition, boolean useGlycanComposition) {
         String mod;
         if (useGlycanComposition && !glycanComposition.isEmpty()) {
-            // if using composition for index, read it from glycan composition column. Still get AA site from assigned mods
             mod = inputMod.substring(inputMod.indexOf("(") - 1, inputMod.indexOf("("));
 
             // remove extra whitespace
@@ -233,34 +240,41 @@ public final class Utils {
             glycanComposition = glycanComposition.replaceAll("\\s+", "");
 
             mod = String.format("%s(%s)", mod, glycanComposition);
+        } else if (inputMod.toLowerCase().startsWith("n-term") || inputMod.toLowerCase().startsWith("c-term")) {
+            return inputMod;
         } else {
-            // read mass from assigned mod, as would do for any other mod
             mod = inputMod.substring(inputMod.indexOf("(") - 1);
         }
         return mod;
     }
 
-    /**
-     * Check if the mod tag matches a mod tag in the modTagSet with tolerance 0.01 for glycan mass
-     * Mod tag is in the format "N(HexNAc(5)Hex(6)NeuAc(3)%2861.0000)"
-     *
-     * @param targetMod mod tag to check
-     * @return true if matches
-     */
     public static boolean isModTagMatch(String targetMod, Set<String> modTagSet) {
-        String[] targetParts = targetMod.split("%");
-        String targetSeq = targetParts[0];
-        double targetMass = Double.parseDouble(targetParts[1].substring(0, targetParts[1].length() - 1)); // remove trailing ')'
+        Matcher nonGlycoMatcher = Constants.MOD_TAG_PATTERN.matcher(targetMod);
+        if (nonGlycoMatcher.matches()) {
+            String targetSeq = nonGlycoMatcher.group(Constants.AA_GROUP);
+            double targetMass = Double.parseDouble(nonGlycoMatcher.group(Constants.MASS_GROUP));
+            return checkMatch(targetMod, modTagSet, Constants.MOD_TAG_PATTERN, targetSeq, targetMass);
+        } else {
+            Matcher glycoMatcher = Constants.GLYCAN_MOD_TAG_PATTERN.matcher(targetMod);
+            if (glycoMatcher.matches()) {
+                String targetSeq = glycoMatcher.group(Constants.AA_GROUP);
+                double targetMass = Double.parseDouble(glycoMatcher.group(Constants.MASS_GROUP));
+                return checkMatch(targetMod, modTagSet, Constants.GLYCAN_MOD_TAG_PATTERN, targetSeq, targetMass);
+            }
+        }
+        return false;
+    }
+
+    private static boolean checkMatch(String targetMod, Set<String> modTagSet, Pattern pattern, String targetSeq, double targetMass) {
         for (String modTag : modTagSet) {
             if (modTag.equals(targetMod)) {
                 return true;
             }
-            // check if the mod tag matches with tolerance 0.01 for glycan mass
-            String[] parts = modTag.split("%");
-            if (parts.length == 2) { // exclude the case where there is no mass
-                String seq = parts[0];
-                double mass = Double.parseDouble(parts[1].substring(0, parts[1].length() - 1)); // remove trailing ')'
-                if (seq.equals(targetSeq) && Math.abs(mass - targetMass) <= Constants.GLYCAN_MASS_TOLERANCE) {
+            Matcher matcher = pattern.matcher(modTag);
+            if (matcher.matches()) {
+                String seq = matcher.group(Constants.AA_GROUP);
+                double mass = Double.parseDouble(matcher.group(Constants.MASS_GROUP));
+                if (seq.equals(targetSeq) && Math.abs(mass - targetMass) <= Constants.MASS_TOLERANCE) {
                     return true;
                 }
             }
