@@ -4,6 +4,8 @@ import tmtintegrator.constants.Constants;
 import tmtintegrator.constants.NormType;
 import tmtintegrator.pojo.Index;
 import tmtintegrator.pojo.Parameters;
+import tmtintegrator.pojo.psm.Psm;
+import tmtintegrator.pojo.psm.PsmRecord;
 import tmtintegrator.utils.Utils;
 
 import java.util.*;
@@ -17,7 +19,7 @@ import java.util.*;
 public class PsmNormalizer {
     private final Parameters parameters;
     private final NormType normType; // protein normalization type
-    private Map<String, Map<String, double[]>> groupAbundanceMap; // <groupKey(proteinId), <fileName, abundance>>
+    private Map<String, Map<String, double[]>> groupAbundanceMap; // <groupKey, <fileName, abundance>>
 
     public PsmNormalizer(Parameters parameters, NormType normType) {
         this.parameters = parameters;
@@ -31,32 +33,29 @@ public class PsmNormalizer {
     /**
      * Take log and normalize PSM.
      *
-     * @param fileMap map of file path to list of PSM entries
+     * @param psmList list of PSM files
      */
-    public void logNormalizeData(Map<String, List<String>> fileMap) {
-        for (Map.Entry<String, List<String>> entry : fileMap.entrySet()) {
-            String filePath = entry.getKey();
-            List<String> psmList = entry.getValue();
-            Index index = parameters.indMap.get(filePath);
-            List<String> normPsmList = logNormalizePsm(psmList, index);
-            psmList.clear();
-            psmList.addAll(normPsmList);
+    public void logNormalizeData(List<Psm> psmList) {
+        for (Psm psm : psmList) {
+            List<PsmRecord> psmRecords = psm.getPsmRecords();
+            // log normalize PSM
+            for (PsmRecord psmRecord : psmRecords) {
+                logNormalizePsm(psmRecord);
+            }
         }
     }
 
     /**
      * Normalize PSM by retention time.
      *
-     * @param fileMap map of file path to list of PSM entries
+     * @param psmList list of PSM files
      */
-    public void rtNormalizeData(Map<String, List<String>> fileMap) {
-        for (Map.Entry<String, List<String>> entry : fileMap.entrySet()) {
-            String filePath = entry.getKey();
-            List<String> psmList = entry.getValue();
-            Index index = parameters.indMap.get(filePath);
-            List<String> normPsmList = rtNormalizePsm(psmList, index);
-            psmList.clear();
-            psmList.addAll(normPsmList);
+    public void rtNormalizeData(List<Psm> psmList) {
+        for (Psm psm : psmList) {
+            List<PsmRecord> psmRecords = psm.getPsmRecords();
+            Index index = psm.getIndex();
+            // rt normalize PSM
+            rtNormalizePsm(psmRecords, index);
         }
     }
 
@@ -67,7 +66,7 @@ public class PsmNormalizer {
         if (normType == NormType.MC || normType == NormType.GN) {
             // preform median centering first
             Map<String, double[]> protMedianMap = getProtMedianMap(false);
-            double globalMedian = Utils.calculateGlobalMedian(protMedianMap);
+            double globalMedian = Utils.calculateGlobalMedian(protMedianMap); // FIXME: include virtual reference channel?
             subtractProt(protMedianMap, -1, -1, true); // subtract protein ratios
 
             if (normType == NormType.GN) {
@@ -87,35 +86,27 @@ public class PsmNormalizer {
     }
 
     // region helper methods
-    private List<String> logNormalizePsm(List<String> psmList, Index index) {
-        List<String> normPsmList = new ArrayList<>();
-        for (String psm : psmList) {
-            // calculate log2 ratio values
-            String[] fields = psm.split("\t");
-            double refValue = Double.parseDouble(fields[index.refIndex]) > 0 ?
-                    Utils.log2(Double.parseDouble(fields[index.refIndex])) : 0;
-            double[] ratioValues = new double[index.plexNum];
-            for (int i = index.abnIndex; i < fields.length; i++) {
-                ratioValues[i - index.abnIndex] = Double.parseDouble(fields[i]) > 0 ?
-                        Utils.log2(Double.parseDouble(fields[i])) - refValue : Double.NaN;
-            }
-            // generate normalized PSM
-            StringBuilder normPsm = new StringBuilder();
-            for (int i = 0; i < fields.length; i++) {
-                normPsm.append(i < index.abnIndex ? (fields[i] + "\t") : (ratioValues[i - index.abnIndex] + "\t"));
-            }
-            normPsmList.add(normPsm.toString().trim());
+    private void logNormalizePsm(PsmRecord psmRecord) {
+        double refIntensity = psmRecord.getCopyRefIntensity(); // FIXME: no need to use copy once logNorm extracted from each run
+        double logRefInt = refIntensity > 0 ? Utils.log2(refIntensity) : 0;
+        List<Double> channels = psmRecord.getChannels();
+        for (int i = 0; i < channels.size(); i++) {
+            double intensity = channels.get(i);
+            intensity = intensity > 0 ? Utils.log2(intensity) - logRefInt : Double.NaN;
+            channels.set(i, intensity);
         }
-        return normPsmList;
+        // FIXME: update refIntensity here just to keep the data consistent for original code
+        refIntensity = refIntensity > 0 ? 0 : Double.NaN;
+        psmRecord.setNormRefIntensity(refIntensity);
     }
 
-    private List<String> rtNormalizePsm(List<String> psmList, Index index) {
+    private void rtNormalizePsm(List<PsmRecord> psmRecords, Index index) {
         double minRt = Double.MAX_VALUE;
         double maxRt = Double.MIN_VALUE;
 
         // find min and max retention time
-        for (String psm : psmList) {
-            double rt = extractRetentionTime(psm, index.rtIndex);
+        for (PsmRecord psmRecord : psmRecords) {
+            double rt = psmRecord.getRetention();
             if (rt < minRt) {
                 minRt = rt;
             }
@@ -124,52 +115,41 @@ public class PsmNormalizer {
             }
         }
 
-        // define bins of retention time
-        NavigableMap<Double, List<String>> binMap = Utils.createBins(minRt, maxRt, Constants.BIN_NUM);
+        NavigableMap<Double, List<PsmRecord>> binMap = Utils.createBins(minRt, maxRt, Constants.BIN_NUM);
 
         // assign PSMs to bins
-        for (String psm : psmList) {
-            double rt = extractRetentionTime(psm, index.rtIndex);
+        for (PsmRecord psmRecord : psmRecords) {
+            double rt = psmRecord.getRetention();
             double binStart = binMap.floorKey(rt); // find the bin start time
-            binMap.get(binStart).add(psm);
+            binMap.get(binStart).add(psmRecord);
         }
 
         // normalize PSMs in each channel(bin)
-        List<String> normPsmList = new ArrayList<>();
-        for (Map.Entry<Double, List<String>> entry : binMap.entrySet()) {
-            List<String> binPsmList = entry.getValue();
-            normPsmList.addAll(normalizePsmList(binPsmList, index));
+        for (Map.Entry<Double, List<PsmRecord>> entry : binMap.entrySet()) {
+            List<PsmRecord> binPsmList = entry.getValue();
+            normalizePsmList(binPsmList, index);
         }
-
-        return normPsmList;
     }
 
-    private double extractRetentionTime(String psm, int rtIndex) {
-        String[] fields = psm.split("\t");
-        return Double.parseDouble(fields[rtIndex]);
-    }
-
-    private List<String> normalizePsmList(List<String> psmList, Index index) {
-        // convert to 2D array
-        double[][] ratio2DValues = Utils.convertTo2DArray(psmList, index);
-
+    private void normalizePsmList(List<PsmRecord> psmRecords, Index index) {
         // calculate median ratio for each channel
-        double[] medianValues = calculateMedianByChannel(ratio2DValues, index);
+        double[] medianValues = calculateMedianByChannel(psmRecords, index);
+
+        // calculate median ratio for reference channel
+        double refMedian = calculateMedianRefIntensity(psmRecords);
 
         // subtract median ratio from each channel
-        adjustRationsByMedian(ratio2DValues, medianValues);
-
-        // update new ratios
-        return Utils.updatePsmRatios(psmList, ratio2DValues, index);
+        adjustRationsByMedian(psmRecords, medianValues, refMedian);
     }
 
-    private double[] calculateMedianByChannel(double[][] ratio2DValues, Index index) {
-        double[] medianValues = new double[index.plexNum];
-        for (int j = 0; j < index.plexNum; j++) {
+    private double[] calculateMedianByChannel(List<PsmRecord> psmRecords, Index index) {
+        double[] medianValues = new double[index.usedChannelNum];
+        for (int j = 0; j < index.usedChannelNum; j++) {
             List<Double> channelValues = new ArrayList<>();
-            for (double[] row : ratio2DValues) {
-                if (!Double.isNaN(row[j])) {
-                    channelValues.add(row[j]);
+            for (PsmRecord psmRecord : psmRecords) {
+                double intensity = psmRecord.getChannels().get(j);
+                if (!Double.isNaN(intensity)) {
+                    channelValues.add(intensity);
                 }
             }
             medianValues[j] = Utils.takeMedian(channelValues);
@@ -177,12 +157,30 @@ public class PsmNormalizer {
         return medianValues;
     }
 
-    private void adjustRationsByMedian(double[][] ratio2DValues, double[] medianValues) {
-        for (double[] row : ratio2DValues) {
-            for (int j = 0; j < row.length; j++) {
-                if (!Double.isNaN(row[j])) {
-                    row[j] -= medianValues[j];
+    private double calculateMedianRefIntensity(List<PsmRecord> psmRecords) {
+        List<Double> refIntensities = new ArrayList<>();
+        for (PsmRecord psmRecord : psmRecords) {
+            double refIntensity = psmRecord.getCopyRefIntensity(); // FIXME: no need to use copy once rtNorm extracted from each run
+            if (!Double.isNaN(refIntensity)) {
+                refIntensities.add(refIntensity);
+            }
+        }
+        return Utils.takeMedian(refIntensities);
+    }
+
+    private void adjustRationsByMedian(List<PsmRecord> psmRecords, double[] medianValues, double refMedian) {
+        for (PsmRecord psmRecord : psmRecords) {
+            List<Double> channels = psmRecord.getChannels();
+            for (int j = 0; j < channels.size(); j++) {
+                double intensity = channels.get(j);
+                if (!Double.isNaN(intensity)) {
+                    intensity -= medianValues[j];
+                    channels.set(j, intensity);
                 }
+            }
+            // adjust reference intensity FIXME: update refIntensity here just to keep the data consistent for original code
+            if (!Double.isNaN(psmRecord.getRefIntensity())) {
+                psmRecord.setNormRefIntensity(psmRecord.getRefIntensity() - refMedian);
             }
         }
     }
@@ -190,9 +188,9 @@ public class PsmNormalizer {
     private Map<String, double[]> getProtMedianMap(boolean useAbsValue) {
         Map<String, double[]> protMedianMap = new HashMap<>();
         // get the median
-        for (String filename : parameters.titleMap.keySet()) {
+        for (String filename : parameters.fNameLi) {
             Index index = parameters.indMap.get(filename);
-            double[] medianValues = new double[index.plexNum];
+            double[] medianValues = new double[index.plexNum]; // FIXME: remove virtual reference channel
             List<double[]> mediansList = new ArrayList<>();
             // take all abundance values
             for (Map<String, double[]> fileAbundanceMap : groupAbundanceMap.values()) {
@@ -236,7 +234,7 @@ public class PsmNormalizer {
     }
 
     private void ratioToAbundance() {
-        double globalMinRefInt = Utils.calculateGlobalMinRefInt(groupAbundanceMap, parameters);
+        double globalMinRefInt = Utils.calculateGlobalMinRefInt(groupAbundanceMap);
         for (Map<String, double[]> fileAbundanceMap : groupAbundanceMap.values()) {
             double avgAbundance = Utils.calculateAvgAbundance(fileAbundanceMap, globalMinRefInt, parameters);
             convertRatioToAbundance(fileAbundanceMap, avgAbundance);
@@ -249,6 +247,7 @@ public class PsmNormalizer {
             if (medianValues != null) {
                 Index index = parameters.indMap.get(filename);
                 int refIndex = index.refIndex - index.abnIndex;
+                // FIXME: remove virtual reference channel
                 for (int j = 0; j < index.plexNum; j++) {
                     if (!Double.isNaN(medianValues[j]) && j != refIndex) {
                         medianValues[j] = Utils.log2(Utils.pow2(medianValues[j]) * avgAbundance);
@@ -281,7 +280,7 @@ public class PsmNormalizer {
                     mediansList.add(fileAbundanceMap.get(filename));
                 }
             }
-            double[] sumValues = new double[index.totLen];
+            double[] sumValues = new double[index.totLen]; // FIXME: remove virtual reference channel
             for (int j = 0; j < sumValues.length; j++) {
                 double sum = 0;
                 for (double[] medians : mediansList) {
@@ -331,7 +330,7 @@ public class PsmNormalizer {
      * Internal reference scaling normalization.
      */
     private void irsNormalize() {
-        double globalMinRefInt = Utils.calculateGlobalMinRefInt(groupAbundanceMap, parameters);
+        double globalMinRefInt = Utils.calculateGlobalMinRefInt(groupAbundanceMap);
         for (Map<String, double[]> fileAbundanceMap : groupAbundanceMap.values()) {
             double avgRefInt = calculateAvgRefInt(fileAbundanceMap);
             adjustIntensityForIRS(fileAbundanceMap, avgRefInt, globalMinRefInt);
@@ -358,9 +357,11 @@ public class PsmNormalizer {
         for (String filename : parameters.titleMap.keySet()) {
             if (fileAbundanceMap.containsKey(filename)) {
                 double[] medians = fileAbundanceMap.get(filename);
+                Index index = parameters.indMap.get(filename);
                 double refInt = medians[medians.length - 1];
                 double factor = (refInt > 0) ? avgRefInt / refInt : globalMinRefInt;
-                for (int j = 0; j < parameters.channelNum; j++) {
+                // FIXME: remove virtual reference channel and NA channels
+                for (int j = 0; j < index.usedChannelNum; j++) {
                     if (!Double.isNaN(medians[j])) {
                         medians[j] *= factor;
                     }

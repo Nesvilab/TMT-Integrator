@@ -4,6 +4,7 @@ package tmtintegrator.integrator;
 import tmtintegrator.constants.GroupBy;
 import tmtintegrator.constants.NormType;
 import tmtintegrator.pojo.Parameters;
+import tmtintegrator.pojo.psm.Psm;
 import tmtintegrator.utils.ReportData;
 
 import java.io.IOException;
@@ -24,7 +25,7 @@ public class Integrator {
         this.reportData = reportData;
     }
 
-    public void run(int groupByVal, int protNormVal) throws IOException {
+    public void run(int groupByVal, int protNormVal, List<Psm> psmList) throws IOException {
         GroupBy groupBy = GroupBy.fromValue(groupByVal);
         NormType protNorm = NormType.fromValue(protNormVal);
 
@@ -36,28 +37,29 @@ public class Integrator {
         }
 
         phaseStartTime = System.currentTimeMillis();
-
-        // Load all psm.tsvs in FileMap
-        PsmFileLoader loader = new PsmFileLoader(parameters);
-        Map<String, List<String>> fileMap = loader.loadPsmFiles(groupBy); // key: file path, value: list of psm (0 is title)
-        printTime("LoadPsms");
+        // Analyze phospho sites and generate group keys
+        for (Psm psm : psmList) {
+            psm.resetPsmRecords();
+            psm.analyzePhosphoSites(groupBy);
+        }
+        printTime("Analyzing phospho sites");
 
         // Normalize data
         PsmNormalizer normalizer = new PsmNormalizer(parameters, protNorm);
         if (parameters.abn_type == 0) {
-            normalizer.logNormalizeData(fileMap);
+            normalizer.logNormalizeData(psmList); // FIXME: only need once
         }
         printTime("Take log and normalize data");
 
         // PSM normalization
         if (parameters.psmNorm) {
-            normalizer.rtNormalizeData(fileMap);
+            normalizer.rtNormalizeData(psmList); // FIXME: only need once
         }
         printTime("PSM normalization");
 
         // Group PSM
         PsmProcessor processor = new PsmProcessor(parameters, groupBy);
-        processor.groupPsm(fileMap);
+        processor.groupPsm(psmList);
         printTime("Group PSM");
 
         // Remove outliers
@@ -94,6 +96,7 @@ public class Integrator {
 
     /**
      * Print time taken for a phase and update phaseStartTime
+     *
      * @param phase phase name
      */
     private void printTime(String phase) {

@@ -37,7 +37,6 @@ public class Parameters {
     public boolean glycoflag = false;
     public boolean useGlycoComposition = false;    // whether to use glycan composition string or glycan mass for indexing
     public float glycoQval = -1;
-
     public boolean log2transformed = true;
 
     public List<File> fileList = new ArrayList<>();

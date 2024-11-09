@@ -1,11 +1,14 @@
 package tmtintegrator;
 
 import java.io.IOException;
+import java.util.List;
+
 import tmtintegrator.config.ArgumentParser;
 import tmtintegrator.config.ConfigLoader;
 import tmtintegrator.integrator.Integrator;
 import tmtintegrator.integrator.PsmPreProcessor;
 import tmtintegrator.pojo.Parameters;
+import tmtintegrator.pojo.psm.Psm;
 import tmtintegrator.utils.ReportData;
 
 public class TMTIntegrator {
@@ -67,8 +70,8 @@ public class TMTIntegrator {
 
         // region preprocess PSM files
         start = System.currentTimeMillis();
-        processor.updatePsmFiles();
-        System.out.println("Update PSM files: " + (System.currentTimeMillis() - start) + " ms");
+        List<Psm> psmList = processor.parseAndFilterPsmFiles();
+        System.out.println("Parsing and Filtering: " + (System.currentTimeMillis() - start) + " ms");
         System.out.println("Preprocessing finished.\n");
         // endregion
 
@@ -87,9 +90,9 @@ public class TMTIntegrator {
         int normalizationOptions = 2;
 
         if (param.protNorm >= 0) {
-            processGroupBy(startGroupBy, endGroupBy);
+            processGroupBy(startGroupBy, endGroupBy, psmList);
         } else {
-            processProtNorm(startGroupBy, endGroupBy, normalizationOptions);
+            processProtNorm(startGroupBy, endGroupBy, normalizationOptions, psmList);
         }
     }
 
@@ -99,30 +102,30 @@ public class TMTIntegrator {
     }
 
     // TODO: logic review required
-    private void processGroupBy(int startGroupBy, int endGroupBy) throws IOException {
+    private void processGroupBy(int startGroupBy, int endGroupBy, List<Psm> psmList) throws IOException {
         Integrator integrator = new Integrator(param, reportData);
         if (param.groupBy >= 0) {
-            integrator.run(param.groupBy, param.protNorm);
+            integrator.run(param.groupBy, param.protNorm, psmList);
         } else {
             for (int i = startGroupBy; i <= endGroupBy; i++) {
                 System.out.println("Start to process GroupBy: " + i);
-                integrator.run(i, param.protNorm);
+                integrator.run(i, param.protNorm, psmList);
                 System.out.println("-----------------------------------------------------------------------");
             }
         }
     }
 
     // FIXME 01: buggy logic, need to be reimplemented for abn_type == 1
-    private void processProtNorm(int startGroupBy, int endGroupBy, int normalizationOptions) throws IOException {
+    private void processProtNorm(int startGroupBy, int endGroupBy, int normalizationOptions, List<Psm> psmList) throws IOException {
         Integrator integrator = new Integrator(param, reportData);
         if (param.groupBy >= 0) {
             for (int i = 0; i <= normalizationOptions; i++) {
                 if (param.abn_type == 1 && i < 1) {
                     System.out.println("Start to process protNorm=" + i);
-                    integrator.run(param.groupBy, i);
+                    integrator.run(param.groupBy, i, psmList);
                     System.out.println("-----------------------------------------------------------------------");
                 } else if (param.abn_type == 0) {
-                    integrator.run(param.groupBy, i);
+                    integrator.run(param.groupBy, i, psmList);
                     System.out.println("-----------------------------------------------------------------------");
                 }
             }
@@ -131,10 +134,10 @@ public class TMTIntegrator {
                 for (int j = 0; j <= normalizationOptions; j++) {
                     if ((param.abn_type == 1) && (i < 1 || i >= 3)) {
                         System.out.println("Start to process GroupBy: " + i + "_protNorm=" + j);
-                        integrator.run(i, j);
+                        integrator.run(i, j, psmList);
                         System.out.println("-----------------------------------------------------------------------");
                     } else if (param.abn_type == 0) {
-                        integrator.run(i, j);
+                        integrator.run(i, j, psmList);
                         System.out.println("-----------------------------------------------------------------------");
                     }
                 }

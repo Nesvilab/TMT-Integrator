@@ -40,7 +40,6 @@ public class ReportGenerator {
         this.groupAboundanceMap = groupAboundanceMap;
     }
 
-
     public void generateReports() throws IOException {
         if (parameters.abn_type == 0) {
             if (normType == NormType.ALL_NORM || normType == NormType.SL_IRS) {
@@ -93,7 +92,7 @@ public class ReportGenerator {
             case NONE:
                 return "None";
             case MC:
-                return "MD"; // FIXME: why not "MC"?
+                return "MD";
             case GN:
                 return "GN";
             case SL_IRS:
@@ -159,7 +158,7 @@ public class ReportGenerator {
     }
 
     private void writeRatiosOrAbundances(BufferedWriter writer, ReportType type) throws IOException {
-        double globalMinRefInt = Utils.calculateGlobalMinRefInt(groupAboundanceMap, parameters);
+        double globalMinRefInt = Utils.calculateGlobalMinRefInt(groupAboundanceMap);
         for (Map.Entry<String, Map<String, double[]>> groupEntry : groupAboundanceMap.entrySet()) {
             String groupKey = groupEntry.getKey();
             Map<String, double[]> fileAbundanceMap = groupEntry.getValue();
@@ -249,6 +248,7 @@ public class ReportGenerator {
             double[] medians = fileAbundanceMap.getOrDefault(fileName, nanArray);
 
             // record reference abundances
+            // FIXME: should use reference channel or virtual reference channel
             recordRefAbundances(abnBuilder, medians, index, type);
 
             writeValues(writer, medians, refIndex, type, avgAbundance);
@@ -298,7 +298,8 @@ public class ReportGenerator {
     }
 
     private void writeRatioValues(BufferedWriter writer, double[] medians, int refIndex) throws IOException {
-        for (int i = 0; i < medians.length - 1; i++) {
+        for (int i = 0; i < medians.length - 1; i++) { // exclude the last one, which is the total reference intensity
+            // FIXME: if remove the virtual reference channel from matrix, should add case here
             if (i != refIndex) {
                 if (Double.isNaN(medians[i])) {
                     writer.write("\tNA");

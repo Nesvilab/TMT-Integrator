@@ -12,12 +12,15 @@ import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
 import tmtintegrator.constants.Constants;
 import tmtintegrator.constants.GroupBy;
 import tmtintegrator.pojo.Index;
 import tmtintegrator.pojo.Parameters;
 import tmtintegrator.pojo.PsmInfo;
 import tmtintegrator.pojo.Ratio;
+import tmtintegrator.pojo.psm.Psm;
+import tmtintegrator.pojo.psm.PsmRecord;
 import tmtintegrator.utils.Utils;
 
 /**
@@ -48,16 +51,13 @@ public class PsmProcessor {
     /**
      * Group PSMs by protein ID into a map.
      *
-     * @param fileMap map of file path to list of PSM entries
+     * @param psmList list of PSMs
      */
-    public void groupPsm(Map<String, List<String>> fileMap) {
-        for (Map.Entry<String, List<String>> entry : fileMap.entrySet()) {
-            String filePath = entry.getKey();
-            List<String> psmList = entry.getValue();
-            Index index = parameters.indMap.get(filePath);
-
-            for (String psm : psmList) {
-                groupPsmEntry(filePath, psm, index);
+    public void groupPsm(List<Psm> psmList) {
+        for (Psm psm : psmList) {
+            String filePath = psm.getPsmFile().getAbsolutePath();
+            for (PsmRecord psmRecord : psm.getPsmRecords()) {
+                groupPsmEntry(filePath, psmRecord);
             }
         }
 
@@ -76,10 +76,8 @@ public class PsmProcessor {
                 PsmInfo psmInfo = entry.getValue();
                 Index index = parameters.indMap.get(filePath);
                 // Only process psmInfo with psmList over threshold for speed
-                if (psmInfo.psmList.size() >= Constants.PSM_NUM_THRESHOLD) {
-                    List<String> normPsmList = processPsmListByIQR(psmInfo.psmList, index);
-                    psmInfo.psmList.clear();
-                    psmInfo.psmList.addAll(normPsmList);
+                if (psmInfo.psmRecords.size() >= Constants.PSM_NUM_THRESHOLD) {
+                    removeOutlierByChannel(psmInfo.psmRecords, index);
                 }
             }
         }
@@ -101,50 +99,28 @@ public class PsmProcessor {
                 String filePath = entry.getKey();
                 PsmInfo psmInfo = entry.getValue();
                 Index index = parameters.indMap.get(filePath);
-                double[] medianValues = new double[index.totLen];
-                double[][] ratio2DValues = new double[psmInfo.psmList.size()][index.plexNum];
-                Ratio[][] ratioObj2DValues = new Ratio[psmInfo.psmList.size()][index.plexNum];
+                // FIXME: include the virtual reference channel to fit the original result
+                double[] medianValues = parameters.add_Ref >= 0 ?
+                        new double[index.usedChannelNum + 2] :
+                        new double[index.usedChannelNum + 1]; // one additional for total reference intensity
 
                 // get max peptide probability and all peptide sequences
-                maxPeptideProb = updateMaxPepProbAndProteinMap(psmInfo, index, maxPeptideProb, geneSet, proteinMap);
-
-                // get ratio values
-                if (parameters.aggregation_method == 0) {
-                    populateRatio2DValues(psmInfo, index, ratio2DValues);
-                } else if (parameters.aggregation_method == 1) {
-                    populateRatioObj2DValues(psmInfo, index, ratioObj2DValues);
-                }
+                maxPeptideProb = updateMaxPepProbAndProteinMap(psmInfo, maxPeptideProb, geneSet, proteinMap);
 
                 // take median ratios and update abundance map
-                takeMedianRatios(index, medianValues, ratio2DValues, ratioObj2DValues);
-                medianValues[index.plexNum] = psmInfo.totalRefInt; // add total reference intensity
+                takeMedianRatios(medianValues, psmInfo, index);
+                // FIXME: include the virtual reference channel to fit the original result
+                medianValues[medianValues.length - 1] = psmInfo.totalRefInt; // add total reference intensity
                 fileAbundanceMap.put(filePath, medianValues);
                 if (groupBy == GroupBy.GENE || groupBy == GroupBy.PROTEIN_ID) {
-                    numPsm += psmInfo.psmList.size();
+                    numPsm += psmInfo.psmRecords.size();
                 }
             }
 
             String groupKey = groupEntry.getKey();
-            int l = 0, r = 0;
-            if (!parameters.modTagSet.stream().allMatch(e -> e.equals("none"))) {
-                if (groupBy == GroupBy.PEPTIDE || groupBy == GroupBy.MULTI_MASS_GLYCO) {
-                    String[] ss = groupKey.split("%");
-                    l = Integer.parseInt(ss[1]);
-                    r = Integer.parseInt(ss[2]);
-                } else if (groupBy == GroupBy.SINGLE_PHOSPHO_SITE || groupBy == GroupBy.MULTI_PHOSPHO_SITE) {
-                    l = Integer.MAX_VALUE;
-                    r = Integer.MIN_VALUE;
-                    String[] ss = groupKey.split("%");
-                    Matcher m = p.matcher(ss[ss.length - 1]);
-                    while (m.find()) {
-                        int t = Integer.parseInt(m.group(1));
-                        l = Math.min(l, t);
-                        r = Math.max(r, t);
-                    }
-                }
-            }
+            int[] lr = extractLRIndex(groupKey);
 
-            String globalGenePepSeq = createGlobalGenePepSeq(geneSet, proteinMap, numPsm, l, r);
+            String globalGenePepSeq = createGlobalGenePepSeq(geneSet, proteinMap, numPsm, lr[0], lr[1]);
             groupKey = updateGroupKey(groupKey, globalGenePepSeq, maxPeptideProb);
             groupAbundanceMap.put(groupKey, fileAbundanceMap);
         }
@@ -157,7 +133,7 @@ public class PsmProcessor {
     public void generateSingleSite() {
         // <groupKey, List<groupKey>>
         Map<String, List<String>> keyMap = new HashMap<>();
-        int location = 5;
+        int location = 5; // FIXME: magic number, it's actually last index of the index parts in group key
 
         // Cluster keys based on the index
         clusterKeys(keyMap, location);
@@ -171,43 +147,35 @@ public class PsmProcessor {
     }
 
     // region helper methods
-    private void groupPsmEntry(String filePath, String psm, Index index) {
-        String[] fields = psm.split("\t");
-        String[] psmKeyParts = fields[0].split("#");
-        String groupKey = psmKeyParts[0]; // generated by groupBy option while loading
-        String newPepSequence = psmKeyParts[2];
-        String[] lr = Utils.getLRStrings(fields[index.extpepIndex]);
-        String gene = fields[index.genecIndex];
-        int pepsIndex = Integer.parseInt(fields[index.protsIndex]) - 1;
-
-        // Ensure the group key exists, and create a new PSM info if necessary
-        Map<String, PsmInfo> fileMap = groupPsmMap.computeIfAbsent(groupKey, k -> new HashMap<>());
+    private void groupPsmEntry(String filePath, PsmRecord psmRecord) {
+        String[] lr = Utils.getLRStrings(psmRecord.getExtendedPeptide());
+        Map<String, PsmInfo> fileMap = groupPsmMap.computeIfAbsent(psmRecord.getGroupKey(), k -> new HashMap<>());
         PsmInfo psmInfo = fileMap.computeIfAbsent(filePath, k -> new PsmInfo());
-        psmInfo.gene = gene;
-        psmInfo.addP(newPepSequence, lr[0], lr[1], pepsIndex);
-        psmInfo.psmList.add(psm);
+        psmInfo.gene = psmRecord.getGene();
+        psmInfo.addP(psmRecord.getPeptide(), lr[0], lr[1], psmRecord.getPepsIndex());
+        psmInfo.psmRecords.add(psmRecord);
     }
 
     private void computeTotalRefInt() {
         for (Map.Entry<String, Map<String, PsmInfo>> groupEntry : groupPsmMap.entrySet()) {
             Map<String, PsmInfo> fileMap = groupEntry.getValue();
             for (PsmInfo psmInfo : fileMap.values()) {
-                computePsmInfoTotalRefInt(psmInfo);
+                computeTotalRefInt(psmInfo);
             }
         }
     }
 
-    private void computePsmInfoTotalRefInt(PsmInfo psmInfo) {
+    private void computeTotalRefInt(PsmInfo psmInfo) {
         List<Double> refIntensityList = new ArrayList<>();
-        for (String psm : psmInfo.psmList) {
-            double refIntensity = extractRefIntensity(psm);
+        for (PsmRecord psmRecord : psmInfo.psmRecords) {
+            double refIntensity = psmRecord.getRefIntensity();
             refIntensityList.add(refIntensity);
             psmInfo.totalRefInt += refIntensity; // sum all peptide intensities
         }
         Collections.sort(refIntensityList);
 
-        // compute top 3 intensive peptides TODO: why overwriting totalRefInt?
-        if (parameters.top3Pep && psmInfo.psmList.size() >= 3) {
+        // compute top 3 intensive peptides
+        if (parameters.top3Pep && psmInfo.psmRecords.size() >= 3) {
             psmInfo.totalRefInt = 0;
             for (int i = refIntensityList.size() - 1; i >= refIntensityList.size() - 3; i--) {
                 psmInfo.totalRefInt += refIntensityList.get(i);
@@ -215,49 +183,37 @@ public class PsmProcessor {
         }
     }
 
-    private double extractRefIntensity(String psm) {
-        String[] fields = psm.split("\t");
-        String[] psmKeyParts = fields[0].split("#");
-        return Double.parseDouble(psmKeyParts[1]);
-    }
-
-    private List<String> processPsmListByIQR(List<String> psmList, Index index) {
-        double[][] ratio2DValues = Utils.convertTo2DArray(psmList, index);
-        // remove outlier from each channel
-        removeOutlierByChannel(ratio2DValues, index);
-        return Utils.updatePsmRatios(psmList, ratio2DValues, index);
-    }
-
-    private void removeOutlierByChannel(double[][] ratio2DValues, Index index) {
-        for (int j = 0; j < index.plexNum; j++) {
+    private void removeOutlierByChannel(List<PsmRecord> psmRecords, Index index) {
+        for (int j = 0; j < index.usedChannelNum; j++) {
             List<Double> ratios = new ArrayList<>();
-            for (double[] row : ratio2DValues) {
-                if (!Double.isNaN(row[j])) {
-                    ratios.add(row[j]);
+            for (PsmRecord psmRecord : psmRecords) {
+                double ratio = psmRecord.getChannels().get(j);
+                if (!Double.isNaN(ratio)) {
+                    ratios.add(ratio);
                 }
             }
 
             // calculate IQR for outlier removal
             if (ratios.size() >= Constants.PSM_NUM_THRESHOLD) {
                 double[] iqrBounds = Utils.computeIQR(ratios); // lower and upper bounds
-                for (double[] row : ratio2DValues) {
+                for (PsmRecord psmRecord : psmRecords) {
                     // remove outliers
-                    if (!Double.isNaN(row[j]) && (row[j] < iqrBounds[0] || row[j] > iqrBounds[1])) {
-                        row[j] = Double.NaN;
+                    double ratio = psmRecord.getChannels().get(j);
+                    if (!Double.isNaN(ratio) && (ratio < iqrBounds[0] || ratio > iqrBounds[1])) {
+                        psmRecord.getChannels().set(j, Double.NaN);
                     }
                 }
             }
         }
     }
 
-    private double updateMaxPepProbAndProteinMap(PsmInfo psmInfo, Index index, double maxPeptideProb,
+    private double updateMaxPepProbAndProteinMap(PsmInfo psmInfo, double maxPeptideProb,
                                                  Set<String> geneSet, Map<String, Set<String>> proteinMap) {
-        for (String psm : psmInfo.psmList) {
-            String[] fields = psm.split("\t");
-            double peptideProb = Double.parseDouble(fields[index.pepProbcIndex]);
-            String proteinId = fields[index.proteinIDcIndex];
+        for (PsmRecord psmRecord : psmInfo.psmRecords) {
+            double probability = psmRecord.getProbability();
+            String proteinId = psmRecord.getProteinId();
             // update max peptide probability
-            maxPeptideProb = Math.max(maxPeptideProb, peptideProb);
+            maxPeptideProb = Math.max(maxPeptideProb, probability);
             // add gene to gene list
             geneSet.add(psmInfo.gene);
 
@@ -268,53 +224,81 @@ public class PsmProcessor {
         return maxPeptideProb;
     }
 
-    private void populateRatio2DValues(PsmInfo psmInfo, Index index, double[][] ratio2DValues) {
-        for (int i = 0; i < psmInfo.psmList.size(); i++) {
-            String[] fields = psmInfo.psmList.get(i).split("\t");
-            for (int j = index.abnIndex; j < fields.length; j++) {
-                try {
-                    ratio2DValues[i][j - index.abnIndex] = Double.parseDouble(fields[j]);
-                } catch (NumberFormatException e) {
-                    ratio2DValues[i][j - index.abnIndex] = Double.NaN;
-                }
-            }
-        }
-    }
-
-    private void populateRatioObj2DValues(PsmInfo psmInfo, Index index, Ratio[][] ratioObj2DValues) {
-        for (int i = 0; i < psmInfo.psmList.size(); i++) {
-            String[] fields = psmInfo.psmList.get(i).split("\t");
-            for (int j = index.abnIndex; j < fields.length; j++) {
-                Ratio ratio = new Ratio();
-                ratio.preInt = Double.parseDouble(fields[index.ms1IntIndex]);
-                ratio.rt = Double.parseDouble(fields[index.rtIndex]);
-                ratio.ratio = Double.parseDouble(fields[j]);
-                ratioObj2DValues[i][j - index.abnIndex] = ratio;
-            }
-        }
-    }
-
-    private void takeMedianRatios(Index index, double[] medianValues, double[][] ratio2DValues,
-                                  Ratio[][] ratioObj2DValues) {
-        for (int j = 0; j < index.plexNum; j++) {
+    private void takeMedianRatios(double[] medianValues, PsmInfo psmInfo, Index index) {
+        for (int j = 0; j < index.usedChannelNum; j++) {
             if (parameters.aggregation_method == 0) {
-                List<Double> channelValues = new ArrayList<>();
-                for (double[] ratios : ratio2DValues) {
-                    if (!Double.isNaN(ratios[j])) {
-                        channelValues.add(ratios[j]);
+                List<Double> channelsValues = new ArrayList<>();
+                for (PsmRecord psmRecord : psmInfo.psmRecords) {
+                    double ratio = psmRecord.getChannels().get(j);
+                    if (!Double.isNaN(ratio)) {
+                        channelsValues.add(ratio);
                     }
                 }
-                medianValues[j] = Utils.takeMedian(channelValues);
+                medianValues[j] = Utils.takeMedian(channelsValues);
             } else if (parameters.aggregation_method == 1) {
-                List<Ratio> channelValues = new ArrayList<>();
-                for (Ratio[] ratios : ratioObj2DValues) {
-                    if (!Double.isNaN(ratios[j].ratio)) {
-                        channelValues.add(ratios[j]);
+                List<Ratio> channelsValues = new ArrayList<>();
+                for (PsmRecord psmRecord : psmInfo.psmRecords) {
+                    double ratio = psmRecord.getChannels().get(j);
+                    if (!Double.isNaN(ratio)) {
+                        Ratio ratioObj = new Ratio();
+                        ratioObj.preInt = psmRecord.getMs1Intensity();
+                        ratioObj.rt = psmRecord.getRetention();
+                        ratioObj.ratio = ratio;
+                        channelsValues.add(ratioObj);
                     }
                 }
-                medianValues[j] = Utils.takeWeightedMedian(channelValues);
+                medianValues[j] = Utils.takeWeightedMedian(channelsValues);
             }
         }
+        // FIXME: include the virtual reference channel to fit the original result
+        if (parameters.add_Ref >= 0) {
+            if (parameters.aggregation_method == 0) {
+                List<Double> channelsValues = new ArrayList<>();
+                for (PsmRecord psmRecord : psmInfo.psmRecords) {
+                    double ratio = psmRecord.getNormRefIntensity();
+                    if (!Double.isNaN(ratio)) {
+                        channelsValues.add(ratio);
+                    }
+                }
+                medianValues[index.usedChannelNum] = Utils.takeMedian(channelsValues);
+            } else if (parameters.aggregation_method == 1) {
+                List<Ratio> channelsValues = new ArrayList<>();
+                for (PsmRecord psmRecord : psmInfo.psmRecords) {
+                    double ratio = psmRecord.getNormRefIntensity();
+                    if (!Double.isNaN(ratio)) {
+                        Ratio ratioObj = new Ratio();
+                        ratioObj.preInt = psmRecord.getMs1Intensity();
+                        ratioObj.rt = psmRecord.getRetention();
+                        ratioObj.ratio = ratio;
+                        channelsValues.add(ratioObj);
+                    }
+                }
+                medianValues[index.usedChannelNum] = Utils.takeWeightedMedian(channelsValues);
+            }
+        }
+        // FIXME: END
+    }
+
+    private int[] extractLRIndex(String groupKey) {
+        int l = 0, r = 0;
+        if (!parameters.modTagSet.stream().allMatch(e -> e.equals("none"))) {
+            if (groupBy == GroupBy.PEPTIDE || groupBy == GroupBy.MULTI_MASS_GLYCO) {
+                String[] ss = groupKey.split("%");
+                l = Integer.parseInt(ss[1]);
+                r = Integer.parseInt(ss[2]);
+            } else if (groupBy == GroupBy.SINGLE_PHOSPHO_SITE || groupBy == GroupBy.MULTI_PHOSPHO_SITE) {
+                l = Integer.MAX_VALUE;
+                r = Integer.MIN_VALUE;
+                String[] ss = groupKey.split("%");
+                Matcher m = p.matcher(ss[ss.length - 1]);
+                while (m.find()) {
+                    int t = Integer.parseInt(m.group(1));
+                    l = Math.min(l, t);
+                    r = Math.max(r, t);
+                }
+            }
+        }
+        return new int[]{l, r};
     }
 
     private String createGlobalGenePepSeq(Set<String> geneSet, Map<String, Set<String>> proteinMap, int numPsm, int indexStart, int indexEnd) {
@@ -462,7 +446,7 @@ public class PsmProcessor {
                     }
                     // update keyPepMap
                     int pepIndex = Integer.parseInt(parts[i]) - pepStartIdx;
-                    Map<String, Integer> indexMap = new HashMap<>();
+                    Map<String, Integer> indexMap = new HashMap<>(); // FIXME: never used
                     indexMap.put(pepseq, pepIndex);
                 }
             }
@@ -535,7 +519,7 @@ public class PsmProcessor {
             List<double[]> abundanceList = groupFileAbnMap.get(fileName);
 
             if (abundanceList.size() > 1) {
-                double[] fileMedians = new double[index.totLen];
+                double[] fileMedians = new double[index.totLen]; // FIXME: remove virtual reference channel
                 for (int i = 0; i < index.totLen; i++) {
                     List<Double> channelValues = new ArrayList<>();
                     for (double[] medians : abundanceList) {

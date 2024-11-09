@@ -1,5 +1,7 @@
 package tmtintegrator.pojo;
 
+import tmtintegrator.pojo.psm.PsmRecord;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -10,8 +12,8 @@ public class PsmInfo {
 
     public String gene = "";
     public double totalRefInt = 0;
-    public List<String> psmList = new ArrayList<>();
-    private Set<P> pp = new TreeSet<>();
+    public List<PsmRecord> psmRecords = new ArrayList<>();
+    private final Set<P> pp = new TreeSet<>();
 
     public void addP(String peptide, String l, String r, int pepsIndex) {
         P p1 = new P(peptide, l, r, pepsIndex);

@@ -1,12 +1,11 @@
 package tmtintegrator.integrator;
 
-import tmtintegrator.constants.ReferenceType;
 import tmtintegrator.pojo.ProteinIndex;
-import tmtintegrator.pojo.PsmEntry;
 import tmtintegrator.pojo.Index;
 import tmtintegrator.pojo.Parameters;
+import tmtintegrator.pojo.psm.Psm;
+import tmtintegrator.pojo.psm.PsmRecord;
 import tmtintegrator.utils.ReportData;
-import tmtintegrator.utils.Utils;
 
 import java.io.*;
 import java.util.*;
@@ -66,35 +65,41 @@ public class PsmPreProcessor {
     }
 
     /**
-     * Update PSM files based on the criteria, select best PSM if required, and print temp PSM files
+     * Preprocess PSM files <br>
+     * - Read PSM file and preprocess each line <br>
+     * - Calculate TMT threshold <br>
+     * - Collapse PSM lines based on the criteria <br>
+     * - Select best PSM if required <br>
      *
+     * @return list of PSM objects
      */
-    public void updatePsmFiles() {
+    public List<Psm> parseAndFilterPsmFiles() {
+        List<Psm> psmList = new ArrayList<>();
         for (File psmFile : parameters.fileList) {
             try {
-                Index index = parameters.indMap.get(psmFile.getAbsolutePath());
-                // read PSM file and preprocess each line
+                Psm psm = new Psm(parameters, psmFile);
+                // parse PSM file and calculate tmt threshold
                 List<Double> tmtIntensities = new ArrayList<>();
-                List<String> processedLines = readPsmFile(psmFile, index, tmtIntensities);
-                double tmtThreshold = calculateTmtThreshold(processedLines, tmtIntensities);
-                updateIndex(index);
+                psm.readPsmFile(psmFile, tmtIntensities);
+                double tmtThreshold = calculateTmtThreshold(psm.getPsmRecords().size(), tmtIntensities);
 
                 // collapse PSM lines based on the criteria
-                Map<String, List<String>> psmMap = new HashMap<>();
-                psmMap.put("NotUsed", new ArrayList<>());
-                collapsePsmLines(processedLines, psmMap, tmtThreshold, index);
+                Map<String, List<PsmRecord>> psmMap = new HashMap<>();
+                psmMap.put("NotUsed", new ArrayList<>()); // FIXME: remove not used
+                collapsePsm(psm, psmMap, tmtThreshold);
 
                 // select best PSM if required
-                selectBestPsm(psmMap, index);
+                selectBestPsm(psmMap);
 
-                // print intermediate psm file
-                printPsmFile(psmFile, index, psmMap);
-
+                // keep only used PSMs
+                psm.filterUnUsedPsm(psmMap);
+                psmList.add(psm);
             } catch (IOException e) {
                 System.err.println("Error processing PSM file: " + psmFile.getAbsolutePath());
                 e.printStackTrace();
             }
         }
+        return psmList;
     }
 
     // region checkPsmAndBuildIndex helper methods=============================================
@@ -233,49 +238,21 @@ public class PsmPreProcessor {
                 case "Spectrum":
                     index.spectrumIndex = i;
                     break;
-                case "PeptideProphet Probability":
-                case "Probability":
-                    index.pepProbcIndex = i;
-                    break;
                 case "Peptide":
                     index.pepcIndex = i;
                     index.peptideIndex = i;
                     break;
-                case "Assigned Modifications":
-                    index.assignedModcIndex = i;
+                case "Modified Peptide":
+                    index.modifiedPeptideIndex = i;
                     break;
-                case "Phospho Site Localization":
-                    index.ptmLocalcIndex = i;
-                    break;
-                case "Protein ID":
-                    index.proteinIDcIndex = i;
-                    break;
-                case "Protein":
-                    index.proteincIndex = i;
-                    break;
-                case "Protein Description":
-                    index.proteinDescIndex = i;
-                    break;
-                case "Entry Name":
-                    index.entryNameIndex = i;
-                    break;
-                case "Gene":
-                    index.genecIndex = i;
-                    break;
-                case "Is Unique":
-                    index.isUniquecIndex = i;
-                    break;
-                case "Retention":
-                    index.rtIndex = i;
-                    break;
-                case "Intensity":
-                    index.ms1IntIndex = i;
-                    break;
-                case "Purity":
-                    index.purityIndex = i;
+                case "Extended Peptide":
+                    index.extpepIndex = i;
                     break;
                 case "Charge":
                     index.chargeIndex = i;
+                    break;
+                case "Retention":
+                    index.rtIndex = i;
                     break;
                 case "Observed M/Z":
                     index.observedMzIndex = i;
@@ -284,26 +261,12 @@ public class PsmPreProcessor {
                 case "Peptide Mass":
                     index.pepMassIndex = i;
                     break;
-                case "Mapped Genes":
-                    index.mapGeneIndex = i;
-                    break;
-                case "Mapped Proteins":
-                    index.mappedProteinsIndex = i;
-                    break;
-                case "Modified Peptide":
-                    index.modifiedPeptideIndex = i;
+                case "PeptideProphet Probability":
+                case "Probability":
+                    index.pepProbcIndex = i;
                     break;
                 case "Number of Enzymatic Termini":
                     index.numEnzyTermi = i;
-                    break;
-                case "Total Glycan Composition":
-                    index.glycoCompositionIndex = i;
-                    break;
-                case "Glycan q-value":
-                    index.glycoQvalIndex = i;
-                    break;
-                case "Observed Modifications":
-                    index.observedModIndex = i;
                     break;
                 case "Protein Start":
                     index.protsIndex = i;
@@ -311,8 +274,50 @@ public class PsmPreProcessor {
                 case "Protein End":
                     index.proteIndex = i;
                     break;
-                case "Extended Peptide":
-                    index.extpepIndex = i;
+                case "Intensity":
+                    index.ms1IntIndex = i;
+                    break;
+                case "Assigned Modifications":
+                    index.assignedModcIndex = i;
+                    break;
+                case "Observed Modifications":
+                    index.observedModIndex = i;
+                    break;
+                case "Purity":
+                    index.purityIndex = i;
+                    break;
+                case "Is Unique":
+                    index.isUniquecIndex = i;
+                    break;
+                case "Protein":
+                    index.proteincIndex = i;
+                    break;
+                case "Protein ID":
+                    index.proteinIDcIndex = i;
+                    break;
+                case "Entry Name":
+                    index.entryNameIndex = i;
+                    break;
+                case "Gene":
+                    index.genecIndex = i;
+                    break;
+                case "Protein Description":
+                    index.proteinDescIndex = i;
+                    break;
+                case "Mapped Genes":
+                    index.mapGeneIndex = i;
+                    break;
+                case "Mapped Proteins":
+                    index.mappedProteinsIndex = i;
+                    break;
+                case "Phospho Site Localization":
+                    index.ptmLocalcIndex = i;
+                    break;
+                case "Total Glycan Composition":
+                    index.glycoCompositionIndex = i;
+                    break;
+                case "Glycan q-value":
+                    index.glycoQvalIndex = i;
                     break;
                 default:
                     // handle cases require complex evaluation
@@ -368,6 +373,7 @@ public class PsmPreProcessor {
         index.refIndex -= t;
         index.totLen = (parameters.add_Ref < 0) ? cnum + 1 : cnum + 2;
         index.plexNum = (parameters.add_Ref < 0) ? cnum : cnum + 1;
+        index.usedChannelNum = cnum;
         index.refIndex = (parameters.add_Ref < 0) ? index.refIndex : index.abnIndex + cnum;
     }
 
@@ -407,118 +413,52 @@ public class PsmPreProcessor {
     }
     // endregion==========================================================
 
-    // region updatePsmFiles helper methods==============================
-    /**
-     * Read PSM file and preprocess each line
-     *
-     * @param psmFile PSM file
-     * @param index   index for PSM file
-     * @return list of processed PSM lines
-     * @throws IOException if an I/O error occurs
-     */
-    private List<String> readPsmFile(File psmFile, Index index, List<Double> tmtIntensities) throws IOException {
-        List<String> allPsmLines = new ArrayList<>();
-        try (BufferedReader reader = new BufferedReader(new FileReader(psmFile))) {
-            reader.readLine(); // skip header
-            String line;
-            while ((line = reader.readLine()) != null) {
-                allPsmLines.add(processLine(line, index, tmtIntensities));
-            }
-        }
-        return allPsmLines;
-    }
-
-    private String processLine(String line, Index index, List<Double> tmtIntensities) {
-        String[] fields = line.split("\t");
-        StringBuilder newPsm = new StringBuilder();
-        double sumTmtIntensity = 0;
-
-        for (int i = 0; i < index.abnIndex; i++) {
-            newPsm.append(fields[i]).append("\t");
-        }
-        newPsm.append("false\t"); // TODO: Assuming "false" for isUsed column
-        // append the rest of the fields
-        for (int i = index.abnIndex; i < fields.length; i++) {
-            newPsm.append(fields[i]).append("\t");
-        }
-
-        for (int i = index.abnIndex; i < index.flength; i++) {
-            try {
-                sumTmtIntensity += Double.parseDouble(fields[i]);
-            } catch (NumberFormatException e) {
-                throw new IllegalArgumentException("Invalid TMT intensity value: " + fields[i]);
-            }
-        }
-        tmtIntensities.add(sumTmtIntensity);
-        newPsm.append(sumTmtIntensity); // TODO: Assuming sum is appended at the end
-
-        return newPsm.toString();
-    }
-
-    private double calculateTmtThreshold(List<String> processedLines, List<Double> tmtIntensities) {
+    // region parseAndFilterPsmFiles helper methods==============================
+    private double calculateTmtThreshold(int numRecords, List<Double> tmtIntensities) {
         Collections.sort(tmtIntensities);
-        int tmtThresholdIndex = (int) (processedLines.size() * parameters.minPercent);
+        int tmtThresholdIndex = (int) (numRecords * parameters.minPercent);
         return tmtIntensities.isEmpty() ? 0 : tmtIntensities.get(tmtThresholdIndex);
     }
 
-    private void updateIndex(Index index) {
-        index.isUsedIndex = index.abnIndex;
-        index.abnIndex++;
-        index.refIndex++;
-        index.flength++;
-    }
-
-    /**
-     * Collapse PSM lines based on the criteria
-     *
-     * @param processedLines list of processed PSM lines
-     * @param psmMap         map of PSM lines (filtered by criteria)
-     * @param tmtThreshold   TMT threshold
-     * @param index          index for PSM file
-     */
-    private void collapsePsmLines(List<String> processedLines, Map<String, List<String>> psmMap, double tmtThreshold, Index index) {
+    private void collapsePsm(Psm psm, Map<String, List<PsmRecord>> psmMap, double tmtThreshold) {
         Set<String> newModTagSet = new HashSet<>();
-        for (String psm : processedLines) {
-            processPsmEntry(psm, psmMap, newModTagSet, tmtThreshold, index);
+        for (PsmRecord psmRecord : psm.getPsmRecords()) {
+            processPsmRecord(psmRecord, psmMap, newModTagSet, tmtThreshold);
         }
         parameters.modTagSet.addAll(newModTagSet);
     }
 
-    private void processPsmEntry(String psm, Map<String, List<String>> psmMap, Set<String> newModTagSet, double tmtThreshold, Index index) {
-        PsmEntry psmEntry = new PsmEntry(psm, parameters, index);
-        psmEntry.parsePsmEntry();
-        psmEntry.checkConfigurations(newModTagSet);
-        if (psmEntry.isPassCriteria(tmtThreshold)) {
-            String newPsm = psmEntry.getProcessedPsm();
-            String key = psmEntry.generatePsmKey();
+    private void processPsmRecord(PsmRecord psmRecord, Map<String, List<PsmRecord>> psmMap, Set<String> modTags, double tmtThreshold) {
+        psmRecord.updateFlags(modTags);
+        if (psmRecord.isPassCriteria(tmtThreshold)) {
+            psmRecord.setUsed(true);
+            String key = psmRecord.generatePsmKey();
             // update psmMap
-            List<String> psmList = psmMap.computeIfAbsent(key, k -> new ArrayList<>());
-            psmList.add(newPsm);
+            List<PsmRecord> psmList = psmMap.computeIfAbsent(key, k -> new ArrayList<>());
+            psmList.add(psmRecord);
         } else {
-            psmMap.get("NotUsed").add(psm + "\t" + psmEntry.getGeneCategory());
+            psmMap.get("NotUsed").add(psmRecord);
         }
     }
 
-    private void selectBestPsm(Map<String, List<String>> psmMap, Index index) {
+    private void selectBestPsm(Map<String, List<PsmRecord>> psmMap) {
         if (!parameters.bestPsm) {
             return;
         }
         for (String key : psmMap.keySet()) {
             if (!key.equals("NotUsed")) {
-                List<String> psmList = psmMap.get(key);
-                int bestPsmIndex = findBestPsm(psmList);
-                updatePsmList(psmList, bestPsmIndex, index);
+                List<PsmRecord> psmList = psmMap.get(key);
+                int bestPsmIndex = findBestPsmIdx(psmList);
+                updatePsmList(psmList, bestPsmIndex);
             }
         }
-
     }
 
-    private int findBestPsm(List<String> psmList) {
+    private int findBestPsmIdx(List<PsmRecord> psmList) {
         double maxIntensity = 0;
         int bestPsmIndex = -1;
         for (int i = 0; i < psmList.size(); i++) {
-            String[] fields = psmList.get(i).split("\t");
-            double tmtIntensity = Double.parseDouble(fields[fields.length - 2]);
+            double tmtIntensity = psmList.get(i).getSumTmtIntensity();
             if (tmtIntensity > maxIntensity) {
                 maxIntensity = tmtIntensity;
                 bestPsmIndex = i;
@@ -527,151 +467,14 @@ public class PsmPreProcessor {
         return bestPsmIndex;
     }
 
-    private void updatePsmList(List<String> psmList, int bestPsmIndex, Index index) {
+    private void updatePsmList(List<PsmRecord> psmList, int bestPsmIndex) {
         if (bestPsmIndex < 0) {
             return;
         }
 
-        List<String> newPsmList = new ArrayList<>();
         for (int i = 0; i < psmList.size(); i++) {
-            String[] fields = psmList.get(i).split("\t");
-            fields[index.isUsedIndex] = i == bestPsmIndex ? "true" : "false";
-            String newPsm = String.join("\t", fields);
-            newPsmList.add(newPsm);
+            psmList.get(i).setUsed(i == bestPsmIndex);
         }
-        psmList.clear();
-        psmList.addAll(newPsmList);
-    }
-
-    /**
-     * Print PSMs to intermediate .ti file, add one column "IS Used (TMT-I)"
-     * @param psmFile PSM file
-     * @param index index for PSM file (column index)
-     * @param psmMap map of PSM lines (filtered by criteria)
-     * @throws IOException if an I/O error occurs
-     */
-    private void printPsmFile(File psmFile, Index index, Map<String, List<String>> psmMap) throws IOException {
-        String newPath = psmFile.getAbsolutePath().replace(".tsv", ".ti");
-        (new File(newPath)).deleteOnExit();
-        // get title line
-        String title = getTitleLine(psmFile);
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(newPath))) {
-            String newHeaderLine = writeHeader(writer, title, index, psmFile);
-
-            // Split the header for use in filtering columns during printing
-            String[] headers = newHeaderLine.split("\t");
-
-            // Print the PSM lines filtered by headers
-            for (List<String> psmList : psmMap.values()) {
-                for (String psm : psmList) {
-                    writePsm(writer, psm, headers, index);
-                }
-            }
-        }
-
-    }
-
-    private String getTitleLine(File psmFile) throws IOException {
-        try (BufferedReader reader = new BufferedReader(new FileReader(psmFile))) {
-            return reader.readLine();
-        }
-    }
-
-    private String writeHeader(BufferedWriter writer, String title, Index index, File psmFile) throws IOException {
-        String[] titles = title.split("\t");
-        StringBuilder headerBuilder = new StringBuilder();
-
-        for (int i = 0; i < index.abnIndex - 1; i++) {
-            writer.write(titles[i] + "\t");
-            headerBuilder.append(titles[i]).append("\t");
-        }
-
-        writer.write("Is Used (TMT-I)\t");
-        headerBuilder.append("Is Used (TMT-I)\t");
-
-        for (int i = index.abnIndex - 1; i < (index.abnIndex + parameters.channelNum - 1); i++) {
-            headerBuilder.append(titles[i]).append("\t");
-            if (notNaColumn(titles[i])) {
-                writer.write(titles[i] + "\t");
-            }
-        }
-
-        if (parameters.add_Ref >= 0) {
-            String virtualReference = "Virtual_Reference_" + psmFile.getParentFile().getName();
-            writer.write(virtualReference + "\t");
-            headerBuilder.append(virtualReference).append("\t");
-            parameters.refTag = "Virtual_Reference";
-        }
-        writer.newLine();
-        return headerBuilder.toString();
-    }
-
-    private void writePsm(BufferedWriter writer, String psm, String[] headers, Index index) throws IOException {
-        String[] fields = psm.split("\t");
-        int printNum = index.abnIndex + parameters.channelNum;
-        for (int i = 0; i < printNum; i++) {
-            if (notNaColumn(headers[i])) {
-                writer.write(fields[i] + "\t");
-            }
-        }
-
-        if (parameters.add_Ref >= 0) {
-            double refAbundance = calculateRefAbundance(fields, headers, index, printNum);
-            writer.write(refAbundance + "\t");
-        }
-        writer.newLine();
-    }
-
-    private double calculateRefAbundance(String[] fields, String[] headers, Index index, int printNum) {
-        ReferenceType method = ReferenceType.fromValue(parameters.add_Ref);
-        switch (method) {
-            case SUMMATION:
-                return calculateSummation(fields, headers, index, printNum);
-            case AVERAGE:
-                return calculateAverage(fields, headers, index, printNum);
-            case MEDIAN:
-                return calculateMedian(fields, headers, index, printNum);
-        }
-        return 0;
-    }
-
-    private double calculateSummation(String[] fields, String[] headers, Index index, int printNum) {
-        double refAbundance = 0;
-        for (int i = index.abnIndex; i < printNum; i++) {
-            if (notNaColumn(headers[i])) {
-                double value = Utils.tryParseDouble(fields[i]);
-                refAbundance += value > 0 ? value : 0;
-            }
-        }
-        return refAbundance;
-    }
-
-    private double calculateAverage(String[] fields, String[] headers, Index index, int printNum) {
-        double refAbundance = 0;
-        int count = 0;
-        for (int i = index.abnIndex; i < printNum; i++) {
-            if (notNaColumn(headers[i])) {
-                double value = Utils.tryParseDouble(fields[i]);
-                if (value > 0) {
-                    refAbundance += value;
-                    count++;
-                }
-            }
-        }
-        return count > 0 ? refAbundance / count : 0;
-    }
-
-    private double calculateMedian(String[] fields, String[] headers, Index index, int printNum) {
-        List<Double> refAbundances = new ArrayList<>();
-        for (int i = index.abnIndex; i < printNum; i++) {
-            if (notNaColumn(headers[i])) {
-                double value = Utils.tryParseDouble(fields[i]);
-                if (value > 0) {
-                    refAbundances.add(value);
-                }
-            }
-        }
-        return refAbundances.isEmpty() ? 0 : Utils.takeMedian(refAbundances);
     }
     // endregion==========================================================
 

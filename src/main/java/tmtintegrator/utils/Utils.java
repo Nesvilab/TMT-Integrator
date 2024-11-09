@@ -10,10 +10,12 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
 import tmtintegrator.constants.Constants;
 import tmtintegrator.pojo.Index;
 import tmtintegrator.pojo.Parameters;
 import tmtintegrator.pojo.Ratio;
+import tmtintegrator.pojo.psm.PsmRecord;
 
 /**
  * Utility class for common arithmetic operations, and psm processing.
@@ -94,8 +96,8 @@ public final class Utils {
      * @param binNum number of bins
      * @return map of bin start time to list of PSMs
      */
-    public static NavigableMap<Double, List<String>> createBins(double minRt, double maxRt, double binNum) {
-        NavigableMap<Double, List<String>> binMap = new TreeMap<>();
+    public static NavigableMap<Double, List<PsmRecord>> createBins(double minRt, double maxRt, double binNum) {
+        NavigableMap<Double, List<PsmRecord>> binMap = new TreeMap<>();
         double binWidth = (maxRt - minRt) / binNum;
         double binStart = minRt;
         while (binStart <= maxRt) {
@@ -120,21 +122,6 @@ public final class Utils {
         return new String[]{extPep.substring(startIdx, firstPeriodIdx), extPep.substring(lastPeriodIdx + 1, endIdx)};
     }
 
-    public static double[][] convertTo2DArray(List<String> psmList, Index index) {
-        double[][] ratio2DValues = new double[psmList.size()][index.plexNum];
-        for (int i = 0; i < psmList.size(); i++) {
-            String[] fields = psmList.get(i).split("\t");
-            for (int j = index.abnIndex; j < fields.length; j++) {
-                try {
-                    ratio2DValues[i][j - index.abnIndex] = Double.parseDouble(fields[j]);
-                } catch (NumberFormatException e) {
-                    ratio2DValues[i][j - index.abnIndex] = Double.NaN;
-                }
-            }
-        }
-        return ratio2DValues;
-    }
-
     /**
      * Compute the interquartile range (IQR) of a list of ratios.
      *
@@ -153,27 +140,6 @@ public final class Utils {
         return new double[]{q1 - 1.5 * iqr, q3 + 1.5 * iqr};
     }
 
-    /**
-     * Update PSM ratios with new values.
-     *
-     * @param psmList       list of PSMs
-     * @param ratio2DValues 2D array of ratios
-     * @param index         index of fields
-     * @return updated list of PSMs
-     */
-    public static List<String> updatePsmRatios(List<String> psmList, double[][] ratio2DValues, Index index) {
-        List<String> newPsmList = new ArrayList<>();
-        for (int i = 0; i < psmList.size(); i++) {
-            StringBuilder psmBuilder = new StringBuilder();
-            String[] fields = psmList.get(i).split("\t");
-            for (int j = 0; j < fields.length; j++) {
-                psmBuilder.append(j < index.abnIndex ? (fields[j] + "\t") : (ratio2DValues[i][j - index.abnIndex] + "\t"));
-            }
-            newPsmList.add(psmBuilder.toString().trim());
-        }
-        return newPsmList;
-    }
-
     public static double calculateGlobalMedian(Map<String, double[]> medianMap) {
         List<Double> channelValues = new ArrayList<>();
         for (double[] medianValues : medianMap.values()) {
@@ -186,14 +152,12 @@ public final class Utils {
         return takeMedian(channelValues);
     }
 
-    public static double calculateGlobalMinRefInt(Map<String, Map<String, double[]>> groupAbundanceMap, Parameters parameters) {
+    public static double calculateGlobalMinRefInt(Map<String, Map<String, double[]>> groupAbundanceMap) {
         double globalMinRefInt = Double.MAX_VALUE;
         for (Map<String, double[]> fileAbundanceMap : groupAbundanceMap.values()) {
             for (Map.Entry<String, double[]> entry : fileAbundanceMap.entrySet()) {
-                String filename = entry.getKey();
                 double[] medianValues = entry.getValue();
-                Index index = parameters.indMap.get(filename);
-                double refInt = medianValues[index.plexNum];
+                double refInt = medianValues[medianValues.length - 1]; // total reference intensity at the end
                 if (refInt > 0 && refInt < globalMinRefInt) {
                     globalMinRefInt = refInt;
                 }
@@ -210,13 +174,13 @@ public final class Utils {
      * @return average abundance
      */
     public static double calculateAvgAbundance(Map<String, double[]> fileAbundanceMap, double globalMinRefInt, Parameters parameters) {
-        double avgAbundance = 0;
+        double sumAbundance = 0;
         for (String filename : parameters.fNameLi) {
             Index index = parameters.indMap.get(filename);
             double[] medians = fileAbundanceMap.getOrDefault(filename, new double[index.totLen]);
-            avgAbundance += (medians[index.plexNum] > 0) ? medians[index.plexNum] : globalMinRefInt;
+            sumAbundance += (medians[index.plexNum] > 0) ? medians[index.plexNum] : globalMinRefInt;
         }
-        return avgAbundance / parameters.fNameLi.size();
+        return sumAbundance / parameters.fNameLi.size();
     }
 
     /**

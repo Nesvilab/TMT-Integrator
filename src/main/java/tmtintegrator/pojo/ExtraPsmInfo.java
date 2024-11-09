@@ -4,7 +4,7 @@ import java.util.*;
 
 public class ExtraPsmInfo {
     // region psm.tsv columns
-    private Set<String> spectrums;
+    private final Set<String> spectrums;
     private String protein;
     private String proteinId;
     private String entryName;
@@ -38,10 +38,6 @@ public class ExtraPsmInfo {
 
     public void setProtein(String protein) {
         this.protein = protein;
-    }
-
-    public String getProteinId() {
-        return proteinId;
     }
 
     public void setProteinId(String proteinId) {
