@@ -175,6 +175,9 @@ public class ReportGenerator {
 
             if (groupBy == GroupBy.SINGLE_PHOSPHO_SITE) {
                 groupKey = updateGroupKeyForSingleSite(groupKey);
+            } else if (groupBy == GroupBy.MULTI_PHOSPHO_SITE) {
+                keyParts[4] = keyParts[4].replace(".", "");
+                groupKey = String.join("\t", keyParts);
             }
 
             if (isPrint) {
