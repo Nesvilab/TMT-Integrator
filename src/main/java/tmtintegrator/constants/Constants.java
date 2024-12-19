@@ -15,9 +15,9 @@ public final class Constants {
     }
 
     // regex to match mod tag with format: A(123.456), group 1: A, group 2: 123.456
-    public static final Pattern MOD_TAG_PATTERN = Pattern.compile("([A-Z])\\((\\d+\\.\\d+)\\)");
+    public static final Pattern MOD_TAG_PATTERN = Pattern.compile("([A-Z])\\((-?\\d+\\.\\d+)\\)");
     // regex to match glyco mod with format: N(203.079), group 1: N, group 2: 203.079
-    public static final Pattern GLYCO_MOD_PATTERN = Pattern.compile("([A-Z])\\((\\d+\\.\\d+)\\)");
+    public static final Pattern GLYCO_MOD_PATTERN = Pattern.compile("([A-Z])\\((-?\\d+\\.\\d+)\\)");
     // regex to match glycan mod tag with format: N(HexNAc(5)Hex(6)NeuAc(3)%2861.0000)
     // group 1: N(HexNAc(5)Hex(6)NeuAc(3), group 2: 2861.0000
     public static final Pattern GLYCAN_MOD_TAG_PATTERN = Pattern.compile("([^%]+)%([0-9.]+)\\)");
