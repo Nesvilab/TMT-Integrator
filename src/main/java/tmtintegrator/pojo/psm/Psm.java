@@ -109,7 +109,7 @@ public class Psm {
             psmRecord.analyzePhosphoSites(groupBy);
         }
         // exclude PSMs with isExcluded set
-        psmRecords.removeIf(PsmRecord::isExcluded); // FIXME: removeIf is not efficient
+        psmRecords.removeIf(PsmRecord::isExcluded);
     }
 
     // region helper methods

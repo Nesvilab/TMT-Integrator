@@ -85,7 +85,7 @@ public class PsmPreProcessor {
 
                 // collapse PSM lines based on the criteria
                 Map<String, List<PsmRecord>> psmMap = new HashMap<>();
-                psmMap.put("NotUsed", new ArrayList<>()); // FIXME: remove not used
+                psmMap.put("NotUsed", new ArrayList<>());
                 collapsePsm(psm, psmMap, tmtThreshold);
 
                 // select best PSM if required

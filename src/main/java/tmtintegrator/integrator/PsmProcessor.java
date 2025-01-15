@@ -34,8 +34,8 @@ public class PsmProcessor {
     private static final Pattern p = Pattern.compile("[A-Z](\\d+)");
     private final Parameters parameters;
     private final GroupBy groupBy;
-    private final Map<String, Map<String, PsmInfo>> groupPsmMap; // <groupKey(proteinId), <fileName, psmInfo>>
-    private final Map<String, Map<String, double[]>> groupAbundanceMap; // <groupKey(proteinId), <fileName, abundance>>
+    private final Map<String, Map<String, PsmInfo>> groupPsmMap; // <groupKey(report index), <fileName, psmInfo>>
+    private final Map<String, Map<String, double[]>> groupAbundanceMap; // <groupKey(report index), <fileName, abundance>>
 
     public PsmProcessor(Parameters parameters, GroupBy groupBy) {
         this.parameters = parameters;
@@ -49,7 +49,7 @@ public class PsmProcessor {
     }
 
     /**
-     * Group PSMs by protein ID into a map.
+     * Group PSMs by report level into a map.
      *
      * @param psmList list of PSMs
      */
@@ -133,7 +133,7 @@ public class PsmProcessor {
     public void generateSingleSite() {
         // <groupKey, List<groupKey>>
         Map<String, List<String>> keyMap = new HashMap<>();
-        int location = 5; // FIXME: magic number, it's actually last index of the index parts in group key
+        int location = 5; // last index of group key parts
 
         // Cluster keys based on the index
         clusterKeys(keyMap, location);
@@ -367,7 +367,7 @@ public class PsmProcessor {
             for (String peptide : peptideList) {
                 String[] parts = peptide.split("@");
                 peptideSet.add(parts[0]);
-                if (abc == null) {
+                if (abc == null) { // FIXME 02: this only works for the first one
                     len = parts[0].length();
                     start = Integer.parseInt(parts[1]);
                     if (parameters.modTagSet.stream().allMatch(e -> e.contentEquals("none"))) {
@@ -444,10 +444,6 @@ public class PsmProcessor {
                     if (!keyList.contains(groupKey)) {
                         keyList.add(groupKey);
                     }
-                    // update keyPepMap
-                    int pepIndex = Integer.parseInt(parts[i]) - pepStartIdx;
-                    Map<String, Integer> indexMap = new HashMap<>(); // FIXME: never used
-                    indexMap.put(pepseq, pepIndex);
                 }
             }
         }

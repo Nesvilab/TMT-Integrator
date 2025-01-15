@@ -52,7 +52,6 @@ public class PsmRecord {
 
     // region extra fields
     private double sumTmtIntensity;
-    private double sumIntWithoutNa; // FIXME 00: just for result matching, remove later
     private double refIntensity;
     private double normRefIntensity; // FIXME: need to confirm the usage
     private boolean isVirtualReference;
@@ -259,25 +258,13 @@ public class PsmRecord {
 
         // use MS1 intensity as reference intensity
         if (parameters.ms1Int) {
-            // FIXME: reset or extract out of run()
             refIntensity = useMs1Intensity();
         }
 
         // generate group key
         generateGroupKey(groupBy);
 
-        // handle single phospho site
-        // FIXME: this will never happen
-        if (groupBy == GroupBy.SINGLE_PHOSPHO_SITE) {
-            if (phosphoSiteData.siteLocalPosList.isEmpty()) {
-                isExcluded = true; // skip PSMs without phospho sites
-            } else {
-                markLocalizedSites();
-            }
-        }
-
         // filter out psm without phospho sites
-        // FIXME: this will never happen
         if (groupBy != GroupBy.SINGLE_PHOSPHO_SITE && groupKey.isEmpty()) {
             isExcluded = true;
         }
@@ -325,25 +312,20 @@ public class PsmRecord {
 
     private void parseChannels(String[] fields, List<Double> tmtIntensities, List<Integer> naChannels) {
         double sum = 0;
-        double sumWithoutNa = 0; // FIXME 00: just for result matching, remove later
         for (int i = index.abnIndex; i < fields.length; i++) {
             try {
-                // FIXME: exclude NA channels
                 if (naChannels.contains(i)) {
-                    sum += Double.parseDouble(fields[i]); // FIXME 00: just for result matching, remove later
                     continue;
                 }
                 double intensity = Double.parseDouble(fields[i]);
                 channels.add(intensity);
                 sum += intensity;
-                sumWithoutNa += intensity; // FIXME 00: just for result matching, remove later
             } catch (NumberFormatException e) {
                 throw new IllegalArgumentException("Invalid TMT intensity value: " + fields[i]);
             }
         }
         tmtIntensities.add(sum);
         sumTmtIntensity = sum;
-        sumIntWithoutNa = sumWithoutNa; // FIXME 00: just for result matching, remove later
     }
 
     private void extractGlycanInfo(String[] fields) {
@@ -524,7 +506,7 @@ public class PsmRecord {
     }
 
     private double summationReference() {
-        return sumIntWithoutNa;
+        return sumTmtIntensity;
     }
 
     private double averageReference() {
@@ -554,7 +536,6 @@ public class PsmRecord {
             phosphoSiteData.probMap.put(position, 0d);
             // extracted position is 1-based, need to convert to 0-based for peptide
             phosphoSiteData.siteLocalPos.append(peptide.charAt(position - 1)).append(pepsIndex + position);
-            phosphoSiteData.siteLocalPosList.add(peptide.charAt(position - 1) + String.valueOf(pepsIndex + position));
         }
         phosphoSiteData.siteLocalCount = positions.size();
         phosphoSiteData.siteCount = positions.size();
@@ -582,15 +563,15 @@ public class PsmRecord {
             double probability = Double.parseDouble(ptmLocalization.substring(leftIndex + 1, rightIndex));
             int key;
             if (isFirst) {
-                key = leftIndex; // FIXME: should use the AA position instead of '(' behind
+                key = leftIndex; // 1-based AA local position
                 isFirst = false;
             } else {
-                // FIXME: should compute key first and then update gap
-                //   otherwise, this will not work if probability is in different decimal places
-                gap += (rightIndex - leftIndex + 1);
                 key = leftIndex - gap;
             }
             phosphoSiteData.probMap.put(key, probability);
+            // record gap to locate AA in peptide sequence without probability
+            gap += (rightIndex - leftIndex + 1); // size of a probability string "(0.1234)" including parentheses
+
             // update indices
             leftIndex = ptmLocalization.indexOf("(", leftIndex + 1);
             rightIndex = ptmLocalization.indexOf(")", rightIndex + 1);
@@ -604,9 +585,7 @@ public class PsmRecord {
             double probability = entry.getValue();
             if (probability > parameters.minSiteProb) {
                 phosphoSiteData.siteLocalCount++;
-                // TODO: need add twice?
                 phosphoSiteData.siteLocalPos.append(peptide.charAt(key - 1)).append(pepsIndex + key);
-                phosphoSiteData.siteLocalPosList.add(peptide.charAt(key - 1) + String.valueOf(pepsIndex + key));
             }
             if (!notStart) {
                 phosphoSiteData.startIndex = key;
@@ -640,15 +619,15 @@ public class PsmRecord {
 
     private double useMs1Intensity() {
         if (isVirtualReference) {
-            return ms1Intensity * (refIntensity / (sumIntWithoutNa + refIntensity));
+            return ms1Intensity * (refIntensity / (sumTmtIntensity + refIntensity));
         }
-        return ms1Intensity * (refIntensity / sumIntWithoutNa);
+        return ms1Intensity * (refIntensity / sumTmtIntensity);
     }
 
     private void generateGroupKey(GroupBy groupBy) {
         switch (groupBy) {
             case GENE:
-                groupKey = gene.isEmpty() ? proteinId : gene; // FIXME: should we keep psm with no gene in gene level report
+                groupKey = gene.isEmpty() ? proteinId : gene;
                 break;
             case PROTEIN_ID:
                 groupKey = proteinId;
@@ -660,7 +639,7 @@ public class PsmRecord {
                 handleMultiPhosphoSites();
                 break;
             case SINGLE_PHOSPHO_SITE:
-                // TODO: handle single phospho site in later processing
+                //  single phospho site processing will be handled in the second round
                 break;
             case MULTI_MASS_GLYCO:
                 handleMultiMassGlyco();
@@ -714,7 +693,7 @@ public class PsmRecord {
         }
         key.append("%").append(siteLocalMass);
         // mark localized sites in peptide sequence
-        multiMassMarkLocalizedSites();
+        markLocalizedSites();
 
         groupKey = key.toString();
     }
@@ -727,21 +706,6 @@ public class PsmRecord {
         for (int i = 0; i < peptide.length(); i++) {
             char aa = peptide.charAt(i);
             if (phosphoSiteData.probMap.containsKey(i + 1) && phosphoSiteData.probMap.get(i + 1) >= parameters.minSiteProb) {
-                newPeptideSeq.append(Character.toLowerCase(aa));
-            } else {
-                newPeptideSeq.append(aa);
-            }
-        }
-        peptide = newPeptideSeq.toString();
-    }
-
-    // FIXME: duplicated code, keep for data consistency
-    private void multiMassMarkLocalizedSites() {
-        StringBuilder newPeptideSeq = new StringBuilder();
-        for (int i = 0; i < peptide.length(); i++) {
-            char aa = peptide.charAt(i);
-            // FIXME: the only difference
-            if (phosphoSiteData.probMap.containsKey(i + 1) && phosphoSiteData.probMap.get(i + 1) > parameters.minSiteProb) {
                 newPeptideSeq.append(Character.toLowerCase(aa));
             } else {
                 newPeptideSeq.append(aa);
