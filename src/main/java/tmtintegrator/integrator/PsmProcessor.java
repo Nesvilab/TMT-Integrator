@@ -99,17 +99,13 @@ public class PsmProcessor {
                 String filePath = entry.getKey();
                 PsmInfo psmInfo = entry.getValue();
                 Index index = parameters.indMap.get(filePath);
-                // FIXME: include the virtual reference channel to fit the original result
-                double[] medianValues = parameters.add_Ref >= 0 ?
-                        new double[index.usedChannelNum + 2] :
-                        new double[index.usedChannelNum + 1]; // one additional for total reference intensity
+                double[] medianValues = new double[index.usedChannelNum + 1]; // one additional for total reference intensity
 
                 // get max peptide probability and all peptide sequences
                 maxPeptideProb = updateMaxPepProbAndProteinMap(psmInfo, maxPeptideProb, geneSet, proteinMap);
 
                 // take median ratios and update abundance map
                 takeMedianRatios(medianValues, psmInfo, index);
-                // FIXME: include the virtual reference channel to fit the original result
                 medianValues[medianValues.length - 1] = psmInfo.totalRefInt; // add total reference intensity
                 fileAbundanceMap.put(filePath, medianValues);
                 if (groupBy == GroupBy.GENE || groupBy == GroupBy.PROTEIN_ID) {
@@ -250,33 +246,6 @@ public class PsmProcessor {
                 medianValues[j] = Utils.takeWeightedMedian(channelsValues);
             }
         }
-        // FIXME: include the virtual reference channel to fit the original result
-        if (parameters.add_Ref >= 0) {
-            if (parameters.aggregation_method == 0) {
-                List<Double> channelsValues = new ArrayList<>();
-                for (PsmRecord psmRecord : psmInfo.psmRecords) {
-                    double ratio = psmRecord.getNormRefIntensity();
-                    if (!Double.isNaN(ratio)) {
-                        channelsValues.add(ratio);
-                    }
-                }
-                medianValues[index.usedChannelNum] = Utils.takeMedian(channelsValues);
-            } else if (parameters.aggregation_method == 1) {
-                List<Ratio> channelsValues = new ArrayList<>();
-                for (PsmRecord psmRecord : psmInfo.psmRecords) {
-                    double ratio = psmRecord.getNormRefIntensity();
-                    if (!Double.isNaN(ratio)) {
-                        Ratio ratioObj = new Ratio();
-                        ratioObj.preInt = psmRecord.getMs1Intensity();
-                        ratioObj.rt = psmRecord.getRetention();
-                        ratioObj.ratio = ratio;
-                        channelsValues.add(ratioObj);
-                    }
-                }
-                medianValues[index.usedChannelNum] = Utils.takeWeightedMedian(channelsValues);
-            }
-        }
-        // FIXME: END
     }
 
     private int[] extractLRIndex(String groupKey) {
@@ -515,8 +484,8 @@ public class PsmProcessor {
             List<double[]> abundanceList = groupFileAbnMap.get(fileName);
 
             if (abundanceList.size() > 1) {
-                double[] fileMedians = new double[index.totLen]; // FIXME: remove virtual reference channel
-                for (int i = 0; i < index.totLen; i++) {
+                double[] fileMedians = new double[index.usedChannelNum + 1];
+                for (int i = 0; i < index.usedChannelNum + 1; i++) {
                     List<Double> channelValues = new ArrayList<>();
                     for (double[] medians : abundanceList) {
                         if (!Double.isNaN(medians[i])) {

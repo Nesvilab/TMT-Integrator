@@ -374,7 +374,6 @@ public class PsmPreProcessor {
         index.totLen = (parameters.add_Ref < 0) ? cnum + 1 : cnum + 2;
         index.plexNum = (parameters.add_Ref < 0) ? cnum : cnum + 1;
         index.usedChannelNum = cnum;
-        index.refIndex = (parameters.add_Ref < 0) ? index.refIndex : index.abnIndex + cnum;
     }
 
     private boolean notNaColumn(String value) {

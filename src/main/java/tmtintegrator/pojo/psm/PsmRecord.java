@@ -53,7 +53,6 @@ public class PsmRecord {
     // region extra fields
     private double sumTmtIntensity;
     private double refIntensity;
-    private double normRefIntensity; // FIXME: need to confirm the usage
     private boolean isVirtualReference;
     private boolean isUsed;
     private boolean isExcluded;
@@ -120,14 +119,6 @@ public class PsmRecord {
 
     public double getCopyRefIntensity() {
         return copyRefIntensity;
-    }
-
-    public double getNormRefIntensity() {
-        return normRefIntensity;
-    }
-
-    public void setNormRefIntensity(double normRefIntensity) {
-        this.normRefIntensity = normRefIntensity;
     }
 
     public List<Double> getChannels() {

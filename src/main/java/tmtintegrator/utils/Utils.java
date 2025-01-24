@@ -177,8 +177,9 @@ public final class Utils {
         double sumAbundance = 0;
         for (String filename : parameters.fNameLi) {
             Index index = parameters.indMap.get(filename);
-            double[] medians = fileAbundanceMap.getOrDefault(filename, new double[index.totLen]);
-            sumAbundance += (medians[index.plexNum] > 0) ? medians[index.plexNum] : globalMinRefInt;
+            double[] medians = fileAbundanceMap.getOrDefault(filename, new double[index.usedChannelNum + 1]);
+            double totalRefInt = medians[medians.length - 1]; // total reference intensity at the end
+            sumAbundance += (totalRefInt > 0) ? totalRefInt : globalMinRefInt;
         }
         return sumAbundance / parameters.fNameLi.size();
     }

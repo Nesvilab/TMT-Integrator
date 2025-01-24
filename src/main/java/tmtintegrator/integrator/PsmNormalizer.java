@@ -66,7 +66,7 @@ public class PsmNormalizer {
         if (normType == NormType.MC || normType == NormType.GN) {
             // preform median centering first
             Map<String, double[]> protMedianMap = getProtMedianMap(false);
-            double globalMedian = Utils.calculateGlobalMedian(protMedianMap); // FIXME: include virtual reference channel?
+            double globalMedian = Utils.calculateGlobalMedian(protMedianMap);
             subtractProt(protMedianMap, -1, -1, true); // subtract protein ratios
 
             if (normType == NormType.GN) {
@@ -95,9 +95,6 @@ public class PsmNormalizer {
             intensity = intensity > 0 ? Utils.log2(intensity) - logRefInt : Double.NaN;
             channels.set(i, intensity);
         }
-        // FIXME: update refIntensity here just to keep the data consistent for original code
-        refIntensity = refIntensity > 0 ? 0 : Double.NaN;
-        psmRecord.setNormRefIntensity(refIntensity);
     }
 
     private void rtNormalizePsm(List<PsmRecord> psmRecords, Index index) {
@@ -178,10 +175,6 @@ public class PsmNormalizer {
                     channels.set(j, intensity);
                 }
             }
-            // adjust reference intensity FIXME: update refIntensity here just to keep the data consistent for original code
-            if (!Double.isNaN(psmRecord.getRefIntensity())) {
-                psmRecord.setNormRefIntensity(psmRecord.getRefIntensity() - refMedian);
-            }
         }
     }
 
@@ -190,7 +183,7 @@ public class PsmNormalizer {
         // get the median
         for (String filename : parameters.fNameLi) {
             Index index = parameters.indMap.get(filename);
-            double[] medianValues = new double[index.plexNum]; // FIXME: remove virtual reference channel
+            double[] medianValues = new double[index.usedChannelNum];
             List<double[]> mediansList = new ArrayList<>();
             // take all abundance values
             for (Map<String, double[]> fileAbundanceMap : groupAbundanceMap.values()) {
@@ -246,9 +239,8 @@ public class PsmNormalizer {
             double[] medianValues = fileAbundanceMap.get(filename);
             if (medianValues != null) {
                 Index index = parameters.indMap.get(filename);
-                int refIndex = index.refIndex - index.abnIndex;
-                // FIXME: remove virtual reference channel
-                for (int j = 0; j < index.plexNum; j++) {
+                int refIndex = parameters.add_Ref < 0 ? index.refIndex - index.abnIndex : -1;
+                for (int j = 0; j < index.usedChannelNum; j++) {
                     if (!Double.isNaN(medianValues[j]) && j != refIndex) {
                         medianValues[j] = Utils.log2(Utils.pow2(medianValues[j]) * avgAbundance);
                     }
@@ -280,7 +272,7 @@ public class PsmNormalizer {
                     mediansList.add(fileAbundanceMap.get(filename));
                 }
             }
-            double[] sumValues = new double[index.totLen]; // FIXME: remove virtual reference channel
+            double[] sumValues = new double[index.usedChannelNum + 1];
             for (int j = 0; j < sumValues.length; j++) {
                 double sum = 0;
                 for (double[] medians : mediansList) {
@@ -316,7 +308,7 @@ public class PsmNormalizer {
             for (Map<String, double[]> fileAbundanceMap : groupAbundanceMap.values()) {
                 if (fileAbundanceMap.containsKey(filename)) {
                     double[] medians = fileAbundanceMap.get(filename);
-                    for (int j = 0; j < index.totLen; j++) {
+                    for (int j = 0; j < index.usedChannelNum + 1; j++) {
                         if (!Double.isNaN(medians[j])) {
                             medians[j] *= (sumAvg / sumValues[j]);
                         }
@@ -360,7 +352,6 @@ public class PsmNormalizer {
                 Index index = parameters.indMap.get(filename);
                 double refInt = medians[medians.length - 1];
                 double factor = (refInt > 0) ? avgRefInt / refInt : globalMinRefInt;
-                // FIXME: remove virtual reference channel and NA channels
                 for (int j = 0; j < index.usedChannelNum; j++) {
                     if (!Double.isNaN(medians[j])) {
                         medians[j] *= factor;

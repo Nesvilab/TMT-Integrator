@@ -245,13 +245,12 @@ public class ReportGenerator {
         StringBuilder abnBuilder = new StringBuilder();
         for (String fileName : parameters.fNameLi) {
             Index index = parameters.indMap.get(fileName);
-            int refIndex = index.refIndex - index.abnIndex;
-            double[] nanArray = new double[index.totLen];
+            int refIndex = parameters.add_Ref < 0 ? index.refIndex - index.abnIndex : -1;
+            double[] nanArray = new double[index.usedChannelNum + 1];
             Arrays.fill(nanArray, Double.NaN);
             double[] medians = fileAbundanceMap.getOrDefault(fileName, nanArray);
 
             // record reference abundances
-            // FIXME: should use reference channel or virtual reference channel
             recordRefAbundances(abnBuilder, medians, index, type);
 
             writeValues(writer, medians, refIndex, type, avgAbundance);
@@ -263,8 +262,8 @@ public class ReportGenerator {
     }
 
     private void recordRefAbundances(StringBuilder abnBuilder, double[] medians, Index index, ReportType type) {
-        if (medians[index.plexNum] > 0) {
-            double value = medians[index.plexNum];
+        if (medians[medians.length - 1] > 0) {
+            double value = medians[medians.length - 1];
             if (normType != NormType.SL_IRS) {
                 if (type == ReportType.RAW_ABUNDANCE) {
                     abnBuilder.append("\t").append(value);
@@ -302,7 +301,6 @@ public class ReportGenerator {
 
     private void writeRatioValues(BufferedWriter writer, double[] medians, int refIndex) throws IOException {
         for (int i = 0; i < medians.length - 1; i++) { // exclude the last one, which is the total reference intensity
-            // FIXME: if remove the virtual reference channel from matrix, should add case here
             if (i != refIndex) {
                 if (Double.isNaN(medians[i])) {
                     writer.write("\tNA");
