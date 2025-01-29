@@ -192,7 +192,7 @@ public class PsmRecord {
      * @param modTags set of mod tags
      */
     public void updateFlags(Set<String> modTags) {
-        allowOverLabel = parameters.allow_overlabel || (!assignedModifications.contains("S(229.")); // FIXME
+        allowOverLabel = parameters.allow_overlabel || (!assignedModifications.contains("S(229.") && !assignedModifications.contains("S(304.")); // the overlabeling is specific for TMT
         labelFlag = updateLabelFlag();
         modficationFlag = updateModificationFlag(modTags);
         isPeptideRetained = !parameters.uniquePep || isUnique;
