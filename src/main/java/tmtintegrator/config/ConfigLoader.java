@@ -1,16 +1,18 @@
 package tmtintegrator.config;
 
-import tmtintegrator.constants.Constants;
-import tmtintegrator.pojo.Index;
-import tmtintegrator.pojo.Parameters;
-import tmtintegrator.pojo.ProteinIndex;
-
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
+import java.util.stream.Collectors;
+import tmtintegrator.constants.Constants;
+import tmtintegrator.pojo.Index;
+import tmtintegrator.pojo.Parameters;
+import tmtintegrator.pojo.ProteinIndex;
 
 /**
  * Load configuration parameters from a YAML file and command line arguments.
@@ -40,6 +42,11 @@ public class ConfigLoader {
             while ((line = reader.readLine()) != null) {
                 parseLine(line.trim());
             }
+        }
+
+        if (parameters.labels == null || parameters.labels.length == 0 || (parameters.labels.length == 1 && parameters.labels[0] == 0)) {
+            System.out.println("Warning: The label mass is unknown. The allow_unlabeled parameter will be set to true.");
+            parameters.allow_unlabeled = true;
         }
     }
 
@@ -179,6 +186,15 @@ public class ConfigLoader {
                     break;
                 case "log2transformed":
                     parameters.log2transformed = Boolean.parseBoolean(value);
+                    break;
+                case "label_masses":
+                    Set<Float> ff = Arrays.stream(value.split(",")).map(Float::parseFloat).collect(Collectors.toSet());
+                    parameters.labels = new float[ff.size()];
+                    int i = 0;
+                    for (Float f : ff) {
+                        parameters.labels[i++] = f;
+                    }
+                    Arrays.sort(parameters.labels);
                     break;
             }
         } catch (Exception e) {

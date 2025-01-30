@@ -24,9 +24,56 @@ import tmtintegrator.pojo.psm.PsmRecord;
  */
 public final class Utils {
 
+    private static final Pattern varModPattern = Pattern.compile("([0-9]+)([A-Z])\\(([0-9.-]+)\\)");
+    private static final Pattern nTermModPattern = Pattern.compile("N-term\\(([0-9.-]+)\\)");
+    private static final Pattern cTermModPattern = Pattern.compile("C-term\\(([0-9.-]+)\\)");
+
     private Utils() {
         // private constructor to prevent instantiation
         throw new AssertionError("The Utils class cannot be instantiated");
+    }
+
+    public static boolean matchLabels(String assignedModifications, float[] labels, float tol) {
+        if (labels.length == 1 && labels[0] == 0) { // if the label mass is unknown, do not filter the PSMs based on the label
+            return true;
+        }
+
+        float mod;
+        Matcher m1 = nTermModPattern.matcher(assignedModifications);
+        Matcher m2 = varModPattern.matcher(assignedModifications);
+        Matcher m3 = cTermModPattern.matcher(assignedModifications);
+
+        while (m1.find()) {
+            mod = Float.parseFloat(m1.group(1));
+            if (matchMass(mod, labels, tol)) {
+                return true;
+            }
+        }
+
+        while (m2.find()) {
+            mod = Float.parseFloat(m2.group(3));
+            if (matchMass(mod, labels, tol)) {
+                return true;
+            }
+        }
+
+        while (m3.find()) {
+            mod = Float.parseFloat(m3.group(1));
+            if (matchMass(mod, labels, tol)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static boolean matchMass(float a, float[] b, float t) {
+        for (float f : b) {
+            if (Math.abs(a - f) < t) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static double tryParseDouble(String input) {

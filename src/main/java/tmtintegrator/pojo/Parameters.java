@@ -38,6 +38,7 @@ public class Parameters {
     public boolean useGlycoComposition = false;    // whether to use glycan composition string or glycan mass for indexing
     public float glycoQval = -1;
     public boolean log2transformed = true;
+    public float[] labels;
 
     public List<File> fileList = new ArrayList<>();
     public List<File> proteinFileList = new ArrayList<>();

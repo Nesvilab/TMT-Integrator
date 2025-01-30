@@ -1,15 +1,20 @@
 package tmtintegrator.pojo.psm;
 
+import static tmtintegrator.utils.Utils.matchLabels;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.stream.Collectors;
 import tmtintegrator.constants.Constants;
 import tmtintegrator.constants.GroupBy;
 import tmtintegrator.constants.ReferenceType;
 import tmtintegrator.pojo.Index;
 import tmtintegrator.pojo.Parameters;
 import tmtintegrator.utils.Utils;
-
-import java.util.*;
-import java.util.regex.Matcher;
-import java.util.stream.Collectors;
 
 /**
  * Represents a PSM row in a PSM.tsv file
@@ -67,7 +72,6 @@ public class PsmRecord {
     // endregion
 
     // region fields for filtering
-    private boolean allowOverLabel;
     private boolean labelFlag;
     private boolean modficationFlag;
     private boolean isPeptideRetained;
@@ -192,7 +196,6 @@ public class PsmRecord {
      * @param modTags set of mod tags
      */
     public void updateFlags(Set<String> modTags) {
-        allowOverLabel = parameters.allow_overlabel || (!assignedModifications.contains("S(229.") && !assignedModifications.contains("S(304.")); // the overlabeling is specific for TMT
         labelFlag = updateLabelFlag();
         modficationFlag = updateModificationFlag(modTags);
         isPeptideRetained = !parameters.uniquePep || isUnique;
@@ -210,7 +213,6 @@ public class PsmRecord {
         return purity >= parameters.minPurity &&
                 probability >= parameters.minPepProb &&
                 sumTmtIntensity >= tmtThreshold &&
-                allowOverLabel &&
                 labelFlag &&
                 modficationFlag &&
                 isPeptideRetained &&
@@ -335,15 +337,12 @@ public class PsmRecord {
         if (parameters.allow_unlabeled) {
             return true;
         }
-        return assignedModifications.contains("n(42.") ||
-                assignedModifications.contains("n(229.") ||
-                assignedModifications.contains(", 1S(229.") ||
-                assignedModifications.indexOf("1S(229.") == 0 ||
-                assignedModifications.contains("N-term(42.") ||
-                assignedModifications.contains("N-term(229.") ||
-                assignedModifications.contains("N-term(144.1") ||
-                assignedModifications.contains("9K(304.2") ||
-                assignedModifications.contains("N-term(304.2");
+
+        if (matchLabels(assignedModifications, parameters.labels, 0.1f)) { // The input labels' masses could not be precise, such as 229.1.
+            return parameters.allow_overlabel || (!assignedModifications.contains("S(229.") && !assignedModifications.contains("S(304.")); // the overlabeling is specific for TMT
+        } else {
+            return false;
+        }
     }
 
     private boolean updateModificationFlag(Set<String> modTags) {

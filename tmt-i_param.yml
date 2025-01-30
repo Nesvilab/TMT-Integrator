@@ -7,6 +7,7 @@ tmtintegrator:
   channel_num: 10                                 # number of channels in the multiplex (e.g. 10, 11)
   glyco_qval: -1                                  # (optional) filter modified PSMs to those with glycan q-value less than provided value. 0 <= value <= 1. Value of -1 or not specified ignores
   groupby: -1                                     # level of data summarization(0: PSM aggregation to the gene level; 1: protein; 2: peptide sequence; 3: multiple PTM sites; 4: single PTM site; 5: multi-mass (for glycosylation); -1: generate reports at all levels)
+  label_masses: 229.16293,304.20715
   log2transformed: true                           # report ratio and abundance reports in the log2 scale
   max_pep_prob_thres: 0                           # the threshold for maximum peptide probability
   min_ntt: 0                                      # minimum allowed number of enzymatic termini
