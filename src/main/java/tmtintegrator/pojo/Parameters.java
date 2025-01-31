@@ -1,5 +1,7 @@
 package tmtintegrator.pojo;
 
+import tmtintegrator.constants.Constants;
+
 import java.io.File;
 import java.util.*;
 
@@ -39,6 +41,9 @@ public class Parameters {
     public float glycoQval = -1;
     public boolean log2transformed = true;
     public float[] labels;
+    public int minResolution = Constants.DEFAULT_MIN_RESOLUTION;
+    public float minSNR = Constants.DEFAULT_MIN_SNR;
+    public boolean addIsobaricFilter = false;
 
     public List<File> fileList = new ArrayList<>();
     public List<File> proteinFileList = new ArrayList<>();

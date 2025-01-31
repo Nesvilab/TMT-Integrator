@@ -29,10 +29,7 @@ public class Index {
     public int ptmLocalcIndex = -1;
     public int glycoCompositionIndex = -1;
     public int glycoQvalIndex = -1;
-    public int totLen = -1;
-    public int plexNum = -1;
     public int usedChannelNum = -1;
     public int refIndex = -1;
     public int abnIndex = -1;
-    public int flength = -1;
 }

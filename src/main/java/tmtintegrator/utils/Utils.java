@@ -33,6 +33,24 @@ public final class Utils {
         throw new AssertionError("The Utils class cannot be instantiated");
     }
 
+    /**
+     * Filter the isobaric intensity based on resolution and signal-to-noise ratio.
+     * Assume the channels are at the end of the fields followed by resolution and noise in psm.tsv.
+     *
+     * @param fields     a line in psm.tsv
+     * @param channelIdx index of a channel
+     * @param parameters parameters
+     * @return filtered intensity
+     */
+    public static double filterIntensity(String[] fields, int channelIdx, Parameters parameters) {
+        double intensity = Double.parseDouble(fields[channelIdx]);
+        if (Integer.parseInt(fields[channelIdx + parameters.channelNum]) >= parameters.minResolution &&
+            intensity / Double.parseDouble(fields[channelIdx + 2 * parameters.channelNum]) >= parameters.minSNR) {
+            return intensity;
+        }
+        return 0.0;
+    }
+
     public static boolean matchLabels(String assignedModifications, float[] labels, float tol) {
         if (labels.length == 1 && labels[0] == 0) { // if the label mass is unknown, do not filter the PSMs based on the label
             return true;

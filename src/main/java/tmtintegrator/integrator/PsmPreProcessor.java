@@ -107,6 +107,15 @@ public class PsmPreProcessor {
         try (BufferedReader reader = new BufferedReader(new FileReader(psmFile))) {
             // process header and column index
             String title = reader.readLine();
+
+            // checking existence of the resolution and noise columns
+            if (title.contains("Resolution ") && title.contains("Noise ")) {
+                parameters.addIsobaricFilter = true;
+            } else if (title.contains("Resolution ") || title.contains("Noise ")) {
+                System.err.println("Error: Both Resolution and Noise columns should be present in the PSM file.");
+                System.exit(1);
+            }
+
             getColumnIndex(title, psmFile);
             Index index = parameters.indMap.get(psmFile.getAbsolutePath());
 
@@ -203,7 +212,10 @@ public class PsmPreProcessor {
         int refCount = 0;
         StringBuilder refErrors = new StringBuilder();
 
-        for (int i = 0; i < columns.length; i++) {
+        // exclude the resolution and noise columns
+        int columnLength = parameters.addIsobaricFilter ? columns.length - 2 * parameters.channelNum : columns.length;
+
+        for (int i = 0; i < columnLength; i++) {
             String column = columns[i].trim();
             if (column.contains(parameters.refTag)) {
                 refCount++;
@@ -352,8 +364,7 @@ public class PsmPreProcessor {
     }
 
     private void findChannels(String[] columns, Index index) {
-        index.abnIndex = columns.length - parameters.channelNum;
-        index.flength = columns.length;
+        index.abnIndex = parameters.addIsobaricFilter ? columns.length - 3 * parameters.channelNum : columns.length - parameters.channelNum;
 
         if (parameters.geneflag) {
             index.genecIndex = index.proteincIndex;
@@ -363,7 +374,8 @@ public class PsmPreProcessor {
     private void adjustRefIndex(String[] columns, Index index) {
         int t = 0;
         int cnum = 0;
-        for (int i = index.abnIndex; i < columns.length; i++) {
+        int columnLength = parameters.addIsobaricFilter ? columns.length - 2 * parameters.channelNum : columns.length;
+        for (int i = index.abnIndex; i < columnLength; i++) {
             if (notNaColumn(columns[i])) {
                 cnum++;
             } else if (i < index.refIndex) {
@@ -371,8 +383,6 @@ public class PsmPreProcessor {
             }
         }
         index.refIndex -= t;
-        index.totLen = (parameters.add_Ref < 0) ? cnum + 1 : cnum + 2;
-        index.plexNum = (parameters.add_Ref < 0) ? cnum : cnum + 1;
         index.usedChannelNum = cnum;
     }
 

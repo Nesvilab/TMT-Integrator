@@ -196,6 +196,12 @@ public class ConfigLoader {
                     }
                     Arrays.sort(parameters.labels);
                     break;
+                case "min_resolution":
+                    parameters.minResolution = Integer.parseInt(value);
+                    break;
+                case "min_snr":
+                    parameters.minSNR = Float.parseFloat(value);
+                    break;
             }
         } catch (Exception e) {
             System.err.println("Error parsing line: " + line);

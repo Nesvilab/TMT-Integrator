@@ -305,12 +305,13 @@ public class PsmRecord {
 
     private void parseChannels(String[] fields, List<Double> tmtIntensities, List<Integer> naChannels) {
         double sum = 0;
-        for (int i = index.abnIndex; i < fields.length; i++) {
+        int columnLength = parameters.addIsobaricFilter ? fields.length - 2 * parameters.channelNum : fields.length;
+        for (int i = index.abnIndex; i < columnLength; i++) {
             try {
                 if (naChannels.contains(i)) {
                     continue;
                 }
-                double intensity = Double.parseDouble(fields[i]);
+                double intensity = parameters.addIsobaricFilter ? Utils.filterIntensity(fields, i, parameters) : Double.parseDouble(fields[i]);
                 channels.add(intensity);
                 sum += intensity;
             } catch (NumberFormatException e) {
