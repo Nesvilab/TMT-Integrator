@@ -137,9 +137,9 @@ public class ReportGenerator {
         for (String fileName : parameters.fNameLi) {
             Index index = parameters.indMap.get(fileName);
             String[] titles = parameters.titleMap.get(fileName).split("\t");
-            for (int i = index.abnIndex; i < titles.length; i++) {
+            for (int i = index.abnIndex; i < index.abnIndex + index.usedChannelNum; i++) {
                 if (!titles[i].contains(parameters.refTag)) {
-                    writer.write("\t" + titles[i].replace(" Abundance", ""));
+                    writer.write("\t" + titles[i].replace(" Abundance", "").replace("Intensity ", ""));
                 }
             }
         }
@@ -151,7 +151,7 @@ public class ReportGenerator {
                 String[] titles = parameters.titleMap.get(fileName).split("\t");
                 String parentDir = file.getParent().substring(file.getParent().lastIndexOf(File.separator) + 1);
                 writer.write("\tRefInt_" + (parameters.add_Ref < 0
-                        ? titles[index.refIndex].replace(" Abundance", "") : parentDir));
+                        ? titles[index.refIndex].replace(" Abundance", "").replace("Intensity ", "") : parentDir));
             }
         }
         writer.newLine();
@@ -251,7 +251,7 @@ public class ReportGenerator {
             double[] medians = fileAbundanceMap.getOrDefault(fileName, nanArray);
 
             // record reference abundances
-            recordRefAbundances(abnBuilder, medians, index, type);
+            recordRefAbundances(abnBuilder, medians, type);
 
             writeValues(writer, medians, refIndex, type, avgAbundance);
         }
@@ -261,7 +261,7 @@ public class ReportGenerator {
         }
     }
 
-    private void recordRefAbundances(StringBuilder abnBuilder, double[] medians, Index index, ReportType type) {
+    private void recordRefAbundances(StringBuilder abnBuilder, double[] medians, ReportType type) {
         if (medians[medians.length - 1] > 0) {
             double value = medians[medians.length - 1];
             if (normType != NormType.SL_IRS) {

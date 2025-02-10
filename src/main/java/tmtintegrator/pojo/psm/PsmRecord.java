@@ -305,17 +305,16 @@ public class PsmRecord {
 
     private void parseChannels(String[] fields, List<Double> tmtIntensities, List<Integer> naChannels) {
         double sum = 0;
-        int columnLength = parameters.addIsobaricFilter ? fields.length - 2 * parameters.channelNum : fields.length;
-        for (int i = index.abnIndex; i < columnLength; i++) {
+        for (int i = 0; i < parameters.channelNum; i++) {
             try {
-                if (naChannels.contains(i)) {
+                if (naChannels.contains(index.abnIndex + i)) {
                     continue;
                 }
-                double intensity = parameters.addIsobaricFilter ? Utils.filterIntensity(fields, i, parameters) : Double.parseDouble(fields[i]);
+                double intensity = parameters.addIsobaricFilter ? Utils.filterIntensity(fields, i, parameters, index) : Double.parseDouble(fields[index.abnIndex + i]);
                 channels.add(intensity);
                 sum += intensity;
             } catch (NumberFormatException e) {
-                throw new IllegalArgumentException("Invalid TMT intensity value: " + fields[i]);
+                throw new IllegalArgumentException("Invalid TMT intensity value: " + fields[index.abnIndex + i]);
             }
         }
         tmtIntensities.add(sum);

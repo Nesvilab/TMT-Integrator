@@ -31,5 +31,7 @@ public class Index {
     public int glycoQvalIndex = -1;
     public int usedChannelNum = -1;
     public int refIndex = -1;
-    public int abnIndex = -1;
+    public int abnIndex = -1; // offset for channel intensity
+    public int resOffset = -1; // offset for channel resolution
+    public int noiseOffset = -1; // offset for channel noise
 }

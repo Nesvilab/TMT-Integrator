@@ -115,11 +115,10 @@ public class Psm {
     // region helper methods
     private String removeNaChannels(String title) {
         String[] titleArr = title.split("\t");
-        int columnLength = parameters.addIsobaricFilter ? titleArr.length - 2 * parameters.channelNum : titleArr.length;
         StringBuilder newTitle = new StringBuilder();
         // remove NA channels from title and record NA index
-        for (int i = 0; i < columnLength; i++) {
-            if (!titleArr[i].trim().equalsIgnoreCase("NA")) {
+        for (int i = 0; i < titleArr.length; i++) {
+            if (!titleArr[i].trim().equalsIgnoreCase("Intensity NA")) {
                 newTitle.append(titleArr[i]).append("\t");
             } else {
                 naChannels.add(i);

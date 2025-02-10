@@ -198,11 +198,11 @@ public class PsmPreProcessor {
         String[] columns = title.split("\t");
         Index index = parameters.indMap.getOrDefault(psmFile.getAbsolutePath(), new Index());
 
-        checkReferenceColumns(columns, index);
         // map column index to field name
         mapColumnIndex(columns, index);
         // find num of channels and check gene flag
         findChannels(columns, index);
+        checkReferenceColumns(columns, index);
         adjustRefIndex(columns, index);
 
         validateColumns(index);
@@ -212,10 +212,7 @@ public class PsmPreProcessor {
         int refCount = 0;
         StringBuilder refErrors = new StringBuilder();
 
-        // exclude the resolution and noise columns
-        int columnLength = parameters.addIsobaricFilter ? columns.length - 2 * parameters.channelNum : columns.length;
-
-        for (int i = 0; i < columnLength; i++) {
+        for (int i = index.abnIndex; i < index.abnIndex + parameters.channelNum; i++) {
             String column = columns[i].trim();
             if (column.contains(parameters.refTag)) {
                 refCount++;
@@ -364,7 +361,21 @@ public class PsmPreProcessor {
     }
 
     private void findChannels(String[] columns, Index index) {
-        index.abnIndex = parameters.addIsobaricFilter ? columns.length - 3 * parameters.channelNum : columns.length - parameters.channelNum;
+        // find the offset of the channel columns:
+        //   first column name start with "Intensity ", "Resolution ", "Noise "
+        for (int i = 0; i < columns.length; i++) {
+            if (index.abnIndex < 0 &&columns[i].startsWith("Intensity ")) {
+                index.abnIndex = i;
+            }
+            if (parameters.addIsobaricFilter) {
+                if (index.resOffset < 0 && columns[i].startsWith("Resolution ")) {
+                    index.resOffset = i;
+                }
+                if (index.noiseOffset < 0 && columns[i].startsWith("Noise ")) {
+                    index.noiseOffset = i;
+                }
+            }
+        }
 
         if (parameters.geneflag) {
             index.genecIndex = index.proteincIndex;
@@ -374,8 +385,7 @@ public class PsmPreProcessor {
     private void adjustRefIndex(String[] columns, Index index) {
         int t = 0;
         int cnum = 0;
-        int columnLength = parameters.addIsobaricFilter ? columns.length - 2 * parameters.channelNum : columns.length;
-        for (int i = index.abnIndex; i < columnLength; i++) {
+        for (int i = index.abnIndex; i < index.abnIndex + parameters.channelNum; i++) {
             if (notNaColumn(columns[i])) {
                 cnum++;
             } else if (i < index.refIndex) {
@@ -387,7 +397,7 @@ public class PsmPreProcessor {
     }
 
     private boolean notNaColumn(String value) {
-        return !value.trim().equalsIgnoreCase("na");
+        return !value.trim().equalsIgnoreCase("Intensity NA");
     }
 
     private void validateColumns(Index index) {
