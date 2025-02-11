@@ -33,5 +33,5 @@ public class Index {
     public int refIndex = -1;
     public int abnIndex = -1; // offset for channel intensity
     public int resOffset = -1; // offset for channel resolution
-    public int noiseOffset = -1; // offset for channel noise
+    public int snrOffset = -1; // offset for channel SNR
 }

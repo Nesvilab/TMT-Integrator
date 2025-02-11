@@ -29,5 +29,5 @@ public final class Constants {
     public static final int POWER_NUM = 1; // power for ratio weight calculation
     public static final double MASS_TOLERANCE = 0.01; // tolerance for mass comparison
     public static final int DEFAULT_MIN_RESOLUTION = 45000; // default minimum resolution
-    public static final float DEFAULT_MIN_SNR = 1.0f; // default minimum signal-to-noise ratio
+    public static final float DEFAULT_MIN_SNR = 1000.0f; // default minimum signal-to-noise ratio
 }

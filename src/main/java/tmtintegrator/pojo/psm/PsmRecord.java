@@ -29,11 +29,9 @@ public class PsmRecord {
     // region psm record fields, following the order in the PSM.tsv file
     private String spectrum;
     private String peptide;
-    private String modifiedPeptide;
     private String extendedPeptide;
     private int charge;
     private double retention;
-    private double observedMz;
     private double calculatedPepMass;
     private double probability;
     private int numEnzymaticTermini;
@@ -41,17 +39,13 @@ public class PsmRecord {
     private int proteinEnd;
     private double ms1Intensity;
     private String assignedModifications;
-    private String observedModifications;
     private String ptmLocalization;
     private double purity;
     private boolean isUnique;
     private String protein;
     private String proteinId;
-    private String entryName;
     private String gene;
-    private String proteinDescription;
     private String mappedGenes;
-    private String mappedProteins;
     private List<Double> channels;
     // endregion
 
@@ -72,6 +66,7 @@ public class PsmRecord {
     // endregion
 
     // region fields for filtering
+    private boolean passResolutionSnr = true;
     private boolean labelFlag;
     private boolean modficationFlag;
     private boolean isPeptideRetained;
@@ -170,6 +165,7 @@ public class PsmRecord {
         String[] fields = line.split("\t");
         parseRegularFields(fields);
         pepsIndex = proteinStart - 1;
+        passResolutionSnr = passResolutionSnr(fields, naChannels);
         parseChannels(fields, tmtIntensities, naChannels);
         updateRefIntensity(fields);
         extractGlycanInfo(fields);
@@ -210,16 +206,17 @@ public class PsmRecord {
      * @return true if the PSM entry passes the criteria
      */
     public boolean isPassCriteria(double tmtThreshold) {
-        return purity >= parameters.minPurity &&
-                probability >= parameters.minPepProb &&
-                sumTmtIntensity >= tmtThreshold &&
-                labelFlag &&
-                modficationFlag &&
-                isPeptideRetained &&
-                proteinExclusionFlag &&
-                geneCategory >= parameters.uniqueGene &&
-                numEnzymaticTermini >= parameters.min_ntt &&
-                refIntensity > 0;
+        return passResolutionSnr &&
+            purity >= parameters.minPurity &&
+            probability >= parameters.minPepProb &&
+            sumTmtIntensity >= tmtThreshold &&
+            labelFlag &&
+            modficationFlag &&
+            isPeptideRetained &&
+            proteinExclusionFlag &&
+            geneCategory >= parameters.uniqueGene &&
+            numEnzymaticTermini >= parameters.min_ntt &&
+            refIntensity > 0;
     }
 
     public String generatePsmKey() {
@@ -278,11 +275,9 @@ public class PsmRecord {
     private void parseRegularFields(String[] fields) {
         spectrum = fields[index.spectrumIndex];
         peptide = fields[index.peptideIndex];
-        modifiedPeptide = fields[index.modifiedPeptideIndex];
         extendedPeptide = fields[index.extpepIndex];
         charge = Integer.parseInt(fields[index.chargeIndex]);
         retention = Double.parseDouble(fields[index.rtIndex]);
-        observedMz = Double.parseDouble(fields[index.observedMzIndex]);
         calculatedPepMass = Double.parseDouble(fields[index.pepMassIndex]);
         probability = Double.parseDouble(fields[index.pepProbcIndex]);
         numEnzymaticTermini = Integer.parseInt(fields[index.numEnzyTermi]);
@@ -290,35 +285,62 @@ public class PsmRecord {
         proteinEnd = Integer.parseInt(fields[index.proteIndex]);
         ms1Intensity = Double.parseDouble(fields[index.ms1IntIndex]);
         assignedModifications = fields[index.assignedModcIndex];
-        observedModifications = fields[index.observedModIndex];
         ptmLocalization = index.ptmLocalcIndex == -1 ? "" : fields[index.ptmLocalcIndex];
         purity = Double.parseDouble(fields[index.purityIndex]);
         isUnique = Boolean.parseBoolean(fields[index.isUniquecIndex]);
         protein = fields[index.proteincIndex];
         proteinId = fields[index.proteinIDcIndex];
-        entryName = fields[index.entryNameIndex];
         gene = fields[index.genecIndex];
-        proteinDescription = fields[index.proteinDescIndex];
         mappedGenes = index.mapGeneIndex == -1 ? "" : fields[index.mapGeneIndex];
-        mappedProteins = index.mappedProteinsIndex == -1 ? "" : fields[index.mappedProteinsIndex];
+    }
+
+    private boolean passResolutionSnr(String[] fields, List<Integer> naChannels) {
+        if (parameters.addIsobaricFilter) {
+            float snrSum = 0;
+            for (int i = 0; i < parameters.channelNum; ++i) {
+                if (!naChannels.contains(index.abnIndex + i)) {
+                    snrSum += Float.parseFloat(fields[index.snrOffset + i]);
+                }
+            }
+
+            if (snrSum < parameters.minSNR) {
+                return false;
+            } else {
+                for (int i = 0; i < parameters.channelNum; ++i) {
+                    if (!naChannels.contains(index.abnIndex + i) && Integer.parseInt(fields[index.resOffset + i]) < parameters.minResolution && Float.parseFloat(fields[index.snrOffset + i]) >= 1) {
+                        return false;
+                    }
+                }
+            }
+        }
+        return true;
     }
 
     private void parseChannels(String[] fields, List<Double> tmtIntensities, List<Integer> naChannels) {
-        double sum = 0;
-        for (int i = 0; i < parameters.channelNum; i++) {
-            try {
+        if (passResolutionSnr) {
+            double sum = 0;
+            for (int i = 0; i < parameters.channelNum; i++) {
+                try {
+                    if (naChannels.contains(index.abnIndex + i)) {
+                        continue;
+                    }
+                    double intensity = Double.parseDouble(fields[index.abnIndex + i]);
+                    channels.add(intensity);
+                    sum += intensity;
+                } catch (NumberFormatException e) {
+                    throw new IllegalArgumentException("Invalid TMT intensity value: " + fields[index.abnIndex + i]);
+                }
+            }
+            tmtIntensities.add(sum);
+            sumTmtIntensity = sum;
+        } else {
+            for (int i = 0; i < parameters.channelNum; i++) {
                 if (naChannels.contains(index.abnIndex + i)) {
                     continue;
                 }
-                double intensity = parameters.addIsobaricFilter ? Utils.filterIntensity(fields, i, parameters, index) : Double.parseDouble(fields[index.abnIndex + i]);
-                channels.add(intensity);
-                sum += intensity;
-            } catch (NumberFormatException e) {
-                throw new IllegalArgumentException("Invalid TMT intensity value: " + fields[index.abnIndex + i]);
+                channels.add(0.0);
             }
         }
-        tmtIntensities.add(sum);
-        sumTmtIntensity = sum;
     }
 
     private void extractGlycanInfo(String[] fields) {

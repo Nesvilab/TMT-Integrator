@@ -108,11 +108,11 @@ public class PsmPreProcessor {
             // process header and column index
             String title = reader.readLine();
 
-            // checking existence of the resolution and noise columns
-            if (title.contains("Resolution ") && title.contains("Noise ")) {
+            // checking existence of the resolution and SNR columns
+            if (title.contains("Resolution ") && title.contains("SNR ")) {
                 parameters.addIsobaricFilter = true;
-            } else if (title.contains("Resolution ") || title.contains("Noise ")) {
-                System.err.println("Error: Both Resolution and Noise columns should be present in the PSM file.");
+            } else if (title.contains("Resolution ") || title.contains("SNR ")) {
+                System.err.println("Error: Both Resolution and SNR columns should be present in the PSM file.");
                 System.exit(1);
             }
 
@@ -362,7 +362,7 @@ public class PsmPreProcessor {
 
     private void findChannels(String[] columns, Index index) {
         // find the offset of the channel columns:
-        //   first column name start with "Intensity ", "Resolution ", "Noise "
+        //   first column name start with "Intensity ", "Resolution ", "SNR "
         for (int i = 0; i < columns.length; i++) {
             if (index.abnIndex < 0 &&columns[i].startsWith("Intensity ")) {
                 index.abnIndex = i;
@@ -371,8 +371,8 @@ public class PsmPreProcessor {
                 if (index.resOffset < 0 && columns[i].startsWith("Resolution ")) {
                     index.resOffset = i;
                 }
-                if (index.noiseOffset < 0 && columns[i].startsWith("Noise ")) {
-                    index.noiseOffset = i;
+                if (index.snrOffset < 0 && columns[i].startsWith("SNR ")) {
+                    index.snrOffset = i;
                 }
             }
         }
