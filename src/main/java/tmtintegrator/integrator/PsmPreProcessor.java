@@ -364,7 +364,7 @@ public class PsmPreProcessor {
         // find the offset of the channel columns:
         //   first column name start with "Intensity ", "Resolution ", "SNR "
         for (int i = 0; i < columns.length; i++) {
-            if (index.abnIndex < 0 &&columns[i].startsWith("Intensity ")) {
+            if (index.abnIndex < 0 && columns[i].startsWith("Intensity ")) {
                 index.abnIndex = i;
             }
             if (parameters.addIsobaricFilter) {

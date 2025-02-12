@@ -132,11 +132,8 @@ public class PsmNormalizer {
         // calculate median ratio for each channel
         double[] medianValues = calculateMedianByChannel(psmRecords, index);
 
-        // calculate median ratio for reference channel
-        double refMedian = calculateMedianRefIntensity(psmRecords);
-
         // subtract median ratio from each channel
-        adjustRationsByMedian(psmRecords, medianValues, refMedian);
+        adjustRatiosByMedian(psmRecords, medianValues);
     }
 
     private double[] calculateMedianByChannel(List<PsmRecord> psmRecords, Index index) {
@@ -154,18 +151,7 @@ public class PsmNormalizer {
         return medianValues;
     }
 
-    private double calculateMedianRefIntensity(List<PsmRecord> psmRecords) {
-        List<Double> refIntensities = new ArrayList<>();
-        for (PsmRecord psmRecord : psmRecords) {
-            double refIntensity = psmRecord.getCopyRefIntensity(); // FIXME: no need to use copy once rtNorm extracted from each run
-            if (!Double.isNaN(refIntensity)) {
-                refIntensities.add(refIntensity);
-            }
-        }
-        return Utils.takeMedian(refIntensities);
-    }
-
-    private void adjustRationsByMedian(List<PsmRecord> psmRecords, double[] medianValues, double refMedian) {
+    private void adjustRatiosByMedian(List<PsmRecord> psmRecords, double[] medianValues) {
         for (PsmRecord psmRecord : psmRecords) {
             List<Double> channels = psmRecord.getChannels();
             for (int j = 0; j < channels.size(); j++) {
