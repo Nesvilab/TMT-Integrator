@@ -317,30 +317,21 @@ public class PsmRecord {
     }
 
     private void parseChannels(String[] fields, List<Double> tmtIntensities, List<Integer> naChannels) {
-        if (passResolutionSnr) {
-            double sum = 0;
-            for (int i = 0; i < parameters.channelNum; i++) {
-                try {
-                    if (naChannels.contains(index.abnIndex + i)) {
-                        continue;
-                    }
-                    double intensity = Double.parseDouble(fields[index.abnIndex + i]);
-                    channels.add(intensity);
-                    sum += intensity;
-                } catch (NumberFormatException e) {
-                    throw new IllegalArgumentException("Invalid TMT intensity value: " + fields[index.abnIndex + i]);
-                }
-            }
-            tmtIntensities.add(sum);
-            sumTmtIntensity = sum;
-        } else {
-            for (int i = 0; i < parameters.channelNum; i++) {
+        double sum = 0;
+        for (int i = 0; i < parameters.channelNum; i++) {
+            try {
                 if (naChannels.contains(index.abnIndex + i)) {
                     continue;
                 }
-                channels.add(0.0);
+                double intensity = Double.parseDouble(fields[index.abnIndex + i]);
+                channels.add(intensity);
+                sum += intensity;
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("Invalid TMT intensity value: " + fields[index.abnIndex + i]);
             }
         }
+        tmtIntensities.add(sum);
+        sumTmtIntensity = sum;
     }
 
     private void extractGlycanInfo(String[] fields) {
