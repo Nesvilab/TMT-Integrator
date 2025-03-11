@@ -675,10 +675,6 @@ public class PsmRecord {
     }
 
     private double useMs1Intensity(double refIntensity) {
-        // TODO: remove virtual channel
-        if (isVirtualReference) {
-            return ms1Intensity * (refIntensity / (sumTmtIntensity + refIntensity));
-        }
         return ms1Intensity * (refIntensity / sumTmtIntensity);
     }
 
