@@ -44,6 +44,38 @@ public class Integrator {
         }
         printTime("Analyzing phospho sites");
 
+        // Normalize and quantify
+        if (parameters.isTmt35) {
+            System.out.println("Processing non-deuterium channels for TMT 35-plex:");
+        }
+        Map<String, Map<String, double[]>> groupAbundanceMap = normAndQuantification(groupBy, protNorm, secondProcess, psmList);
+
+        Map<String, Map<String, double[]>> dGroupAbundanceMap = null;
+        if (parameters.isTmt35) {
+            System.out.println("Processing deuterium channels for TMT 35-plex:");
+            for (Psm psm : psmList) {
+                psm.setDChannels();
+            }
+            dGroupAbundanceMap = normAndQuantification(groupBy, protNorm, secondProcess, psmList);
+        }
+
+        // reset groupBy for single-site
+        if (secondProcess) {
+            groupBy = GroupBy.SINGLE_PHOSPHO_SITE;
+        }
+
+        for (Psm psm : psmList) {
+            psm.resetDChannels();
+        }
+
+        // Generate reports
+        ReportGenerator reporter = new ReportGenerator(parameters, reportData, groupBy, protNorm, groupAbundanceMap, dGroupAbundanceMap);
+        reporter.generateReports();
+
+        printTime("Generate reports");
+    }
+
+    private Map<String, Map<String, double[]>> normAndQuantification(GroupBy groupBy, NormType protNorm, boolean secondProcess, List<Psm> psmList) {
         // Normalize data
         PsmNormalizer normalizer = new PsmNormalizer(parameters, protNorm);
         if (parameters.abn_type == 0) {
@@ -83,15 +115,10 @@ public class Integrator {
         // Second process
         if (secondProcess) {
             processor.generateSingleSite();
-            groupBy = GroupBy.SINGLE_PHOSPHO_SITE;
             printTime("Second process for single-site");
         }
 
-        // Generate reports
-        ReportGenerator reporter = new ReportGenerator(parameters, reportData, groupBy, protNorm, groupAbundanceMap);
-        reporter.generateReports();
-
-        printTime("Generate reports");
+        return groupAbundanceMap;
     }
 
     /**

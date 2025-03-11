@@ -87,7 +87,7 @@ public class PsmNormalizer {
 
     // region helper methods
     private void logNormalizePsm(PsmRecord psmRecord) {
-        double refIntensity = psmRecord.getCopyRefIntensity(); // FIXME: no need to use copy once logNorm extracted from each run
+        double refIntensity = parameters.isTmt35 ? psmRecord.getRefIntensity() : psmRecord.getMS2Intensity(); // FIXME 01: to be removed
         double logRefInt = refIntensity > 0 ? Utils.log2(refIntensity) : 0;
         List<Double> channels = psmRecord.getChannels();
         for (int i = 0; i < channels.size(); i++) {

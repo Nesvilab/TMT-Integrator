@@ -30,8 +30,14 @@ public class Index {
     public int glycoCompositionIndex = -1;
     public int glycoQvalIndex = -1;
     public int usedChannelNum = -1;
+    public int usedDChannelNum = -1; // number of used deuterium channels
+    public int copyUsedChannelNum = -1; // for 2 rounds TMT-35 resetting
     public int refIndex = -1;
+    public int refDIndex = -1; // index of deuterium reference channel
+    public int copyRefIndex = -1; // for 2 rounds TMT-35 resetting
     public int abnIndex = -1; // offset for channel intensity
+    public int abnDIndex = -1; // offset for deuterium channel intensity
+    public int allChannelOffset = -1; // offset for all channel intensity (for TMT-35 resetting)
     public int resOffset = -1; // offset for channel resolution
     public int snrOffset = -1; // offset for channel SNR
 }

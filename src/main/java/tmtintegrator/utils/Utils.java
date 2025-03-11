@@ -231,6 +231,23 @@ public final class Utils {
         return sumAbundance / parameters.fNameLi.size();
     }
 
+    public static double calculateAvgAbundance(Map<String, double[]> fileAbundanceMap,
+                                               Map<String, double[]> fileDAbundanceMap,
+                                               double globalMinRefInt, Parameters parameters) {
+        double sumAbundance = 0;
+        for (String filename : parameters.fNameLi) {
+            Index index = parameters.indMap.get(filename);
+            double[] medians = fileAbundanceMap.getOrDefault(filename, new double[index.usedChannelNum + 1]);
+            double totalRefInt = medians[medians.length - 1]; // total reference intensity at the end
+            if (parameters.isTmt35) {
+                double[] dMedians = fileDAbundanceMap.getOrDefault(filename, new double[index.usedDChannelNum + 1]);
+                totalRefInt += dMedians[dMedians.length - 1];
+            }
+            sumAbundance += (totalRefInt > 0) ? totalRefInt : globalMinRefInt;
+        }
+        return sumAbundance / parameters.fNameLi.size();
+    }
+
     /**
      * Helper method for getting the part of a modification to use as the index. Supports using the glycan composition
      * instead of mass if specified.

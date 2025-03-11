@@ -10,6 +10,8 @@ public class Parameters {
     public File combinedF;
     public int channelNum;
     public String refTag;
+    public String refDTag; // for TMT-35
+    public boolean isTmt35;
     public int groupBy;
     public boolean psmNorm;
     public boolean outlierRemoval;

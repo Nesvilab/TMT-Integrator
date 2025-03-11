@@ -1,14 +1,23 @@
 package tmtintegrator.integrator;
 
-import tmtintegrator.pojo.ProteinIndex;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import tmtintegrator.pojo.Index;
 import tmtintegrator.pojo.Parameters;
+import tmtintegrator.pojo.ProteinIndex;
 import tmtintegrator.pojo.psm.Psm;
 import tmtintegrator.pojo.psm.PsmRecord;
 import tmtintegrator.utils.ReportData;
-
-import java.io.*;
-import java.util.*;
 
 /**
  * Preprocess PSM files, check for missing values, create index for each PSM file
@@ -81,6 +90,9 @@ public class PsmPreProcessor {
                 // parse PSM file and calculate tmt threshold
                 List<Double> tmtIntensities = new ArrayList<>();
                 psm.readPsmFile(psmFile, tmtIntensities);
+                // adjust offset of deuterium channels for NA channels
+                psm.adjustDChannelOffset();
+
                 double tmtThreshold = calculateTmtThreshold(psm.getPsmRecords().size(), tmtIntensities);
 
                 // collapse PSM lines based on the criteria
@@ -93,6 +105,12 @@ public class PsmPreProcessor {
 
                 // keep only used PSMs
                 psm.filterUnUsedPsm(psmMap);
+
+                // use MS1 intensity if required
+                if (parameters.ms1Int) {
+                    psm.useMS1Intensity();
+                }
+
                 psmList.add(psm);
             } catch (IOException e) {
                 System.err.println("Error processing PSM file: " + psmFile.getAbsolutePath());
@@ -202,27 +220,41 @@ public class PsmPreProcessor {
         mapColumnIndex(columns, index);
         // find num of channels and check gene flag
         findChannels(columns, index);
-        checkReferenceColumns(columns, index);
+
+        // check reference columns and adjust reference index for NA channels
+        if (parameters.isTmt35) {
+            checkReferenceColumns(columns, index, index.abnIndex, index.abnDIndex, parameters.refTag, false);
+            checkReferenceColumns(columns, index, index.abnDIndex, index.abnDIndex + 17, parameters.refDTag, true);
+        } else {
+            checkReferenceColumns(columns, index, index.abnIndex, index.abnIndex + parameters.channelNum, parameters.refTag, false);
+        }
         adjustRefIndex(columns, index);
+        if (parameters.isTmt35) {
+            adjustRefDIndex(columns, index);
+        }
 
         validateColumns(index);
     }
 
-    private void checkReferenceColumns(String[] columns, Index index) {
+    private void checkReferenceColumns(String[] columns, Index index, int startIdx, int endIdx, String refTag, boolean isTmt35) {
         int refCount = 0;
         StringBuilder refErrors = new StringBuilder();
 
-        for (int i = index.abnIndex; i < index.abnIndex + parameters.channelNum; i++) {
+        for (int i = startIdx; i < endIdx; i++) {
             String column = columns[i].trim();
-            if (column.contains(parameters.refTag)) {
+            if (column.contains(refTag)) {
                 refCount++;
                 refErrors.append(i + 1).append(", ");
-                index.refIndex = i;
+                if (isTmt35) {
+                    index.refDIndex = i;
+                } else {
+                    index.refIndex = i;
+                }
             }
         }
 
         if (refCount == 0 && parameters.add_Ref < 0) {
-            String message = "TMT-Integrator can't find the reference channel matching \"" + parameters.refTag
+            String message = "TMT-Integrator can't find the reference channel matching \"" + refTag
                     + "\" from columns " + String.join(",", columns) + ".\n"
                     + "Please check if the reference tag is correctly defined in the parameter file.\n";
             throw new IllegalArgumentException(message);
@@ -232,10 +264,11 @@ public class PsmPreProcessor {
             if (refErrors.length() > 0) {
                 refErrors.setLength(refErrors.length() - 2); // remove the last comma and space
             }
-            String message = "There are more than one \"" + parameters.refTag + "\" in the columns "
+            String message = "There are more than one \"" + refTag + "\" in the columns "
                     + String.join(",", columns) + ".\n"
                     + "Repeated reference tag at column: " + refErrors + ".\n"
-                    + "Please make sure the reference tag is unique among all the columns.\n";
+                    + "Please make sure the reference tag is unique among all the columns.\n"
+                    + "For TMT 35-plex data, please make sure that ref_tag and ref_d_tag are not substrings of each other.";
             throw new IllegalArgumentException(message);
         }
     }
@@ -366,6 +399,9 @@ public class PsmPreProcessor {
         for (int i = 0; i < columns.length; i++) {
             if (index.abnIndex < 0 && columns[i].startsWith("Intensity ")) {
                 index.abnIndex = i;
+                if (parameters.isTmt35) {
+                    index.abnDIndex = index.abnIndex + 18;
+                }
             }
             if (parameters.addIsobaricFilter) {
                 if (index.resOffset < 0 && columns[i].startsWith("Resolution ")) {
@@ -385,7 +421,8 @@ public class PsmPreProcessor {
     private void adjustRefIndex(String[] columns, Index index) {
         int t = 0;
         int cnum = 0;
-        for (int i = index.abnIndex; i < index.abnIndex + parameters.channelNum; i++) {
+        int endIdx = parameters.isTmt35 ? index.abnDIndex : index.abnIndex + parameters.channelNum;
+        for (int i = index.abnIndex; i < endIdx; i++) {
             if (notNaColumn(columns[i])) {
                 cnum++;
             } else if (i < index.refIndex) {
@@ -394,6 +431,22 @@ public class PsmPreProcessor {
         }
         index.refIndex -= t;
         index.usedChannelNum = cnum;
+    }
+
+    private void adjustRefDIndex(String[] columns, Index index) {
+        int t = 0;
+        int cnum = 0;
+        int endIdx = index.abnDIndex + 17;
+        for (int i = index.abnDIndex; i < endIdx; i++) {
+            if (notNaColumn(columns[i])) {
+                cnum++;
+            } else if (i < index.refDIndex) {
+                t++;
+            }
+        }
+        index.refDIndex -= t;
+        index.usedDChannelNum = cnum;
+        // TODO: adjust abnDIndex after reading all channels
     }
 
     private boolean notNaColumn(String value) {

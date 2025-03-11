@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.stream.Collectors;
+
 import tmtintegrator.constants.Constants;
 import tmtintegrator.constants.GroupBy;
 import tmtintegrator.constants.ReferenceType;
@@ -47,11 +48,13 @@ public class PsmRecord {
     private String gene;
     private String mappedGenes;
     private List<Double> channels;
+    private List<Double> dChannels;
     // endregion
 
     // region extra fields
     private double sumTmtIntensity;
     private double refIntensity;
+    private double dRefIntensity;
     private boolean isVirtualReference;
     private boolean isUsed;
     private boolean isExcluded;
@@ -77,6 +80,7 @@ public class PsmRecord {
     // region backup fields
     private String copyPeptide;
     private double copyRefIntensity;
+    private double ms2RefIntensity; // FIXME 01: to keep result consistent for log norm, fix in next version
     private List<Double> copyChannels;
     // endregion
 
@@ -85,6 +89,7 @@ public class PsmRecord {
         this.parameters = parameters;
         this.index = index;
         channels = new ArrayList<>();
+        dChannels = new ArrayList<>();
     }
 
     // region getters and setters
@@ -116,8 +121,9 @@ public class PsmRecord {
         return refIntensity;
     }
 
-    public double getCopyRefIntensity() {
-        return copyRefIntensity;
+    // FIXME 01: to be removed
+    public double getMS2Intensity() {
+        return ms2RefIntensity;
     }
 
     public List<Double> getChannels() {
@@ -157,9 +163,9 @@ public class PsmRecord {
     /**
      * Parse a PSM record from a line in a PSM.tsv file
      *
-     * @param line         line in the PSM.tsv file
+     * @param line           line in the PSM.tsv file
      * @param tmtIntensities list of TMT intensities
-     * @param naChannels list of NA channels indices
+     * @param naChannels     list of NA channels indices
      */
     public void parsePsmRecord(String line, List<Double> tmtIntensities, List<Integer> naChannels) {
         String[] fields = line.split("\t");
@@ -184,6 +190,14 @@ public class PsmRecord {
         refIntensity = copyRefIntensity;
         peptide = copyPeptide;
         channels = new ArrayList<>(copyChannels);
+    }
+
+    /**
+     * Set the deuterium channels (for 2nd round of TMT-35)
+     */
+    public void setDChannels() {
+        channels = new ArrayList<>(dChannels);
+        refIntensity = dRefIntensity;
     }
 
     /**
@@ -246,11 +260,6 @@ public class PsmRecord {
             analyzeWithoutThreshold();
         }
 
-        // use MS1 intensity as reference intensity
-        if (parameters.ms1Int) {
-            refIntensity = useMs1Intensity();
-        }
-
         // generate group key
         generateGroupKey(groupBy);
 
@@ -260,15 +269,29 @@ public class PsmRecord {
         }
     }
 
+    public void useMS1Intensity() {
+        ms2RefIntensity = refIntensity; // FIXME 01: to be removed
+        refIntensity = useMs1Intensity(refIntensity);
+        if (parameters.isTmt35) {
+            dRefIntensity = useMs1Intensity(dRefIntensity);
+        }
+    }
+
     // region helper methods
     private void updateRefIntensity(String[] fields) {
         ReferenceType refType = ReferenceType.fromValue(parameters.add_Ref);
         if (refType == ReferenceType.NONE || refType == ReferenceType.RAW_ABUNDANCE) {
             refIntensity = Double.parseDouble(fields[index.refIndex]);
+            if (parameters.isTmt35) {
+                dRefIntensity = Double.parseDouble(fields[index.refDIndex]);
+            }
         } else {
             isVirtualReference = true;
             parameters.refTag = "Virtual_Reference";
-            refIntensity = computeVirtualReference(refType);
+            if (parameters.isTmt35) {
+                parameters.refDTag = "Virtual_Reference";
+            }
+            computeVirtualReference(refType);
         }
     }
 
@@ -318,7 +341,8 @@ public class PsmRecord {
 
     private void parseChannels(String[] fields, List<Double> tmtIntensities, List<Integer> naChannels) {
         double sum = 0;
-        for (int i = 0; i < parameters.channelNum; i++) {
+        int channelNum = parameters.isTmt35 ? 18 : parameters.channelNum;
+        for (int i = 0; i < channelNum; i++) {
             try {
                 if (naChannels.contains(index.abnIndex + i)) {
                     continue;
@@ -328,6 +352,20 @@ public class PsmRecord {
                 sum += intensity;
             } catch (NumberFormatException e) {
                 throw new IllegalArgumentException("Invalid TMT intensity value: " + fields[index.abnIndex + i]);
+            }
+        }
+        if (parameters.isTmt35) {
+            for (int i = 0; i < 17; i++) {
+                try {
+                    if (naChannels.contains(index.abnDIndex + i)) {
+                        continue;
+                    }
+                    double intensity = Double.parseDouble(fields[index.abnDIndex + i]);
+                    dChannels.add(intensity);
+                    sum += intensity;
+                } catch (NumberFormatException e) {
+                    throw new IllegalArgumentException("Invalid TMT intensity value: " + fields[index.abnDIndex + i]);
+                }
             }
         }
         tmtIntensities.add(sum);
@@ -496,31 +534,47 @@ public class PsmRecord {
         return 1;
     }
 
-    private double computeVirtualReference(ReferenceType refType) {
+    private void computeVirtualReference(ReferenceType refType) {
         switch (refType) {
             case SUMMATION:
-                return summationReference();
+                summationReference();
+                break;
             case AVERAGE:
-                return averageReference();
+                averageReference();
+                break;
             case MEDIAN:
-                return medianReference();
+                medianReference();
+                break;
+            default:
+                refIntensity = 0;
+                dRefIntensity = 0;
+                break;
         }
-        return 0;
     }
 
-    private double summationReference() {
-        return sumTmtIntensity;
+    private void summationReference() {
+        refIntensity = channels.stream().mapToDouble(Double::doubleValue).sum();
+        if (parameters.isTmt35) {
+            dRefIntensity = dChannels.stream().mapToDouble(Double::doubleValue).sum();
+        }
     }
 
-    private double averageReference() {
+    private void averageReference() {
         // take average of all non zero values
-        return channels.stream().filter(value -> value > 0).mapToDouble(Double::doubleValue).average().orElse(0);
+        refIntensity = channels.stream().filter(value -> value > 0).mapToDouble(Double::doubleValue).average().orElse(0);
+        if (parameters.isTmt35) {
+            dRefIntensity = dChannels.stream().filter(value -> value > 0).mapToDouble(Double::doubleValue).average().orElse(0);
+        }
     }
 
-    private double medianReference() {
+    private void medianReference() {
         // take median of all non zero values
         List<Double> nonZeroValues = channels.stream().filter(value -> value > 0).collect(Collectors.toList());
-        return nonZeroValues.isEmpty() ? 0 : Utils.takeMedian(nonZeroValues);
+        refIntensity = nonZeroValues.isEmpty() ? 0 : Utils.takeMedian(nonZeroValues);
+        if (parameters.isTmt35) {
+            nonZeroValues = dChannels.stream().filter(value -> value > 0).collect(Collectors.toList());
+            dRefIntensity = nonZeroValues.isEmpty() ? 0 : Utils.takeMedian(nonZeroValues);
+        }
     }
 
     private void analyzeWithThreshold() {
@@ -620,7 +674,8 @@ public class PsmRecord {
         modMassList.add(mod);
     }
 
-    private double useMs1Intensity() {
+    private double useMs1Intensity(double refIntensity) {
+        // TODO: remove virtual channel
         if (isVirtualReference) {
             return ms1Intensity * (refIntensity / (sumTmtIntensity + refIntensity));
         }

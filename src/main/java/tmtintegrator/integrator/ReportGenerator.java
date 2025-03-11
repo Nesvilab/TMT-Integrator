@@ -30,14 +30,17 @@ public class ReportGenerator {
     private final GroupBy groupBy;
     private final NormType normType;
     private final Map<String, Map<String, double[]>> groupAboundanceMap; // <groupKey, <filename, abundance[]>>
+    private final Map<String, Map<String, double[]>> dGroupAbundanceMap; // <groupKey, <filename, abundance[]>>
 
     public ReportGenerator(Parameters parameters, ReportData reportData, GroupBy groupBy, NormType normType,
-                           Map<String, Map<String, double[]>> groupAboundanceMap) {
+                           Map<String, Map<String, double[]>> groupAboundanceMap,
+                           Map<String, Map<String, double[]>> dGroupAbundanceMap) {
         this.parameters = parameters;
         this.reportData = reportData;
         this.groupBy = groupBy;
         this.normType = normType;
         this.groupAboundanceMap = groupAboundanceMap;
+        this.dGroupAbundanceMap = dGroupAbundanceMap;
     }
 
     public void generateReports() throws IOException {
@@ -132,15 +135,14 @@ public class ReportGenerator {
             default:
                 throw new IllegalArgumentException("Invalid groupBy: " + groupBy);
         }
-        writer.write("\tReferenceIntensity");
+        writer.write("\tReferenceIntensity"); // TODO: This is avgAbundance, choose a proper name
 
         for (String fileName : parameters.fNameLi) {
             Index index = parameters.indMap.get(fileName);
             String[] titles = parameters.titleMap.get(fileName).split("\t");
-            for (int i = index.abnIndex; i < index.abnIndex + index.usedChannelNum; i++) {
-                if (!titles[i].contains(parameters.refTag)) {
-                    writer.write("\t" + titles[i].replace(" Abundance", "").replace("Intensity ", ""));
-                }
+            writeChannelsTitle(writer, index.abnIndex, index.abnIndex + index.usedChannelNum, parameters.refTag, titles);
+            if (parameters.isTmt35) {
+                writeChannelsTitle(writer, index.abnDIndex, index.abnDIndex + index.usedDChannelNum, parameters.refDTag, titles);
             }
         }
 
@@ -152,24 +154,41 @@ public class ReportGenerator {
                 String parentDir = file.getParent().substring(file.getParent().lastIndexOf(File.separator) + 1);
                 writer.write("\tRefInt_" + (parameters.add_Ref < 0
                         ? titles[index.refIndex].replace(" Abundance", "").replace("Intensity ", "") : parentDir));
+                if (parameters.isTmt35) {
+                    writer.write("\tRefDInt_" + (parameters.add_Ref < 0
+                            ? titles[index.refDIndex].replace(" Abundance", "").replace("Intensity ", "") : parentDir));
+                }
             }
         }
         writer.newLine();
     }
 
+    private void writeChannelsTitle(BufferedWriter writer, int startIdx, int endIdx, String refTag, String[] titles) throws IOException {
+        for (int i = startIdx; i < endIdx; i++) {
+            if (!titles[i].contains(refTag)) {
+                writer.write("\t" + titles[i].replace(" Abundance", "").replace("Intensity ", ""));
+            }
+        }
+    }
+
     private void writeRatiosOrAbundances(BufferedWriter writer, ReportType type) throws IOException {
         double globalMinRefInt = Utils.calculateGlobalMinRefInt(groupAboundanceMap);
+        if (parameters.isTmt35) {
+            globalMinRefInt = Math.min(globalMinRefInt, Utils.calculateGlobalMinRefInt(dGroupAbundanceMap));
+        }
+
         for (Map.Entry<String, Map<String, double[]>> groupEntry : groupAboundanceMap.entrySet()) {
             String groupKey = groupEntry.getKey();
             Map<String, double[]> fileAbundanceMap = groupEntry.getValue();
+            Map<String, double[]> fileDAbundanceMap = parameters.isTmt35 ? dGroupAbundanceMap.get(groupKey) : null;
             boolean isPrint = true;
 
             // M2: Calculate average abundance (using global minimum reference intensity)
-            double avgAbundance = Utils.calculateAvgAbundance(fileAbundanceMap, globalMinRefInt, parameters);
+            double avgAbundance = Utils.calculateAvgAbundance(fileAbundanceMap, fileDAbundanceMap, globalMinRefInt, parameters);
 
             String[] keyParts = groupKey.split("\t");
             double maxPepProb = Double.parseDouble(keyParts[keyParts.length - 1]);
-            if (avgAbundance <= 0 || maxPepProb < parameters.max_pep_prob_thres) {
+            if (maxPepProb < parameters.max_pep_prob_thres || avgAbundance <= 0) {
                 isPrint = false;
             }
 
@@ -187,7 +206,7 @@ public class ReportGenerator {
                     // peptide and site level, protein level
                     reportData.writeReportInfo(writer, groupKey, groupBy);
                 }
-                writeData(writer, type, avgAbundance, fileAbundanceMap);
+                writeData(writer, type, avgAbundance, fileAbundanceMap, fileDAbundanceMap);
                 writer.newLine();
             }
         }
@@ -231,7 +250,45 @@ public class ReportGenerator {
     }
 
     private void writeData(BufferedWriter writer, ReportType type, double avgAbundance,
-                           Map<String, double[]> fileAbundanceMap) throws IOException {
+                           Map<String, double[]> fileAbundanceMap, Map<String, double[]> fileDAbundanceMap) throws IOException {
+        // write reference intensity
+        writeRefInt(writer, type, avgAbundance);
+
+        StringBuilder abnBuilder = new StringBuilder();
+        for (String fileName : parameters.fNameLi) {
+            Index index = parameters.indMap.get(fileName);
+            int refIndex = parameters.add_Ref < 0 ? index.refIndex - index.abnIndex : -1;
+            int refDIndex = parameters.isTmt35 && parameters.add_Ref < 0 ? index.refDIndex - index.abnDIndex : -1;
+
+            double[] nanArray = new double[index.usedChannelNum + 1];
+            double[] nanArrayD = parameters.isTmt35 ? new double[index.usedDChannelNum + 1] : null;
+
+            Arrays.fill(nanArray, Double.NaN);
+            if (parameters.isTmt35) {
+                Arrays.fill(nanArrayD, Double.NaN);
+            }
+
+            double[] medians = fileAbundanceMap.getOrDefault(fileName, nanArray);
+            double[] mediansD = parameters.isTmt35 ? fileDAbundanceMap.getOrDefault(fileName, nanArrayD) : null;
+
+            // record reference abundances
+            recordRefAbundances(abnBuilder, medians, type);
+            if (parameters.isTmt35 && mediansD != null) {
+                recordRefAbundances(abnBuilder, mediansD, type);
+            }
+
+            writeValues(writer, medians, refIndex, type, avgAbundance);
+            if (parameters.isTmt35 && mediansD != null) {
+                writeValues(writer, mediansD, refDIndex, type, avgAbundance);
+            }
+        }
+
+        if (parameters.print_RefInt) {
+            writer.write(abnBuilder.toString());
+        }
+    }
+
+    private void writeRefInt(BufferedWriter writer, ReportType type, double avgAbundance) throws IOException {
         if (normType != NormType.SL_IRS) {
             if (type == ReportType.RAW_ABUNDANCE) {
                 writer.write("\t" + avgAbundance);
@@ -240,24 +297,6 @@ public class ReportGenerator {
             }
         } else {
             writer.write("\t" + avgAbundance);
-        }
-
-        StringBuilder abnBuilder = new StringBuilder();
-        for (String fileName : parameters.fNameLi) {
-            Index index = parameters.indMap.get(fileName);
-            int refIndex = parameters.add_Ref < 0 ? index.refIndex - index.abnIndex : -1;
-            double[] nanArray = new double[index.usedChannelNum + 1];
-            Arrays.fill(nanArray, Double.NaN);
-            double[] medians = fileAbundanceMap.getOrDefault(fileName, nanArray);
-
-            // record reference abundances
-            recordRefAbundances(abnBuilder, medians, type);
-
-            writeValues(writer, medians, refIndex, type, avgAbundance);
-        }
-
-        if (parameters.print_RefInt) {
-            writer.write(abnBuilder.toString());
         }
     }
 

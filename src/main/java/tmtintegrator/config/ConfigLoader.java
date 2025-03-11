@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.stream.Collectors;
+
 import tmtintegrator.constants.Constants;
 import tmtintegrator.pojo.Index;
 import tmtintegrator.pojo.Parameters;
@@ -47,6 +48,12 @@ public class ConfigLoader {
         if (parameters.labels == null || parameters.labels.length == 0 || (parameters.labels.length == 1 && parameters.labels[0] == 0)) {
             System.out.println("Warning: The label mass is unknown. The allow_unlabeled parameter will be set to true.");
             parameters.allow_unlabeled = true;
+        }
+
+        if (parameters.isTmt35) {
+            if (parameters.channelNum != 35) {
+                throw new IllegalArgumentException("The channel number for TMT 35-plex must be " + 35);
+            }
         }
     }
 
@@ -108,6 +115,12 @@ public class ConfigLoader {
                     break;
                 case "ref_tag":
                     parameters.refTag = value;
+                    break;
+                case "ref_d_tag":
+                    parameters.refDTag = value;
+                    break;
+                case "is_tmt_35":
+                    parameters.isTmt35 = Boolean.parseBoolean(value);
                     break;
                 case "groupby":
                     parameters.groupBy = Integer.parseInt(value);

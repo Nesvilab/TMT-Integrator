@@ -1,13 +1,15 @@
 package tmtintegrator.pojo.psm;
 
-import tmtintegrator.constants.GroupBy;
-import tmtintegrator.pojo.Index;
-import tmtintegrator.pojo.Parameters;
-
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import tmtintegrator.constants.GroupBy;
+import tmtintegrator.pojo.Index;
+import tmtintegrator.pojo.Parameters;
 
 /**
  * PSM class represents a PSM.tsv file
@@ -67,6 +69,17 @@ public class Psm {
     }
 
     /**
+     * Adjust deuterium channel offset for NA channels in non-deuterium channels
+     */
+    public void adjustDChannelOffset() {
+        if (parameters.isTmt35) {
+            int gap = 18 - index.usedChannelNum;
+            index.abnDIndex -= gap;
+            index.refDIndex -= gap;
+        }
+    }
+
+    /**
      * Filter out PSMs that are not used in psmMap
      *
      * @param psmMap map of PSMs
@@ -91,6 +104,11 @@ public class Psm {
             for (PsmRecord psmRecord : psmRecords) {
                 psmRecord.backup();
             }
+            if (parameters.isTmt35) {
+                index.copyUsedChannelNum = index.usedChannelNum;
+                index.allChannelOffset = index.abnIndex;
+                index.copyRefIndex = index.refIndex;
+            }
             isFirstProcess = false;
         } else {
             for (PsmRecord psmRecord : psmRecords) {
@@ -110,6 +128,38 @@ public class Psm {
         }
         // exclude PSMs with isExcluded set
         psmRecords.removeIf(PsmRecord::isExcluded);
+    }
+
+    /**
+     * Use MS1 intensity as reference
+     */
+    public void useMS1Intensity() {
+        for (PsmRecord psmRecord : psmRecords) {
+            psmRecord.useMS1Intensity();
+        }
+    }
+
+    /**
+     * Set deuterium channels (2nd round of TMT-35)
+     */
+    public void setDChannels() {
+        index.usedChannelNum = index.usedDChannelNum;
+        index.abnIndex = index.abnDIndex;
+        index.refIndex = index.refDIndex;
+        for (PsmRecord psmRecord : psmRecords) {
+            psmRecord.setDChannels();
+        }
+    }
+
+    /**
+     * Reset deuterium channels (after 2nd round of TMT-35)
+     */
+    public void resetDChannels() {
+        if (parameters.isTmt35) {
+            index.usedChannelNum = index.copyUsedChannelNum;
+            index.abnIndex = index.allChannelOffset;
+            index.refIndex = index.copyRefIndex;
+        }
     }
 
     // region helper methods
