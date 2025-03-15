@@ -55,7 +55,6 @@ public class PsmRecord {
     private double sumTmtIntensity;
     private double refIntensity;
     private double dRefIntensity;
-    private boolean isVirtualReference;
     private boolean isUsed;
     private boolean isExcluded;
     private int pepsIndex;
@@ -286,7 +285,6 @@ public class PsmRecord {
                 dRefIntensity = Double.parseDouble(fields[index.refDIndex]);
             }
         } else {
-            isVirtualReference = true;
             parameters.refTag = "Virtual_Reference";
             if (parameters.isTmt35) {
                 parameters.refDTag = "Virtual_Reference";

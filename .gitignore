@@ -3,3 +3,4 @@ target
 *.iml
 /src/main/java/tmtintegrator/integrate.java
 /src/main/java/tmtintegrator/TMTIntegratorOld.java
+.vscode

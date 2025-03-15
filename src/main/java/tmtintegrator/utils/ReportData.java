@@ -78,7 +78,6 @@ public class ReportData {
         if (extraPsmInfo.getSpectrums().size() == 1) {
             // Only update the first time
             extraPsmInfo.setProtein(fields[index.proteincIndex]);
-            extraPsmInfo.setProteinId(fields[index.proteinIDcIndex]);
             extraPsmInfo.setEntryName(fields[index.entryNameIndex]);
             extraPsmInfo.setGene(fields[index.genecIndex]);
             extraPsmInfo.setProteinDesc(fields[index.proteinDescIndex]);

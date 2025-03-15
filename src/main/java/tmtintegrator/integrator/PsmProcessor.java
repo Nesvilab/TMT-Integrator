@@ -399,11 +399,6 @@ public class PsmProcessor {
             if (Utils.tryParseInt(indexParts[indexParts.length - 1]) < 0) {
                 String[] parts = indexParts[location].split(parameters.modAA);
 
-                // find the peptide start position in the protein sequence
-                String pepseq = keyParts[3];
-                int firstIdx = findPepStartIndex(pepseq);
-                int pepStartIdx = Integer.parseInt(parts[1]) - firstIdx;
-
                 for (int i = 1; i < parts.length; i++) {
                     String newGroupKey = indexParts[0] + "%" +
                             indexParts[location].charAt(indexParts[location].indexOf(parts[i]) - 1) + parts[i];
@@ -416,15 +411,6 @@ public class PsmProcessor {
                 }
             }
         }
-    }
-
-    private int findPepStartIndex(String peptide) {
-        for (int i = 0; i < peptide.length(); i++) {
-            if (Character.isLowerCase(peptide.charAt(i))) {
-                return i;
-            }
-        }
-        return -1;
     }
 
     private void removeMultiSites(Map<String, List<String>> keyMap) {

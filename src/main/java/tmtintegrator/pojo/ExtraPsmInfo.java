@@ -6,7 +6,6 @@ public class ExtraPsmInfo {
     // region psm.tsv columns
     private final Set<String> spectrums;
     private String protein;
-    private String proteinId;
     private String entryName;
     private String gene;
     private String proteinDesc;
@@ -38,10 +37,6 @@ public class ExtraPsmInfo {
 
     public void setProtein(String protein) {
         this.protein = protein;
-    }
-
-    public void setProteinId(String proteinId) {
-        this.proteinId = proteinId;
     }
 
     public String getEntryName() {
