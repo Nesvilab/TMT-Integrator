@@ -229,7 +229,8 @@ public class PsmRecord {
             proteinExclusionFlag &&
             geneCategory >= parameters.uniqueGene &&
             numEnzymaticTermini >= parameters.min_ntt &&
-            refIntensity > 0;
+            refIntensity > 0 &&
+            (!parameters.isTmt35 || dRefIntensity > 0);
     }
 
     public String generatePsmKey() {
