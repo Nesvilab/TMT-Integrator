@@ -223,8 +223,8 @@ public class PsmPreProcessor {
 
         // check reference columns and adjust reference index for NA channels
         if (parameters.isTmt35) {
-            checkReferenceColumns(columns, index, index.abnIndex, index.abnDIndex, parameters.refTag, false);
-            checkReferenceColumns(columns, index, index.abnDIndex, index.abnDIndex + 17, parameters.refDTag, true);
+            checkReferenceColumns(columns, index, index.abnIndex, index.abnIndex + parameters.channelNum, parameters.refTag, false);
+            checkReferenceColumns(columns, index, index.abnIndex, index.abnIndex + parameters.channelNum, parameters.refDTag, true);
         } else {
             checkReferenceColumns(columns, index, index.abnIndex, index.abnIndex + parameters.channelNum, parameters.refTag, false);
         }
