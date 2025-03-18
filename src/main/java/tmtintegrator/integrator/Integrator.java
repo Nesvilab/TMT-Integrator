@@ -26,6 +26,8 @@ public class Integrator {
     }
 
     public void run(int groupByVal, int protNormVal, List<Psm> psmList) throws IOException {
+        phaseStartTime = System.currentTimeMillis();
+        
         GroupBy groupBy = GroupBy.fromValue(groupByVal);
         NormType protNorm = NormType.fromValue(protNormVal);
 
@@ -36,18 +38,16 @@ public class Integrator {
             secondProcess = true;
         }
 
-        phaseStartTime = System.currentTimeMillis();
-        // Analyze phospho sites and generate group keys
         for (Psm psm : psmList) {
             psm.resetPsmRecords();
-            psm.analyzePhosphoSites(groupBy);
+            psm.analyzeByGroup(groupBy);
         }
-        printTime("Analyzing phospho sites");
 
         // Normalize and quantify
         if (parameters.isTmt35) {
             System.out.println("Processing non-deuterium channels for TMT 35-plex:");
         }
+
         Map<String, Map<String, double[]>> groupAbundanceMap = normAndQuantification(groupBy, protNorm, secondProcess, psmList);
 
         Map<String, Map<String, double[]>> dGroupAbundanceMap = null;
@@ -68,6 +68,8 @@ public class Integrator {
             psm.resetDChannels();
         }
 
+        printTime("Analyzing by group " + groupBy.name());
+
         // Generate reports
         ReportGenerator reporter = new ReportGenerator(parameters, reportData, groupBy, protNorm, groupAbundanceMap, dGroupAbundanceMap);
         reporter.generateReports();
@@ -79,15 +81,14 @@ public class Integrator {
         // Normalize data
         PsmNormalizer normalizer = new PsmNormalizer(parameters, protNorm);
         if (parameters.abn_type == 0) {
-            normalizer.logNormalizeData(psmList); // FIXME: only need once
+            normalizer.logNormalizeData(psmList);
+            printTime("Take log and normalize data");
         }
-        printTime("Take log and normalize data");
 
-        // PSM normalization
         if (parameters.psmNorm) {
-            normalizer.rtNormalizeData(psmList); // FIXME: only need once
+            normalizer.rtNormalizeData(psmList);
+            printTime("PSM normalization");
         }
-        printTime("PSM normalization");
 
         // Group PSM
         PsmProcessor processor = new PsmProcessor(parameters, groupBy);
@@ -97,8 +98,8 @@ public class Integrator {
         // Remove outliers
         if (parameters.outlierRemoval) {
             processor.removeOutlier();
+            printTime("Remove outliers");
         }
-        printTime("Remove outliers");
 
         // Collapse
         processor.collapse();

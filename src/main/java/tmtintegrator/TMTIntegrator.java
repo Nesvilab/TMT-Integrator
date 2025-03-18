@@ -101,7 +101,6 @@ public class TMTIntegrator {
         return param.abn_type == 1 && (param.protNorm >= 1 && param.protNorm < 3);
     }
 
-    // TODO: logic review required
     private void processGroupBy(int startGroupBy, int endGroupBy, List<Psm> psmList) throws IOException {
         Integrator integrator = new Integrator(param, reportData);
         if (param.groupBy >= 0) {

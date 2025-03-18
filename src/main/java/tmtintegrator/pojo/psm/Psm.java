@@ -122,9 +122,9 @@ public class Psm {
      *
      * @param groupBy group by option
      */
-    public void analyzePhosphoSites(GroupBy groupBy) {
+    public void analyzeByGroup(GroupBy groupBy) {
         for (PsmRecord psmRecord : psmRecords) {
-            psmRecord.analyzePhosphoSites(groupBy);
+            psmRecord.analyzeByGroup(groupBy);
         }
         // exclude PSMs with isExcluded set
         psmRecords.removeIf(PsmRecord::isExcluded);

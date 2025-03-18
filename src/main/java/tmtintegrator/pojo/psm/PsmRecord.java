@@ -243,9 +243,7 @@ public class PsmRecord {
      *
      * @param groupBy group by option
      */
-    public void analyzePhosphoSites(GroupBy groupBy) {
-        // FIXME: analyze phospho sites only need once
-        // initialize phospho site data and group key
+    public void analyzeByGroup(GroupBy groupBy) {
         phosphoSiteData = new PhosphoSiteData();
         groupKey = "";
 
@@ -254,9 +252,9 @@ public class PsmRecord {
         phosphoSiteData.endIndex = proteinEnd - 1;
 
         if (parameters.minSiteProb > 0) {
-            analyzeWithThreshold();
+            processSitesWithProbT();
         } else if (parameters.minSiteProb == 0) {
-            analyzeWithoutThreshold();
+            processSitesWithoutProbT();
         }
 
         // generate group key
@@ -279,7 +277,7 @@ public class PsmRecord {
     // region helper methods
     private void updateRefIntensity(String[] fields) {
         ReferenceType refType = ReferenceType.fromValue(parameters.add_Ref);
-        if (refType == ReferenceType.NONE || refType == ReferenceType.RAW_ABUNDANCE) {
+        if (refType == ReferenceType.REAL || refType == ReferenceType.RAW_ABUNDANCE) {
             refIntensity = Double.parseDouble(fields[index.refIndex]);
             if (parameters.isTmt35) {
                 dRefIntensity = Double.parseDouble(fields[index.refDIndex]);
@@ -575,7 +573,7 @@ public class PsmRecord {
         }
     }
 
-    private void analyzeWithThreshold() {
+    private void processSitesWithProbT() {
         countModifiedSites();
         populateProbMap();
         extractSitePositions();
@@ -584,7 +582,7 @@ public class PsmRecord {
         phosphoSiteData.endIndex = Math.max(0, phosphoSiteData.endIndex + pepsIndex);
     }
 
-    private void analyzeWithoutThreshold() {
+    private void processSitesWithoutProbT() {
         List<Integer> positions = extractSitePositionsInMod();
         Collections.sort(positions);
         for (int position : positions) {

@@ -7,7 +7,7 @@ package tmtintegrator.constants;
  */
 public enum ReferenceType {
     RAW_ABUNDANCE(-2), // export raw abundance
-    NONE(-1), // don't add reference
+    REAL(-1), // use real reference
     SUMMATION(0), // use summation as reference
     AVERAGE(1), // use average as reference
     MEDIAN(2); // use median as reference

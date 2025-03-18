@@ -50,10 +50,8 @@ public class ConfigLoader {
             parameters.allow_unlabeled = true;
         }
 
-        if (parameters.isTmt35) {
-            if (parameters.channelNum != 35) {
-                throw new IllegalArgumentException("The channel number for TMT 35-plex must be " + 35);
-            }
+        if (parameters.isTmt35 && parameters.channelNum != 35) {
+            throw new IllegalArgumentException("The channel number for TMT 35-plex must be " + 35);
         }
     }
 
