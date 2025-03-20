@@ -79,8 +79,10 @@ public class PsmRecord {
     // region backup fields
     private String copyPeptide;
     private double copyRefIntensity;
-    private double ms2RefIntensity; // FIXME 01: to keep result consistent for log norm, fix in next version
+    private double ms2RefIntensity;
+    private double ms2RefDIntensity;
     private List<Double> copyChannels;
+    private List<Double> copyDChannels; // FIXME: put log and rt normalization out of run to avoid duplicate copy
     // endregion
 
 
@@ -120,13 +122,32 @@ public class PsmRecord {
         return refIntensity;
     }
 
-    // FIXME 01: to be removed
-    public double getMS2Intensity() {
+    public double getDRefIntensity() {
+        return dRefIntensity;
+    }
+
+    public void setMS2RefIntensity(double ms2RefIntensity) {
+        this.ms2RefIntensity = ms2RefIntensity;
+    }
+
+    public void setMS2RefDIntensity(double ms2RefDIntensity) {
+        this.ms2RefDIntensity = ms2RefDIntensity;
+    }
+
+    public double getMS2RefIntensity() {
         return ms2RefIntensity;
+    }
+
+    public double getMS2RefDIntensity() {
+        return ms2RefDIntensity;
     }
 
     public List<Double> getChannels() {
         return channels;
+    }
+
+    public List<Double> getDChannels() {
+        return dChannels;
     }
 
     public String getGroupKey() {
@@ -178,23 +199,32 @@ public class PsmRecord {
 
     public void backup() {
         // backup the original values for fields that will be modified
-        copyRefIntensity = refIntensity;
         copyPeptide = peptide;
         copyChannels = new ArrayList<>(channels);
+        if (parameters.isTmt35) {
+            copyDChannels = new ArrayList<>(dChannels);
+        }
     }
 
     public void reset() {
         // reset the modified fields to the original values
         isExcluded = false;
-        refIntensity = copyRefIntensity;
         peptide = copyPeptide;
         channels = new ArrayList<>(copyChannels);
+        if (parameters.isTmt35) {
+            refIntensity = copyRefIntensity;
+            dChannels = new ArrayList<>(copyDChannels);
+        }
     }
 
     /**
      * Set the deuterium channels (for 2nd round of TMT-35)
      */
     public void setDChannels() {
+        // backup
+        copyRefIntensity = refIntensity;
+
+        // set deuterium channels
         channels = new ArrayList<>(dChannels);
         refIntensity = dRefIntensity;
     }
@@ -268,7 +298,6 @@ public class PsmRecord {
     }
 
     public void useMS1Intensity() {
-        ms2RefIntensity = refIntensity; // FIXME 01: to be removed
         refIntensity = useMs1Intensity(refIntensity);
         if (parameters.isTmt35) {
             dRefIntensity = useMs1Intensity(dRefIntensity);

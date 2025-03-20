@@ -106,6 +106,14 @@ public class PsmPreProcessor {
                 // keep only used PSMs
                 psm.filterUnUsedPsm(psmMap);
 
+                // copy the MS2 reference intensity for the log-ratio calculation later
+                for (PsmRecord psmRecord : psm.getPsmRecords()) {
+                    psmRecord.setMS2RefIntensity(psmRecord.getRefIntensity());
+                    if (parameters.isTmt35) {
+                        psmRecord.setMS2RefDIntensity(psmRecord.getDRefIntensity());
+                    }
+                }
+
                 // use MS1 intensity if required
                 if (parameters.ms1Int) {
                     psm.useMS1Intensity();

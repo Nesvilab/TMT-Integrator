@@ -31,21 +31,6 @@ public class PsmNormalizer {
     }
 
     /**
-     * Take log and normalize PSM.
-     *
-     * @param psmList list of PSM files
-     */
-    public void logNormalizeData(List<Psm> psmList) {
-        for (Psm psm : psmList) {
-            List<PsmRecord> psmRecords = psm.getPsmRecords();
-            // log normalize PSM
-            for (PsmRecord psmRecord : psmRecords) {
-                logNormalizePsm(psmRecord);
-            }
-        }
-    }
-
-    /**
      * Normalize PSM by retention time.
      *
      * @param psmList list of PSM files
@@ -86,17 +71,6 @@ public class PsmNormalizer {
     }
 
     // region helper methods
-    private void logNormalizePsm(PsmRecord psmRecord) {
-        double refIntensity = parameters.isTmt35 ? psmRecord.getRefIntensity() : psmRecord.getMS2Intensity(); // FIXME 01: to be removed
-        double logRefInt = refIntensity > 0 ? Utils.log2(refIntensity) : 0;
-        List<Double> channels = psmRecord.getChannels();
-        for (int i = 0; i < channels.size(); i++) {
-            double intensity = channels.get(i);
-            intensity = intensity > 0 ? Utils.log2(intensity) - logRefInt : Double.NaN;
-            channels.set(i, intensity);
-        }
-    }
-
     private void rtNormalizePsm(List<PsmRecord> psmRecords, Index index) {
         double minRt = Double.MAX_VALUE;
         double maxRt = Double.MIN_VALUE;

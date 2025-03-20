@@ -15,6 +15,7 @@ import tmtintegrator.constants.Constants;
 import tmtintegrator.pojo.Index;
 import tmtintegrator.pojo.Parameters;
 import tmtintegrator.pojo.Ratio;
+import tmtintegrator.pojo.psm.Psm;
 import tmtintegrator.pojo.psm.PsmRecord;
 
 /**
@@ -133,6 +134,22 @@ public final class Utils {
 
     public static double pow2(double x) {
         return Math.pow(2, x);
+    }
+
+    /**
+     * Take log and normalize PSM.
+     *
+     * @param psmList list of PSM files
+     * @param isTmt35 whether the experiment is TMT 35-plex
+     */
+    public static void logNormalizeData(List<Psm> psmList, boolean isTmt35) {
+        for (Psm psm : psmList) {
+            List<PsmRecord> psmRecords = psm.getPsmRecords();
+            // log normalize PSM
+            for (PsmRecord psmRecord : psmRecords) {
+                logNormalizePsm(psmRecord, isTmt35);
+            }
+        }
     }
 
     /**
@@ -294,6 +311,7 @@ public final class Utils {
         return false;
     }
 
+    // region helper methods
     private static boolean checkMatch(String targetMod, Set<String> modTagSet, Pattern pattern, String targetSeq, double targetMass) {
         for (String modTag : modTagSet) {
             if (modTag.equals(targetMod)) {
@@ -311,7 +329,6 @@ public final class Utils {
         return false;
     }
 
-    // region helper methods
     private static void takeWeightsAndNormalize(List<Ratio> ratioList) {
         double sum = 0;
         double pow = Constants.POWER_NUM;
@@ -336,6 +353,28 @@ public final class Utils {
         }
         ratioList.sort(Comparator.comparingDouble(r -> r.weight));
         return ratioList.get(ratioList.size() - 1).ratio;
+    }
+
+    private static void logNormalizePsm(PsmRecord psmRecord, boolean isTmt35) {
+        double refIntensity = psmRecord.getMS2RefIntensity();
+        double logRefInt = refIntensity > 0 ? Utils.log2(refIntensity) : 0;
+        List<Double> channels = psmRecord.getChannels();
+        for (int i = 0; i < channels.size(); i++) {
+            double intensity = channels.get(i);
+            intensity = intensity > 0 ? Utils.log2(intensity) - logRefInt : Double.NaN;
+            channels.set(i, intensity);
+        }
+
+        if (isTmt35) {
+            double refDIntensity = psmRecord.getMS2RefDIntensity();
+            double logRefDInt = refDIntensity > 0 ? Utils.log2(refDIntensity) : 0;
+            List<Double> dChannels = psmRecord.getDChannels();
+            for (int i = 0; i < dChannels.size(); i++) {
+                double intensity = dChannels.get(i);
+                intensity = intensity > 0 ? Utils.log2(intensity) - logRefDInt : Double.NaN;
+                dChannels.set(i, intensity);
+            }
+        }
     }
     // endregion
 }

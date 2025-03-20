@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+
 import tmtintegrator.constants.GroupBy;
 import tmtintegrator.pojo.Index;
 import tmtintegrator.pojo.Parameters;
@@ -97,23 +98,14 @@ public class Psm {
     }
 
     /**
-     * Reset PSM records for each groupBy
+     * Backup PSM records for each groupBy
      */
-    public void resetPsmRecords() {
+    public void backup() {
         if (isFirstProcess) {
             for (PsmRecord psmRecord : psmRecords) {
                 psmRecord.backup();
             }
-            if (parameters.isTmt35) {
-                index.copyUsedChannelNum = index.usedChannelNum;
-                index.allChannelOffset = index.abnIndex;
-                index.copyRefIndex = index.refIndex;
-            }
             isFirstProcess = false;
-        } else {
-            for (PsmRecord psmRecord : psmRecords) {
-                psmRecord.reset();
-            }
         }
     }
 
@@ -143,6 +135,12 @@ public class Psm {
      * Set deuterium channels (2nd round of TMT-35)
      */
     public void setDChannels() {
+        // backup
+        index.copyUsedChannelNum = index.usedChannelNum;
+        index.allChannelOffset = index.abnIndex;
+        index.copyRefIndex = index.refIndex;
+
+        // set deuterium channels
         index.usedChannelNum = index.usedDChannelNum;
         index.abnIndex = index.abnDIndex;
         index.refIndex = index.refDIndex;
@@ -152,13 +150,16 @@ public class Psm {
     }
 
     /**
-     * Reset deuterium channels (after 2nd round of TMT-35)
+     * Reset all modified data for next groupBy
      */
-    public void resetDChannels() {
+    public void reset() {
         if (parameters.isTmt35) {
             index.usedChannelNum = index.copyUsedChannelNum;
             index.abnIndex = index.allChannelOffset;
             index.refIndex = index.copyRefIndex;
+        }
+        for (PsmRecord psmRecord : psmRecords) {
+            psmRecord.reset();
         }
     }
 
