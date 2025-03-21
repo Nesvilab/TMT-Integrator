@@ -168,9 +168,6 @@ public class ConfigLoader {
                 case "ms1_int":
                     parameters.ms1Int = Boolean.parseBoolean(value);
                     break;
-                case "top3_pep":
-                    parameters.top3Pep = Boolean.parseBoolean(value);
-                    break;
                 case "print_RefInt":
                     parameters.print_RefInt = Boolean.parseBoolean(value);
                     break;

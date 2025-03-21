@@ -28,7 +28,6 @@ tmtintegrator:
   ref_tag: pool                                   # unique tag for identifying the reference channel (Bridge sample added to each multiplex)
   ref_d_tag: none                                  # unique tag for identifying the TMT-35 deuterium reference channel
   is_tmt_35: false                                # the data is with TMT 35-plex
-  top3_pep: true                                  # use top 3 most intense peptide ions as part of the reference sample abundance estimation
   unique_gene: 0                                  # additional, gene-level uniqueness filter (0: allow all PSMs; 1: remove PSMs mapping to more than one GENE with evidence of expression in the dataset; 2:remove all PSMs mapping to more than one GENE in the fasta file)
   unique_pep: false                               # allow PSMs with unique peptides only (if true) or unique plus razor peptides (if false), as classified by Philosopher and defined in PSM.tsv files
   use_glycan_composition: false                   # (optional) for multi-mass report, create index using glycan composition (from observed mod column) instead of mass

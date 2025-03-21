@@ -171,7 +171,7 @@ public class PsmProcessor {
         Collections.sort(refIntensityList);
 
         // compute top 3 intensive peptides
-        if (parameters.top3Pep && psmInfo.psmRecords.size() >= 3) {
+        if (psmInfo.psmRecords.size() >= 3) {
             psmInfo.totalRefInt = 0;
             for (int i = refIntensityList.size() - 1; i >= refIntensityList.size() - 3; i--) {
                 psmInfo.totalRefInt += refIntensityList.get(i);

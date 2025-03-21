@@ -27,7 +27,6 @@ public class Parameters {
     public boolean allow_unlabeled;
     public float minSiteProb;
     public boolean ms1Int;
-    public boolean top3Pep;
     public boolean print_RefInt;
     public int add_Ref = -1;
     public double max_pep_prob_thres = 0;
