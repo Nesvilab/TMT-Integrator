@@ -70,8 +70,8 @@ public class TMTIntegrator {
 
         // region preprocess PSM files
         start = System.currentTimeMillis();
-        List<Psm> psmList = processor.parseAndFilterPsmFiles();
-        System.out.println("Parsing and Filtering: " + (System.currentTimeMillis() - start) + " ms");
+        List<Psm> psmList = processor.preprocessPsm();
+        System.out.println("Parsing, Filtering and Normalization: " + (System.currentTimeMillis() - start) + " ms");
         System.out.println("Preprocessing finished.\n");
         // endregion
 

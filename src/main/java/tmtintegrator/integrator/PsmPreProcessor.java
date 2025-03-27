@@ -18,6 +18,7 @@ import tmtintegrator.pojo.ProteinIndex;
 import tmtintegrator.pojo.psm.Psm;
 import tmtintegrator.pojo.psm.PsmRecord;
 import tmtintegrator.utils.ReportData;
+import tmtintegrator.utils.Utils;
 
 /**
  * Preprocess PSM files, check for missing values, create index for each PSM file
@@ -82,7 +83,7 @@ public class PsmPreProcessor {
      *
      * @return list of PSM objects
      */
-    public List<Psm> parseAndFilterPsmFiles() {
+    public List<Psm> preprocessPsm() {
         List<Psm> psmList = new ArrayList<>();
         for (File psmFile : parameters.fileList) {
             try {
@@ -106,13 +107,8 @@ public class PsmPreProcessor {
                 // keep only used PSMs
                 psm.filterUnUsedPsm(psmMap);
 
-                // copy the MS2 reference intensity for the log-ratio calculation later
-                for (PsmRecord psmRecord : psm.getPsmRecords()) {
-                    psmRecord.setMS2RefIntensity(psmRecord.getRefIntensity());
-                    if (parameters.isTmt35) {
-                        psmRecord.setMS2RefDIntensity(psmRecord.getDRefIntensity());
-                    }
-                }
+                // normalize data
+                normalizeData(psm);
 
                 // use MS1 intensity if required
                 if (parameters.ms1Int) {
@@ -554,6 +550,15 @@ public class PsmPreProcessor {
 
         for (int i = 0; i < psmList.size(); i++) {
             psmList.get(i).setUsed(i == bestPsmIndex);
+        }
+    }
+
+    private void normalizeData(Psm psm) {
+        if (parameters.abn_type == 0) {
+            Utils.logNormalizeData(psm, parameters.isTmt35);
+        }
+        if (parameters.psmNorm) {
+            Utils.rtNormalizeData(psm, parameters.isTmt35);
         }
     }
     // endregion==========================================================

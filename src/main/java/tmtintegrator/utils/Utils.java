@@ -139,37 +139,27 @@ public final class Utils {
     /**
      * Take log and normalize PSM.
      *
-     * @param psmList list of PSM files
+     * @param psm     PSM file
      * @param isTmt35 whether the experiment is TMT 35-plex
      */
-    public static void logNormalizeData(List<Psm> psmList, boolean isTmt35) {
-        for (Psm psm : psmList) {
-            List<PsmRecord> psmRecords = psm.getPsmRecords();
-            // log normalize PSM
-            for (PsmRecord psmRecord : psmRecords) {
-                logNormalizePsm(psmRecord, isTmt35);
-            }
+    public static void logNormalizeData(Psm psm, boolean isTmt35) {
+        List<PsmRecord> psmRecords = psm.getPsmRecords();
+        // log normalize PSM
+        for (PsmRecord psmRecord : psmRecords) {
+            logNormalizePsm(psmRecord, isTmt35);
         }
     }
 
     /**
-     * Create bins for retention time.
+     * Normalize PSM by retention time.
      *
-     * @param minRt  minimum retention time
-     * @param maxRt  maximum retention time
-     * @param binNum number of bins
-     * @return map of bin start time to list of PSMs
+     * @param psm PSM files
      */
-    public static NavigableMap<Double, List<PsmRecord>> createBins(double minRt, double maxRt, double binNum) {
-        NavigableMap<Double, List<PsmRecord>> binMap = new TreeMap<>();
-        double binWidth = (maxRt - minRt) / binNum;
-        double binStart = minRt;
-        while (binStart <= maxRt) {
-            binMap.put(binStart, new ArrayList<>());
-            binStart += binWidth;
-        }
-
-        return binMap;
+    public static void rtNormalizeData(Psm psm, boolean isTmt35) {
+        List<PsmRecord> psmRecords = psm.getPsmRecords();
+        Index index = psm.getIndex();
+        // rt normalize PSM
+        rtNormalizePsm(psmRecords, index, isTmt35);
     }
 
     public static String[] getLRStrings(String extPep) {
@@ -356,7 +346,7 @@ public final class Utils {
     }
 
     private static void logNormalizePsm(PsmRecord psmRecord, boolean isTmt35) {
-        double refIntensity = psmRecord.getMS2RefIntensity();
+        double refIntensity = psmRecord.getRefIntensity();
         double logRefInt = refIntensity > 0 ? Utils.log2(refIntensity) : 0;
         List<Double> channels = psmRecord.getChannels();
         for (int i = 0; i < channels.size(); i++) {
@@ -366,13 +356,105 @@ public final class Utils {
         }
 
         if (isTmt35) {
-            double refDIntensity = psmRecord.getMS2RefDIntensity();
+            double refDIntensity = psmRecord.getDRefIntensity();
             double logRefDInt = refDIntensity > 0 ? Utils.log2(refDIntensity) : 0;
             List<Double> dChannels = psmRecord.getDChannels();
             for (int i = 0; i < dChannels.size(); i++) {
                 double intensity = dChannels.get(i);
                 intensity = intensity > 0 ? Utils.log2(intensity) - logRefDInt : Double.NaN;
                 dChannels.set(i, intensity);
+            }
+        }
+    }
+
+    private static void rtNormalizePsm(List<PsmRecord> psmRecords, Index index, boolean isTmt35) {
+        double minRt = Double.MAX_VALUE;
+        double maxRt = Double.MIN_VALUE;
+
+        // find min and max retention time
+        for (PsmRecord psmRecord : psmRecords) {
+            double rt = psmRecord.getRetention();
+            if (rt < minRt) {
+                minRt = rt;
+            }
+            if (rt > maxRt) {
+                maxRt = rt;
+            }
+        }
+
+        NavigableMap<Double, List<PsmRecord>> binMap = createBins(minRt, maxRt, Constants.BIN_NUM);
+
+        // assign PSMs to bins
+        for (PsmRecord psmRecord : psmRecords) {
+            double rt = psmRecord.getRetention();
+            double binStart = binMap.floorKey(rt); // find the bin start time
+            binMap.get(binStart).add(psmRecord);
+        }
+
+        // normalize PSMs in each bin
+        for (Map.Entry<Double, List<PsmRecord>> entry : binMap.entrySet()) {
+            List<PsmRecord> binPsmList = entry.getValue();
+            normalizePsmList(binPsmList, index, isTmt35);
+        }
+    }
+
+    /**
+     * Create bins for retention time.
+     *
+     * @param minRt  minimum retention time
+     * @param maxRt  maximum retention time
+     * @param binNum number of bins
+     * @return map of bin start time to list of PSMs
+     */
+    private static NavigableMap<Double, List<PsmRecord>> createBins(double minRt, double maxRt, double binNum) {
+        NavigableMap<Double, List<PsmRecord>> binMap = new TreeMap<>();
+        double binWidth = (maxRt - minRt) / binNum;
+        double binStart = minRt;
+        while (binStart <= maxRt) {
+            binMap.put(binStart, new ArrayList<>());
+            binStart += binWidth;
+        }
+
+        return binMap;
+    }
+
+    private static void normalizePsmList(List<PsmRecord> psmRecords, Index index, boolean isTmt35) {
+        // calculate median ratio for each channel
+        double[] medianValues = calculateMedianByChannel(psmRecords, index, false);
+        // subtract median ratio from each channel
+        adjustRatiosByMedian(psmRecords, medianValues, false);
+
+        if (isTmt35) {
+            double[] medianDValues = calculateMedianByChannel(psmRecords, index, true);
+            adjustRatiosByMedian(psmRecords, medianDValues, true);
+        }
+    }
+
+    private static double[] calculateMedianByChannel(List<PsmRecord> psmRecords, Index index, boolean isTmt35) {
+        int size = isTmt35 ? index.usedDChannelNum : index.usedChannelNum;
+        double[] medianValues = new double[size];
+        for (int j = 0; j < size; j++) {
+            List<Double> channelValues = new ArrayList<>();
+            for (PsmRecord psmRecord : psmRecords) {
+                double intensity = isTmt35 ? psmRecord.getDChannels().get(j) : psmRecord.getChannels().get(j);
+                if (!Double.isNaN(intensity)) {
+                    channelValues.add(intensity);
+                }
+            }
+            medianValues[j] = Utils.takeMedian(channelValues);
+        }
+        return medianValues;
+    }
+
+    private static void adjustRatiosByMedian(List<PsmRecord> psmRecords, double[] medianValues, boolean isTmt35) {
+        for (PsmRecord psmRecord : psmRecords) {
+            List<Double> channels = isTmt35 ? psmRecord.getDChannels() : psmRecord.getChannels();
+            for (int j = 0; j < channels.size(); j++) {
+                double intensity = channels.get(j);
+                if (!Double.isNaN(intensity)) {
+                    intensity -= medianValues[j];
+                    channels.set(j, intensity);
+                }
             }
         }
     }

@@ -31,20 +31,6 @@ public class PsmNormalizer {
     }
 
     /**
-     * Normalize PSM by retention time.
-     *
-     * @param psmList list of PSM files
-     */
-    public void rtNormalizeData(List<Psm> psmList) {
-        for (Psm psm : psmList) {
-            List<PsmRecord> psmRecords = psm.getPsmRecords();
-            Index index = psm.getIndex();
-            // rt normalize PSM
-            rtNormalizePsm(psmRecords, index);
-        }
-    }
-
-    /**
      * Normalize protein abundance.
      */
     public void proteinNormalize() {
@@ -71,73 +57,6 @@ public class PsmNormalizer {
     }
 
     // region helper methods
-    private void rtNormalizePsm(List<PsmRecord> psmRecords, Index index) {
-        double minRt = Double.MAX_VALUE;
-        double maxRt = Double.MIN_VALUE;
-
-        // find min and max retention time
-        for (PsmRecord psmRecord : psmRecords) {
-            double rt = psmRecord.getRetention();
-            if (rt < minRt) {
-                minRt = rt;
-            }
-            if (rt > maxRt) {
-                maxRt = rt;
-            }
-        }
-
-        NavigableMap<Double, List<PsmRecord>> binMap = Utils.createBins(minRt, maxRt, Constants.BIN_NUM);
-
-        // assign PSMs to bins
-        for (PsmRecord psmRecord : psmRecords) {
-            double rt = psmRecord.getRetention();
-            double binStart = binMap.floorKey(rt); // find the bin start time
-            binMap.get(binStart).add(psmRecord);
-        }
-
-        // normalize PSMs in each channel(bin)
-        for (Map.Entry<Double, List<PsmRecord>> entry : binMap.entrySet()) {
-            List<PsmRecord> binPsmList = entry.getValue();
-            normalizePsmList(binPsmList, index);
-        }
-    }
-
-    private void normalizePsmList(List<PsmRecord> psmRecords, Index index) {
-        // calculate median ratio for each channel
-        double[] medianValues = calculateMedianByChannel(psmRecords, index);
-
-        // subtract median ratio from each channel
-        adjustRatiosByMedian(psmRecords, medianValues);
-    }
-
-    private double[] calculateMedianByChannel(List<PsmRecord> psmRecords, Index index) {
-        double[] medianValues = new double[index.usedChannelNum];
-        for (int j = 0; j < index.usedChannelNum; j++) {
-            List<Double> channelValues = new ArrayList<>();
-            for (PsmRecord psmRecord : psmRecords) {
-                double intensity = psmRecord.getChannels().get(j);
-                if (!Double.isNaN(intensity)) {
-                    channelValues.add(intensity);
-                }
-            }
-            medianValues[j] = Utils.takeMedian(channelValues);
-        }
-        return medianValues;
-    }
-
-    private void adjustRatiosByMedian(List<PsmRecord> psmRecords, double[] medianValues) {
-        for (PsmRecord psmRecord : psmRecords) {
-            List<Double> channels = psmRecord.getChannels();
-            for (int j = 0; j < channels.size(); j++) {
-                double intensity = channels.get(j);
-                if (!Double.isNaN(intensity)) {
-                    intensity -= medianValues[j];
-                    channels.set(j, intensity);
-                }
-            }
-        }
-    }
-
     private Map<String, double[]> getProtMedianMap(boolean useAbsValue) {
         Map<String, double[]> protMedianMap = new HashMap<>();
         // get the median

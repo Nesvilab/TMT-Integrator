@@ -6,7 +6,6 @@ import tmtintegrator.constants.NormType;
 import tmtintegrator.pojo.Parameters;
 import tmtintegrator.pojo.psm.Psm;
 import tmtintegrator.utils.ReportData;
-import tmtintegrator.utils.Utils;
 
 import java.io.IOException;
 import java.util.List;
@@ -49,11 +48,6 @@ public class Integrator {
             System.out.println("Processing non-deuterium channels for TMT 35-plex:");
         }
 
-        if (parameters.abn_type == 0) {
-            Utils.logNormalizeData(psmList, parameters.isTmt35);
-            printTime("Take log and normalize data");
-        }
-
         Map<String, Map<String, double[]>> groupAbundanceMap = normAndQuantification(groupBy, protNorm, secondProcess, psmList);
 
         Map<String, Map<String, double[]>> dGroupAbundanceMap = null;
@@ -84,14 +78,6 @@ public class Integrator {
     }
 
     private Map<String, Map<String, double[]>> normAndQuantification(GroupBy groupBy, NormType protNorm, boolean secondProcess, List<Psm> psmList) {
-        // Normalize data
-        PsmNormalizer normalizer = new PsmNormalizer(parameters, protNorm);
-
-        if (parameters.psmNorm) {
-            normalizer.rtNormalizeData(psmList);
-            printTime("PSM normalization");
-        }
-
         // Group PSM
         PsmProcessor processor = new PsmProcessor(parameters, groupBy);
         processor.groupPsm(psmList);
@@ -110,6 +96,7 @@ public class Integrator {
 
         // Protein normalization
         if (protNorm == NormType.MC || protNorm == NormType.GN || protNorm == NormType.SL_IRS) {
+            PsmNormalizer normalizer = new PsmNormalizer(parameters, protNorm);
             normalizer.setGroupAbundanceMap(groupAbundanceMap);
             normalizer.proteinNormalize();
             printTime("Protein normalization");

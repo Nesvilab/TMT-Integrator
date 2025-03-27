@@ -79,10 +79,7 @@ public class PsmRecord {
     // region backup fields
     private String copyPeptide;
     private double copyRefIntensity;
-    private double ms2RefIntensity;
-    private double ms2RefDIntensity;
     private List<Double> copyChannels;
-    private List<Double> copyDChannels; // FIXME: put log and rt normalization out of run to avoid duplicate copy
     // endregion
 
 
@@ -124,22 +121,6 @@ public class PsmRecord {
 
     public double getDRefIntensity() {
         return dRefIntensity;
-    }
-
-    public void setMS2RefIntensity(double ms2RefIntensity) {
-        this.ms2RefIntensity = ms2RefIntensity;
-    }
-
-    public void setMS2RefDIntensity(double ms2RefDIntensity) {
-        this.ms2RefDIntensity = ms2RefDIntensity;
-    }
-
-    public double getMS2RefIntensity() {
-        return ms2RefIntensity;
-    }
-
-    public double getMS2RefDIntensity() {
-        return ms2RefDIntensity;
     }
 
     public List<Double> getChannels() {
@@ -201,9 +182,6 @@ public class PsmRecord {
         // backup the original values for fields that will be modified
         copyPeptide = peptide;
         copyChannels = new ArrayList<>(channels);
-        if (parameters.isTmt35) {
-            copyDChannels = new ArrayList<>(dChannels);
-        }
     }
 
     public void reset() {
@@ -213,7 +191,6 @@ public class PsmRecord {
         channels = new ArrayList<>(copyChannels);
         if (parameters.isTmt35) {
             refIntensity = copyRefIntensity;
-            dChannels = new ArrayList<>(copyDChannels);
         }
     }
 
