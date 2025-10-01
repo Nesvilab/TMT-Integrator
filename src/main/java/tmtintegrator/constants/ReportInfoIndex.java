@@ -21,6 +21,7 @@ public class ReportInfoIndex {
     public static final int START = 5;
     public static final int END = 6;
     public static final int MAX_PEP_PROB = 7;
+    public static final int ASSIGNED_MODIFICATIONS = 8;
 
     /**
      * Column format for report info part for protein level:

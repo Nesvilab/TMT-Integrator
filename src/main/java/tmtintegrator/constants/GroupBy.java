@@ -12,7 +12,8 @@ public enum GroupBy {
     PEPTIDE(2), // peptide sequence level
     MULTI_PHOSPHO_SITE(3), // multiple PTM sites
     SINGLE_PHOSPHO_SITE(4), // single PTM site
-    MULTI_MASS_GLYCO(5); // multi-mass for glycolysation
+    MULTI_MASS_GLYCO(5), // multi-mass for glycolysation
+    MODIFIED_PEPTIDE(6); // modified peptide report
 
     private final int value;
 

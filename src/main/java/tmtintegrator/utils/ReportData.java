@@ -63,8 +63,10 @@ public class ReportData {
         // propagate extra info from original psm file
         if (groupBy == GroupBy.PROTEIN_ID) {
             reportInfo.propagateExtraInfoProtein(proteinMap, writer);
+        } else if (groupBy == GroupBy.MODIFIED_PEPTIDE) {
+            reportInfo.propagateExtraInfo(extraPsmInfoMap, writer, parts[parts.length - 1]);
         } else {
-            reportInfo.propagateExtraInfo(extraPsmInfoMap, writer);
+            reportInfo.propagateExtraInfo(extraPsmInfoMap, writer, "");
         }
     }
 

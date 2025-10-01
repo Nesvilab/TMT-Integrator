@@ -30,6 +30,7 @@ public class PsmRecord {
     // region psm record fields, following the order in the PSM.tsv file
     private String spectrum;
     private String peptide;
+    private String modifiedPeptide;
     private String extendedPeptide;
     private int charge;
     private double retention;
@@ -91,6 +92,15 @@ public class PsmRecord {
     }
 
     // region getters and setters
+
+    public String getModifiedPeptide() {
+        return modifiedPeptide;
+    }
+
+    public String getAssignedModifications() {
+        return assignedModifications;
+    }
+
     public String getExtendedPeptide() {
         return extendedPeptide;
     }
@@ -301,6 +311,7 @@ public class PsmRecord {
     private void parseRegularFields(String[] fields) {
         spectrum = fields[index.spectrumIndex];
         peptide = fields[index.peptideIndex];
+//        modifiedPeptide = fields[index.modifiedPeptideIndex];
         extendedPeptide = fields[index.extpepIndex];
         charge = Integer.parseInt(fields[index.chargeIndex]);
         retention = Double.parseDouble(fields[index.rtIndex]);
@@ -318,6 +329,8 @@ public class PsmRecord {
         proteinId = fields[index.proteinIDcIndex];
         gene = fields[index.genecIndex];
         mappedGenes = index.mapGeneIndex == -1 ? "" : fields[index.mapGeneIndex];
+
+        modifiedPeptide = annotatePeptideWithDeltaMass(peptide, assignedModifications);
     }
 
     private boolean passResolutionSnr(String[] fields, List<Integer> naChannels) {
@@ -701,7 +714,14 @@ public class PsmRecord {
             case MULTI_MASS_GLYCO:
                 handleMultiMassGlyco();
                 break;
+            case MODIFIED_PEPTIDE:
+                generateModifiedPeptideGroupKey();
+                break;
         }
+    }
+
+    private void generateModifiedPeptideGroupKey() {
+        groupKey = proteinId + "%" + modifiedPeptide;
     }
 
     private void generatePeptideGroupKey() {
@@ -769,6 +789,127 @@ public class PsmRecord {
             }
         }
         peptide = newPeptideSeq.toString();
+    }
+
+
+    public String annotatePeptideWithDeltaMass(String seq, String assignMods) {
+        int n = seq.length();
+        double[] add = new double[n]; // per-aa delta sums
+
+        // parse comma-separated mods
+        if (assignMods != null && !assignMods.isBlank()) {
+            int start = 0, len = assignMods.length();
+            while (start < len) {
+                // next mod string [start..end)
+                int comma = findNextComma(assignMods, start);
+                int end = (comma < 0) ? len : comma;
+                String tok = assignMods.substring(start, end).trim();
+                if (!tok.isEmpty()) applyOneMod(seq, add, tok);
+                if (comma < 0) break;
+                start = comma + 1;
+            }
+        }
+
+        // build formatted sequence: AA[+sum] if sum != 0
+        StringBuilder out = new StringBuilder(n + 8);
+        for (int i = 0; i < n; i++) {
+            char aa = seq.charAt(i);
+            double d = add[i];
+            if (d != 0.0) {
+                long rounded = Math.round(d);
+                out.append(aa).append('[').append(rounded >= 0 ? "+" : "").append(rounded).append(']');
+            } else {
+                out.append(aa);
+            }
+        }
+        return out.toString();
+    }
+
+    private int findNextComma(String s, int from) {
+        for (int i = from; i < s.length(); i++) {
+            if (s.charAt(i) == ',') return i;
+        }
+        return -1;
+    }
+
+    private void applyOneMod(String seq, double[] add, String tok) {
+        // normalize spaces
+        int i = 0, n = tok.length();
+        // skip leading spaces
+        while (i < n && Character.isWhitespace(tok.charAt(i))) i++;
+        if (i >= n) return;
+
+        // check N-term / C-term
+        if (regionEqualsIgnoreCase(tok, i, "N-term")) {
+            i += "N-term".length();
+            double val = parseDeltaMass(tok, i);
+            add[0] += val; // apply to residue #1
+            return;
+        } else if (regionEqualsIgnoreCase(tok, i, "C-term")) {
+            i += "C-term".length();
+            double val = parseDeltaMass(tok, i);
+            add[add.length - 1] += val; // apply to last residue
+            return;
+        }
+
+        // otherwise: position + AA + (number)
+        // position (1-based)
+        int pos = 0;
+        if (i >= n || !Character.isDigit(tok.charAt(i)))
+            throw new IllegalArgumentException("Expected position at: " + tok);
+        while (i < n && Character.isDigit(tok.charAt(i))) {
+            pos = pos * 10 + (tok.charAt(i) - '0');
+            i++;
+        }
+        if (pos <= 0 || pos > add.length)
+            throw new IllegalArgumentException("Position out of range in: " + tok);
+
+        // optional spaces
+        while (i < n && Character.isWhitespace(tok.charAt(i))) i++;
+
+        // AA (optional sanity check)
+        if (i < n && Character.isLetter(tok.charAt(i))) {
+            char aa = tok.charAt(i);
+            // if AA provided, verify it matches sequence at that position
+            char seqAA = seq.charAt(pos - 1);
+            if (Character.toUpperCase(aa) != Character.toUpperCase(seqAA)) {
+                throw new IllegalArgumentException("AA mismatch at " + pos + ": token=" + aa + ", seq=" + seqAA);
+            }
+            i++;
+        }
+
+        double val = parseDeltaMass(tok, i);
+        add[pos - 1] += val;
+    }
+
+    private double parseDeltaMass(String s, int from) {
+        int n = s.length();
+        int i = from;
+        while (i < n && Character.isWhitespace(s.charAt(i))) i++;
+        if (i >= n || s.charAt(i) != '(')
+            throw new IllegalArgumentException("Expected '(' in: " + s.substring(Math.max(0, from)));
+        i++;
+        int numStart = i;
+        int close = s.indexOf(')', i);
+        if (close < 0) throw new IllegalArgumentException("Unclosed '(' in: " + s);
+        String num = s.substring(numStart, close).trim();
+        if (num.isEmpty()) throw new IllegalArgumentException("Empty number in: " + s);
+        try {
+            return Double.parseDouble(num);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Invalid number '" + num + "' in: " + s);
+        }
+    }
+
+    private boolean regionEqualsIgnoreCase(String s, int offset, String kw) {
+        int n = kw.length();
+        if (offset + n > s.length()) return false;
+        for (int k = 0; k < n; k++) {
+            char a = s.charAt(offset + k), b = kw.charAt(k);
+            if (a == b) continue;
+            if (Character.toLowerCase(a) != Character.toLowerCase(b)) return false;
+        }
+        return true;
     }
     // endregion
 }

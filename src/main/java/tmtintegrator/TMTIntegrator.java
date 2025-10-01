@@ -111,6 +111,13 @@ public class TMTIntegrator {
                 integrator.run(i, param.protNorm, psmList);
                 System.out.println("-----------------------------------------------------------------------");
             }
+
+            if (endGroupBy == 2 && param.modAA.isEmpty() && "none".equals(param.modTagSet.stream().findFirst().orElse(null))) {
+                // currently the modified peptide reports are only generated when on mod tags are specified because of the integral PSM filtering under multiple criteria
+                int j = 6;
+                System.out.println("Start to process GroupBy: " + j);
+                integrator.run(j, param.protNorm, psmList);
+            }
         }
     }
 

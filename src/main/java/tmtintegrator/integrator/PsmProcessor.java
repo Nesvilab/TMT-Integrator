@@ -94,6 +94,7 @@ public class PsmProcessor {
             int numPsm = 0;
             double maxPeptideProb = 0;
             Set<String> geneSet = new HashSet<>();
+            String assignedModifications = null;
 
             for (Map.Entry<String, PsmInfo> entry : fileMap.entrySet()) {
                 String filePath = entry.getKey();
@@ -111,13 +112,18 @@ public class PsmProcessor {
                 if (groupBy == GroupBy.GENE || groupBy == GroupBy.PROTEIN_ID) {
                     numPsm += psmInfo.psmRecords.size();
                 }
+
+                // get assigned modification for modified peptide report
+                if (groupBy == GroupBy.MODIFIED_PEPTIDE) {
+                    assignedModifications = psmInfo.psmRecords.get(0).getAssignedModifications();
+                }
             }
 
             String groupKey = groupEntry.getKey();
             int[] lr = extractLRIndex(groupKey);
 
             String globalGenePepSeq = createGlobalGenePepSeq(geneSet, proteinMap, numPsm, lr[0], lr[1]);
-            groupKey = updateGroupKey(groupKey, globalGenePepSeq, maxPeptideProb);
+            groupKey = updateGroupKey(groupKey, globalGenePepSeq, maxPeptideProb, assignedModifications);
             groupAbundanceMap.put(groupKey, fileAbundanceMap);
         }
     }
@@ -384,11 +390,15 @@ public class PsmProcessor {
         return new String[]{s11, s2.substring(indexStart - indexFirstDot - 1, indexEnd - indexFirstDot), s22};
     }
 
-    private String updateGroupKey(String groupKey, String globalGenePepSeq, double maxPeptideProb) {
+    private String updateGroupKey(String groupKey, String globalGenePepSeq, double maxPeptideProb, String assignedMods) {
         if (globalGenePepSeq.isEmpty()) {
             return groupKey + "\t" + maxPeptideProb;
         }
-        return groupKey + "\t" + globalGenePepSeq + "\t" + maxPeptideProb;
+        if (assignedMods == null) {
+            return groupKey + "\t" + globalGenePepSeq + "\t" + maxPeptideProb;
+        } else {
+            return groupKey + "\t" + globalGenePepSeq + "\t" + maxPeptideProb + "\t" + assignedMods;
+        }
     }
 
     private void clusterKeys(Map<String, List<String>> keyMap, int location) {

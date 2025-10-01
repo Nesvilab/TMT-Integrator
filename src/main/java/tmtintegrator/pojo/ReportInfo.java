@@ -16,6 +16,7 @@ public class ReportInfo {
 
     public static final String HEADER = "Index\tGene\tProteinID\tPeptide\tSequenceWindow\tStart\tEnd\tMaxPepProb\tSpectrum Number\tProtein\tEntry Name\tProtein Description\tMapped Genes\tMapped Proteins";
     public static final String HEADER_PROTEIN = "Index\tNumberPSM\tGene\tMaxPepProb\tProtein\tProtein ID\tEntry Name\tProtein Description\tOrganism\tIndistinguishable Proteins";
+    public static final String HEADER_MODIFIED_PEPTIDE = "Index\tGene\tProteinID\tPeptide\tAssigned Modification\tSequenceWindow\tStart\tEnd\tMaxPepProb\tSpectrum Number\tProtein\tEntry Name\tProtein Description\tMapped Genes\tMapped Proteins";
     private final String index;
     private String numPSM;
     private final String gene;
@@ -25,6 +26,7 @@ public class ReportInfo {
     private String start;
     private String end;
     private final String maxPepProb;
+    private String assignedModifications;
 
     public ReportInfo(String[] parts, GroupBy groupBy) {
         if (groupBy == GroupBy.PROTEIN_ID) {
@@ -41,6 +43,9 @@ public class ReportInfo {
             this.start = parts[ReportInfoIndex.START];
             this.end = parts[ReportInfoIndex.END];
             this.maxPepProb = parts[ReportInfoIndex.MAX_PEP_PROB];
+            if (ReportInfoIndex.ASSIGNED_MODIFICATIONS < parts.length) {
+                this.assignedModifications = parts[ReportInfoIndex.ASSIGNED_MODIFICATIONS];
+            }
         }
     }
 
@@ -49,7 +54,7 @@ public class ReportInfo {
      *
      * @param extraPsmInfoMap <peptide, extra columns>
      */
-    public void propagateExtraInfo(Map<String, ExtraPsmInfo> extraPsmInfoMap, BufferedWriter writer) throws IOException {
+    public void propagateExtraInfo(Map<String, ExtraPsmInfo> extraPsmInfoMap, BufferedWriter writer, String assignedMods) throws IOException {
         // get all peptide for this index
         String[] peptides = peptide.split(";");
         // deduplicate and group extra info for each peptide in the same index
@@ -78,8 +83,13 @@ public class ReportInfo {
         String result = index + "\t" +
                 gene + "\t" +
                 proteinID + "\t" +
-                peptide + "\t" +
-                sequenceWindow + "\t" +
+                peptide + "\t";
+
+        if (!assignedMods.isEmpty()) {
+            result += assignedMods + "\t";
+        }
+
+        result += sequenceWindow + "\t" +
                 start + "\t" +
                 end + "\t" +
                 maxPepProb + "\t" +

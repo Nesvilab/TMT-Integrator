@@ -85,6 +85,8 @@ public class ReportGenerator {
                 return "single-site";
             case MULTI_MASS_GLYCO:
                 return "multi-mass";
+            case MODIFIED_PEPTIDE:
+                return "modified-peptide";
             default:
                 throw new RuntimeException("Invalid groupBy: " + groupBy);
         }
@@ -131,6 +133,9 @@ public class ReportGenerator {
                 break;
             case GENE:
                 writer.write("Index\tNumberPSM\tProteinID\tMaxPepProb");
+                break;
+            case MODIFIED_PEPTIDE:
+                writer.write(ReportInfo.HEADER_MODIFIED_PEPTIDE);
                 break;
             default:
                 throw new IllegalArgumentException("Invalid groupBy: " + groupBy);
@@ -187,7 +192,13 @@ public class ReportGenerator {
             double avgAbundance = Utils.calculateAvgAbundance(fileAbundanceMap, fileDAbundanceMap, globalMinRefInt, parameters);
 
             String[] keyParts = groupKey.split("\t");
-            double maxPepProb = Double.parseDouble(keyParts[keyParts.length - 1]);
+
+            double maxPepProb;
+            if (groupBy == GroupBy.MODIFIED_PEPTIDE) {
+                maxPepProb = Double.parseDouble(keyParts[keyParts.length - 2]);
+            } else {
+                maxPepProb = Double.parseDouble(keyParts[keyParts.length - 1]);
+            }
             if (maxPepProb < parameters.max_pep_prob_thres || avgAbundance <= 0) {
                 isPrint = false;
             }
