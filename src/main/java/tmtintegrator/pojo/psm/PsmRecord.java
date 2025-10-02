@@ -2,11 +2,7 @@ package tmtintegrator.pojo.psm;
 
 import static tmtintegrator.utils.Utils.matchLabels;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 
@@ -330,7 +326,7 @@ public class PsmRecord {
         gene = fields[index.genecIndex];
         mappedGenes = index.mapGeneIndex == -1 ? "" : fields[index.mapGeneIndex];
 
-        modifiedPeptide = annotatePeptideWithDeltaMass(peptide, assignedModifications);
+        modifiedPeptide = generateModifiedSequence(peptide, assignedModifications);
     }
 
     private boolean passResolutionSnr(String[] fields, List<Integer> naChannels) {
@@ -791,125 +787,72 @@ public class PsmRecord {
         peptide = newPeptideSeq.toString();
     }
 
+    private String generateModifiedSequence(String sequence, String assignMods) {
 
-    public String annotatePeptideWithDeltaMass(String seq, String assignMods) {
-        int n = seq.length();
-        double[] add = new double[n]; // per-aa delta sums
+        if (assignMods.isEmpty()) return sequence;
 
-        // parse comma-separated mods
-        if (assignMods != null && !assignMods.isBlank()) {
-            int start = 0, len = assignMods.length();
-            while (start < len) {
-                // next mod string [start..end)
-                int comma = findNextComma(assignMods, start);
-                int end = (comma < 0) ? len : comma;
-                String tok = assignMods.substring(start, end).trim();
-                if (!tok.isEmpty()) applyOneMod(seq, add, tok);
-                if (comma < 0) break;
-                start = comma + 1;
+        int seqLen = sequence.length();
+        String[] modifications = assignMods.split(",");
+        Map<Integer, String> modMap = new LinkedHashMap<>();
+
+        for (String mod : modifications) {
+            mod = mod.trim();
+            int openIdx = mod.indexOf('(');
+            int closeIdx = mod.indexOf(')');
+
+            if (openIdx == -1 || closeIdx == -1 || closeIdx < openIdx) {
+                System.err.println("Warning: Could not parse assigned modification: " + mod + " for spectrum " + spectrum);
+                System.exit(1);
             }
-        }
 
-        // build formatted sequence: AA[+sum] if sum != 0
-        StringBuilder out = new StringBuilder(n + 8);
-        for (int i = 0; i < n; i++) {
-            char aa = seq.charAt(i);
-            double d = add[i];
-            if (d != 0.0) {
-                long rounded = Math.round(d);
-                out.append(aa).append('[').append(rounded >= 0 ? "+" : "").append(rounded).append(']');
+            String site = mod.substring(0, openIdx);
+            String mass = "[" + mod.substring(openIdx + 1, closeIdx) + "]";
+
+            if (site.equalsIgnoreCase("N-term")) {
+                // place N-term mod at index 0
+                modMap.put(0, mass);
+            } else if (site.equalsIgnoreCase("C-term")) {
+                // place C-term mod at an index offset of 1 relative to full peptide length
+                modMap.put(seqLen+1, mass);
             } else {
-                out.append(aa);
+                // extract the 1-based index from other mods
+                int aaIdx = -1;
+                for (int i = 0; i < site.length(); i++) {
+                    if (Character.isLetter(site.charAt(i))) {
+                        aaIdx = i;
+                        break;
+                    }
+                }
+
+                if (aaIdx != -1) {
+                    int index = Integer.parseInt(site.substring(0, aaIdx));
+                    modMap.put(index, mass);
+                }
             }
         }
-        return out.toString();
-    }
 
-    private int findNextComma(String s, int from) {
-        for (int i = from; i < s.length(); i++) {
-            if (s.charAt(i) == ',') return i;
-        }
-        return -1;
-    }
+        StringBuilder modifiedSequence = new StringBuilder();
+        int sequenceLength = sequence.length();
 
-    private void applyOneMod(String seq, double[] add, String tok) {
-        // normalize spaces
-        int i = 0, n = tok.length();
-        // skip leading spaces
-        while (i < n && Character.isWhitespace(tok.charAt(i))) i++;
-        if (i >= n) return;
-
-        // check N-term / C-term
-        if (regionEqualsIgnoreCase(tok, i, "N-term")) {
-            i += "N-term".length();
-            double val = parseDeltaMass(tok, i);
-            add[0] += val; // apply to residue #1
-            return;
-        } else if (regionEqualsIgnoreCase(tok, i, "C-term")) {
-            i += "C-term".length();
-            double val = parseDeltaMass(tok, i);
-            add[add.length - 1] += val; // apply to last residue
-            return;
+        if (modMap.containsKey(0)) {
+            // use 'n' to denote N-term modification
+            modifiedSequence.append("n").append(modMap.get(0));
         }
 
-        // otherwise: position + AA + (number)
-        // position (1-based)
-        int pos = 0;
-        if (i >= n || !Character.isDigit(tok.charAt(i)))
-            throw new IllegalArgumentException("Expected position at: " + tok);
-        while (i < n && Character.isDigit(tok.charAt(i))) {
-            pos = pos * 10 + (tok.charAt(i) - '0');
-            i++;
-        }
-        if (pos <= 0 || pos > add.length)
-            throw new IllegalArgumentException("Position out of range in: " + tok);
-
-        // optional spaces
-        while (i < n && Character.isWhitespace(tok.charAt(i))) i++;
-
-        // AA (optional sanity check)
-        if (i < n && Character.isLetter(tok.charAt(i))) {
-            char aa = tok.charAt(i);
-            // if AA provided, verify it matches sequence at that position
-            char seqAA = seq.charAt(pos - 1);
-            if (Character.toUpperCase(aa) != Character.toUpperCase(seqAA)) {
-                throw new IllegalArgumentException("AA mismatch at " + pos + ": token=" + aa + ", seq=" + seqAA);
+        // iterate over peptide sequence and add mod mass to that aa
+        for (int i = 1; i <= sequenceLength; i++) {
+            modifiedSequence.append(sequence.charAt(i - 1));
+            if (modMap.containsKey(i)) {
+                modifiedSequence.append(modMap.get(i));
             }
-            i++;
         }
 
-        double val = parseDeltaMass(tok, i);
-        add[pos - 1] += val;
-    }
-
-    private double parseDeltaMass(String s, int from) {
-        int n = s.length();
-        int i = from;
-        while (i < n && Character.isWhitespace(s.charAt(i))) i++;
-        if (i >= n || s.charAt(i) != '(')
-            throw new IllegalArgumentException("Expected '(' in: " + s.substring(Math.max(0, from)));
-        i++;
-        int numStart = i;
-        int close = s.indexOf(')', i);
-        if (close < 0) throw new IllegalArgumentException("Unclosed '(' in: " + s);
-        String num = s.substring(numStart, close).trim();
-        if (num.isEmpty()) throw new IllegalArgumentException("Empty number in: " + s);
-        try {
-            return Double.parseDouble(num);
-        } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Invalid number '" + num + "' in: " + s);
+        if (modMap.containsKey(seqLen+1)) {
+            // use 'c' to denote C-term modification
+            modifiedSequence.append("c").append(modMap.get(0));
         }
-    }
 
-    private boolean regionEqualsIgnoreCase(String s, int offset, String kw) {
-        int n = kw.length();
-        if (offset + n > s.length()) return false;
-        for (int k = 0; k < n; k++) {
-            char a = s.charAt(offset + k), b = kw.charAt(k);
-            if (a == b) continue;
-            if (Character.toLowerCase(a) != Character.toLowerCase(b)) return false;
-        }
-        return true;
+        return modifiedSequence.toString();
     }
     // endregion
 }
