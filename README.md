@@ -59,12 +59,6 @@ For command line uses, see the Philosopher tutorials for running TMT analyses [s
 ## TMT-Integrator settings in FragPipe GUI
 The description for TMT-Integrator's options are listed as follows.
 
-<style>
-table th:nth-child(1) { width: 200px; }
-table th:nth-child(3) { width: 450px; }
-table th:nth-child(3) { width: 200px; }
-table, th, td { word-wrap: break-word; }
-</style>
 
 | Basic Options                              | Description                                                                                                                                                                        | Default Value         |
 |--------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------|
