@@ -38,6 +38,7 @@ public class Parameters {
     public Set<String> modTagSet = new HashSet<>();
     public boolean geneflag = false;
     public boolean glycoflag = false;
+    public boolean isNglyco = false;
     public boolean useGlycoComposition = false;    // whether to use glycan composition string or glycan mass for indexing
     public float glycoQval = -1;
     public boolean log2transformed = true;

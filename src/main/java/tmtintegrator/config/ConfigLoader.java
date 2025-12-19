@@ -53,6 +53,13 @@ public class ConfigLoader {
         if (parameters.isTmt35 && parameters.channelNum != 35) {
             throw new IllegalArgumentException("The channel number for TMT 35-plex must be " + 35);
         }
+
+        if (parameters.useGlycoComposition) {
+            if (!parameters.isNglyco) {
+                System.out.println("Warning: Indexing on glycan composition is only supported for N-glycans, but O-glyco analysis requested. Switching to mass-based indexing.");
+                parameters.useGlycoComposition = false;
+            }
+        }
     }
 
     /**
@@ -239,6 +246,9 @@ public class ConfigLoader {
             if (modTag.equalsIgnoreCase("n-glyco")
                     || modTag.equalsIgnoreCase("o-glyco")) {
                 parameters.glycoflag = true;
+                if (modTag.equalsIgnoreCase("n-glyco")) {
+                    parameters.isNglyco = true;
+                }
             }
 
             extractAA(modTag, modifiedAA);
