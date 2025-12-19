@@ -60,6 +60,11 @@ public class ConfigLoader {
                 parameters.useGlycoComposition = false;
             }
         }
+
+        if (parameters.minSiteProb < 0 && parameters.modTagSet.stream().noneMatch("none"::equalsIgnoreCase)) {
+            System.out.println("Warning: min_site_prob is ignored (<0) but modification analysis is requested (a mod_tag is specified). Setting min_site_prob to 0. To generate global (non-PTM) reports, set the mod tag to 'none'.");
+            parameters.minSiteProb = 0;
+        }
     }
 
     /**
