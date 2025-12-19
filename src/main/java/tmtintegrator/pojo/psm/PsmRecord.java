@@ -470,19 +470,20 @@ public class PsmRecord {
      */
     private boolean processGlycoModification(String term, Set<String> modTags) {
         String[] modifications = assignedModifications.split(",");
+        boolean foundGlycan = false;
         for (String modification : modifications) {
             if ((term.equalsIgnoreCase("N-glyco") && modification.contains("N(")) ||
                     (term.equalsIgnoreCase("O-glyco") &&
                             (modification.contains("S(") || modification.contains("T(")))) {
-                double mass = extractMass(modification); // TODO: this only works for modification with one "(mass)"
+                double mass = extractMass(modification);
                 if (mass >= 100) {
                     String modIndex = Utils.getAssignedModIndex(modification, glycanComposition, parameters.useGlycoComposition);
                     modTags.add(modIndex);
-                    return true;
+                    foundGlycan = true;
                 }
             }
         }
-        return false;
+        return foundGlycan;
     }
 
     private double extractMass(String modification) {
