@@ -1,0 +1,165 @@
+Unified Plex Model Refactoring Summary
+=======================================
+
+Overview
+--------
+Replaced the hardcoded TMT-35 two-subplex logic with a generic List<Subplex> model.
+ALL plexes (including single-plex configurations) are now stored uniformly in
+parameters.subplexes. There is no longer a distinction between "primary" and
+"deuterium" plexes. The swap-and-reprocess architecture is preserved: each plex's
+channels are set as "active", then the full processing pipeline runs unchanged.
+
+Net result: 9 files modified, 1 file created. 310 insertions, 518 deletions (-208 lines).
+
+
+New File
+--------
+src/main/java/tmtintegrator/pojo/Subplex.java
+  - Simple POJO with two fields: refTag (String) and channelCount (int).
+  - One plex entry per multiplex group (e.g., a TMT-18 has 1 Subplex; TMT-35 has 2).
+
+
+Modified Files
+--------------
+
+1. Parameters.java
+   Removed:
+     - refTag (String) — replaced by Subplex.refTag
+     - refDTag (String) — no longer needed
+     - isTmt35 (boolean) — no longer needed
+     - hasSubplexes() helper
+     - getPrimaryChannelCount() helper
+   Added:
+     - subplexes (List<Subplex>) — holds ALL plexes, always non-empty after config loading
+
+2. Index.java
+   Removed:
+     - usedDChannelNum, copyUsedChannelNum — old TMT-35 deuterium fields
+     - refDIndex, copyRefIndex — old TMT-35 deuterium fields
+     - abnDIndex — old TMT-35 deuterium field
+     - allChannelOffset — old TMT-35 offset
+     - backupUsedChannelNum, backupRefIndex, backupAbnIndex — intermediate backup fields
+   Added:
+     - SubplexIndex inner class with usedChannelNum, refIndex, abnIndex
+     - List<SubplexIndex> subplexIndices — one entry per plex
+     - setActivePlex(int plexIdx) — sets the active usedChannelNum/refIndex/abnIndex
+       from the corresponding SubplexIndex entry
+
+3. ConfigLoader.java
+   Removed:
+     - is_tmt_35 config parameter
+     - ref_d_tag config parameter
+     - ref_tag config parameter (legacy backward compatibility also removed)
+     - isTmt35 validation logic
+     - legacyRefTag field
+   Added:
+     - "subplexes" config key — format: "channelCount:refTag, channelCount:refTag"
+       Example: "subplexes = 18:pool_light, 17:pool_heavy"
+     - Validation: subplexes must be defined; sum of all plex channelCounts must equal channelNum
+
+4. PsmRecord.java
+   Removed:
+     - dChannels (List<Double>) — old deuterium channel list
+     - dRefIntensity (double) — old deuterium reference intensity
+     - copyRefIntensity (double) — backup field
+     - All channel backup/restore logic for swapping
+     - parseDChannels() method
+     - setDChannels() / restoreFromDChannels() methods
+   Added:
+     - subplexChannels (List<List<Double>>) — one channel list per plex
+     - subplexRefIntensities (List<Double>) — one ref intensity per plex
+     - setActivePlex(int plexIdx) — sets channels as a REFERENCE (not copy) to
+       subplexChannels.get(plexIdx) and refIntensity from subplexRefIntensities
+     - parseChannels() now loops over all plexes uniformly
+     - isPassCriteria() checks all subplexRefIntensities > 0
+     - Virtual reference methods (summation, average, median) compute for all plexes
+   Key design: channels is a reference to subplexChannels.get(i), so in-place
+   normalization modifies the stored data directly. No backup/restore needed.
+
+5. Psm.java
+   Removed:
+     - adjustDChannelOffset() — old TMT-35 specific method
+     - setDChannels() — old TMT-35 specific method
+   Added:
+     - setActivePlex(int plexIdx) — calls index.setActivePlex() and
+       psmRecord.setActivePlex() for all records
+     - adjustPlexChannelOffsets() — handles cumulative NA-channel gaps across all plexes
+   Simplified:
+     - reset() only resets PsmRecord fields (no index restoration needed)
+
+6. PsmPreProcessor.java
+   Removed:
+     - adjustRefDIndex() — old TMT-35 specific method
+     - Separate deuterium channel finding logic
+     - isTmt35 branching throughout
+   Changed:
+     - getColumnIndex() now loops all plexes uniformly for reference column checking
+     - findChannels() computes abnIndex cumulatively for all plexes
+     - normalizeData() normalizes EACH plex independently by calling setActivePlex(i)
+       then running log/RT normalization on the active channels
+   Net effect: ~167 lines removed, significant simplification
+
+7. Integrator.java
+   Removed:
+     - Hardcoded 2-pass logic (primary + deuterium)
+     - Special-case deuterium processing
+   Changed:
+     - Single uniform loop over ALL plexes:
+         for (int i = 0; i < parameters.subplexes.size(); i++) {
+             for (Psm psm : psmList) { psm.setActivePlex(i); }
+             plexAbundanceMaps.add(normAndQuantification(...));
+         }
+     - Passes List<Map<...>> plexAbundanceMaps to ReportGenerator
+
+8. ReportGenerator.java
+   Removed:
+     - dGroupAbundanceMap field — replaced by list
+     - Separate deuterium title/data writing
+   Changed:
+     - Constructor takes List<Map<String, Map<String, double[]>>> plexAbundanceMaps
+     - writeTitle() loops over all plexes uniformly to write channel headers
+     - writeData() loops over all plexes to write values
+     - writeRatiosOrAbundances() computes globalMinRefInt across all plex maps
+     - calculateAvgAbundance() sums totalRefInt across all plexes per filename
+
+9. Utils.java
+   Removed:
+     - isTmt35 parameter from logNormalizePsm() and related methods
+     - Separate deuterium normalization code paths
+     - Old single-map calculateAvgAbundance overload (then re-added, see below)
+   Changed:
+     - logNormalizeData(Psm) / rtNormalizeData(Psm) — process only active channels
+       (the active plex is set before calling these methods)
+     - Two calculateAvgAbundance overloads:
+       1. Single-map version (used by PsmNormalizer within a per-plex loop)
+       2. Multi-plex list version (used by ReportGenerator across all plexes)
+
+
+Configuration Migration
+-----------------------
+TMT-35 (two plexes):
+    subplexes = 18:pool_light, 17:pool_heavy
+    channel_num = 35
+
+Standard single-plex (e.g. TMT-18):
+    subplexes = 18:pool
+    channel_num = 18
+
+New config (hypothetical 3-plex):
+    subplexes = 18:ref_a, 17:ref_b, 10:ref_c
+    channel_num = 45
+
+Note: The "ref_tag", "ref_d_tag", and "is_tmt_35" parameters are no longer recognized.
+All plex definitions must now use the "subplexes" parameter.
+
+
+Architecture Notes
+------------------
+- The swap-and-reprocess pattern is preserved. PsmProcessor and PsmNormalizer
+  required ZERO changes.
+- Each plex is independently normalized during preprocessing (log + RT normalization).
+- The Integrator loop sets the active plex, runs grouping/outlier/collapse/normalization,
+  then collects the abundance map. This repeats for each plex.
+- Report generation iterates over all plex abundance maps uniformly.
+- Build: SUCCESS (mvn compile)
+- Tests: 1/1 passed (mvn test)
