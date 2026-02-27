@@ -14,6 +14,9 @@
 
 package tmtintegrator.pojo;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class Index {
     public int spectrumIndex = -1;
     public int pepcIndex = -1;
@@ -43,15 +46,27 @@ public class Index {
     public int ptmLocalcIndex = -1;
     public int glycoCompositionIndex = -1;
     public int glycoQvalIndex = -1;
-    public int usedChannelNum = -1;
-    public int usedDChannelNum = -1; // number of used deuterium channels
-    public int copyUsedChannelNum = -1; // for 2 rounds TMT-35 resetting
-    public int refIndex = -1;
-    public int refDIndex = -1; // index of deuterium reference channel
-    public int copyRefIndex = -1; // for 2 rounds TMT-35 resetting
-    public int abnIndex = -1; // offset for channel intensity
-    public int abnDIndex = -1; // offset for deuterium channel intensity
-    public int allChannelOffset = -1; // offset for all channel intensity (for TMT-35 resetting)
     public int resOffset = -1; // offset for channel resolution
     public int snrOffset = -1; // offset for channel SNR
+
+    // active plex fields (set by setActivePlex)
+    public int usedChannelNum = -1;
+    public int refIndex = -1;
+    public int abnIndex = -1;
+
+    // per-plex indices
+    public List<SubplexIndex> subplexIndices = new ArrayList<>();
+
+    public void setActivePlex(int plexIdx) {
+        SubplexIndex si = subplexIndices.get(plexIdx);
+        usedChannelNum = si.usedChannelNum;
+        refIndex = si.refIndex;
+        abnIndex = si.abnIndex;
+    }
+
+    public static class SubplexIndex {
+        public int usedChannelNum = -1;
+        public int refIndex = -1;
+        public int abnIndex = -1;
+    }
 }

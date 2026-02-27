@@ -29,6 +29,7 @@ import java.util.Set;
 import tmtintegrator.pojo.Index;
 import tmtintegrator.pojo.Parameters;
 import tmtintegrator.pojo.ProteinIndex;
+import tmtintegrator.pojo.Subplex;
 import tmtintegrator.pojo.psm.Psm;
 import tmtintegrator.pojo.psm.PsmRecord;
 import tmtintegrator.utils.ReportData;
@@ -47,15 +48,6 @@ public class PsmPreProcessor {
         this.reportData = reportData;
     }
 
-    /**
-     * Check PSM tables for missing values <br>
-     * Update protein list <br>
-     * Get all genes <br>
-     * Create index for each PSM file <br>
-     * Maintain extra info of each PSM for final report
-     *
-     * @throws IOException if an I/O error occurs
-     */
     public void checkPsmAndBuildIndex() throws IOException {
         Collections.sort(parameters.fNameLi);
 
@@ -64,12 +56,6 @@ public class PsmPreProcessor {
         }
     }
 
-    /**
-     * Collect protein information from protein.tsv files <br>
-     * - Protein ID <br>
-     * - Organism <br>
-     * - Indistinguishable Proteins <br>
-     */
     public void collectProteinInfo() throws IOException {
         for (File proteinFile : parameters.proteinFileList) {
             try (BufferedReader reader = new BufferedReader(new FileReader(proteinFile))) {
@@ -86,43 +72,27 @@ public class PsmPreProcessor {
         }
     }
 
-    /**
-     * Preprocess PSM files <br>
-     * - Read PSM file and preprocess each line <br>
-     * - Calculate TMT threshold <br>
-     * - Collapse PSM lines based on the criteria <br>
-     * - Select best PSM if required <br>
-     *
-     * @return list of PSM objects
-     */
     public List<Psm> preprocessPsm() {
         List<Psm> psmList = new ArrayList<>();
         for (File psmFile : parameters.fileList) {
             try {
                 Psm psm = new Psm(parameters, psmFile);
-                // parse PSM file and calculate tmt threshold
                 List<Double> tmtIntensities = new ArrayList<>();
                 psm.readPsmFile(psmFile, tmtIntensities);
-                // adjust offset of deuterium channels for NA channels
-                psm.adjustDChannelOffset();
+                psm.adjustPlexChannelOffsets();
 
                 double tmtThreshold = calculateTmtThreshold(psm.getPsmRecords().size(), tmtIntensities);
 
-                // collapse PSM lines based on the criteria
                 Map<String, List<PsmRecord>> psmMap = new HashMap<>();
                 psmMap.put("NotUsed", new ArrayList<>());
                 collapsePsm(psm, psmMap, tmtThreshold);
 
-                // select best PSM if required
                 selectBestPsm(psmMap);
-
-                // keep only used PSMs
                 psm.filterUnUsedPsm(psmMap);
 
-                // normalize data
+                // normalize each plex's channels
                 normalizeData(psm);
 
-                // use MS1 intensity if required
                 if (parameters.ms1Int) {
                     psm.useMS1Intensity();
                 }
@@ -136,13 +106,11 @@ public class PsmPreProcessor {
         return psmList;
     }
 
-    // region checkPsmAndBuildIndex helper methods=============================================
+    // region checkPsmAndBuildIndex helper methods
     private void checkPsmFile(File psmFile) throws IOException {
         try (BufferedReader reader = new BufferedReader(new FileReader(psmFile))) {
-            // process header and column index
             String title = reader.readLine();
 
-            // checking existence of the resolution and SNR columns
             if (title.contains("Resolution ") && title.contains("SNR ")) {
                 parameters.addIsobaricFilter = true;
             } else if (title.contains("Resolution ") || title.contains("SNR ")) {
@@ -153,7 +121,6 @@ public class PsmPreProcessor {
             getColumnIndex(title, psmFile);
             Index index = parameters.indMap.get(psmFile.getAbsolutePath());
 
-            // process data
             int totalCount = 0;
             int ms1MissingCount = 0;
             int geneMissingCount = 0;
@@ -179,14 +146,6 @@ public class PsmPreProcessor {
         }
     }
 
-    /**
-     * check if the field is missing by value
-     *
-     * @param fields array of fields
-     * @param index  index for fields
-     * @param type   type of field to check
-     * @return true if the field is missing
-     */
     private boolean isFieldMissing(String[] fields, Index index, String type) {
         switch (type) {
             case "ms1":
@@ -222,37 +181,29 @@ public class PsmPreProcessor {
         }
     }
 
-    /**
-     * Process the header line and map column index to field name
-     *
-     * @param title   header line
-     * @param psmFile PSM file
-     */
     private void getColumnIndex(String title, File psmFile) {
         String[] columns = title.split("\t");
         Index index = parameters.indMap.getOrDefault(psmFile.getAbsolutePath(), new Index());
 
-        // map column index to field name
         mapColumnIndex(columns, index);
-        // find num of channels and check gene flag
         findChannels(columns, index);
 
-        // check reference columns and adjust reference index for NA channels
-        if (parameters.isTmt35) {
-            checkReferenceColumns(columns, index, index.abnIndex, index.abnIndex + parameters.channelNum, parameters.refTag, false);
-            checkReferenceColumns(columns, index, index.abnIndex, index.abnIndex + parameters.channelNum, parameters.refDTag, true);
-        } else {
-            checkReferenceColumns(columns, index, index.abnIndex, index.abnIndex + parameters.channelNum, parameters.refTag, false);
+        // check reference columns for each plex
+        for (int i = 0; i < parameters.subplexes.size(); i++) {
+            Index.SubplexIndex si = index.subplexIndices.get(i);
+            Subplex subplex = parameters.subplexes.get(i);
+            checkReferenceColumns(columns, si, si.abnIndex, si.abnIndex + subplex.channelCount, subplex.refTag);
         }
-        adjustRefIndex(columns, index);
-        if (parameters.isTmt35) {
-            adjustRefDIndex(columns, index);
+
+        // adjust ref indices for NA channels in each plex
+        for (int i = 0; i < parameters.subplexes.size(); i++) {
+            adjustPlexRefIndex(columns, index, i);
         }
 
         validateColumns(index);
     }
 
-    private void checkReferenceColumns(String[] columns, Index index, int startIdx, int endIdx, String refTag, boolean isTmt35) {
+    private void checkReferenceColumns(String[] columns, Index.SubplexIndex si, int startIdx, int endIdx, String refTag) {
         int refCount = 0;
         StringBuilder refErrors = new StringBuilder();
 
@@ -261,31 +212,24 @@ public class PsmPreProcessor {
             if (column.contains(refTag)) {
                 refCount++;
                 refErrors.append(i + 1).append(", ");
-                if (isTmt35) {
-                    index.refDIndex = i;
-                } else {
-                    index.refIndex = i;
-                }
+                si.refIndex = i;
             }
         }
 
         if (refCount == 0 && parameters.add_Ref < 0) {
-            String message = "TMT-Integrator can't find the reference channel matching \"" + refTag
+            throw new IllegalArgumentException("TMT-Integrator can't find the reference channel matching \"" + refTag
                     + "\" from columns " + String.join(",", columns) + ".\n"
-                    + "Please check if the reference tag is correctly defined in the parameter file.\n";
-            throw new IllegalArgumentException(message);
+                    + "Please check if the reference tag is correctly defined in the parameter file.\n");
         }
 
         if (refCount > 1 && parameters.add_Ref < 0) {
             if (refErrors.length() > 0) {
-                refErrors.setLength(refErrors.length() - 2); // remove the last comma and space
+                refErrors.setLength(refErrors.length() - 2);
             }
-            String message = "There are more than one \"" + refTag + "\" in the columns "
+            throw new IllegalArgumentException("There are more than one \"" + refTag + "\" in the columns "
                     + String.join(",", columns) + ".\n"
                     + "Repeated reference tag at column: " + refErrors + ".\n"
-                    + "Please make sure the reference tag is unique among all the columns.\n"
-                    + "For TMT 35-plex data, please make sure that ref_tag and ref_d_tag are not substrings of each other.";
-            throw new IllegalArgumentException(message);
+                    + "Please make sure the reference tag is unique among all the columns.\n");
         }
     }
 
@@ -378,14 +322,12 @@ public class PsmPreProcessor {
                     index.glycoQvalIndex = i;
                     break;
                 default:
-                    // handle cases require complex evaluation
                     handleComplexCases(column, i, index);
             }
         }
     }
 
     private void mapColumnIndex(String title, ProteinIndex proteinIndex) {
-        // Only mapping necessary columns
         String[] columns = title.split("\t");
         for (int i = 0; i < columns.length; i++) {
             String column = columns[i].trim();
@@ -410,13 +352,15 @@ public class PsmPreProcessor {
     }
 
     private void findChannels(String[] columns, Index index) {
-        // find the offset of the channel columns:
-        //   first column name start with "Intensity ", "Resolution ", "SNR "
         for (int i = 0; i < columns.length; i++) {
-            if (index.abnIndex < 0 && columns[i].startsWith("Intensity ")) {
-                index.abnIndex = i;
-                if (parameters.isTmt35) {
-                    index.abnDIndex = index.abnIndex + 18;
+            if (columns[i].startsWith("Intensity ") && index.subplexIndices.isEmpty()) {
+                // compute abnIndex for each plex cumulatively
+                int offset = i;
+                for (Subplex subplex : parameters.subplexes) {
+                    Index.SubplexIndex si = new Index.SubplexIndex();
+                    si.abnIndex = offset;
+                    index.subplexIndices.add(si);
+                    offset += subplex.channelCount;
                 }
             }
             if (parameters.addIsobaricFilter) {
@@ -434,35 +378,21 @@ public class PsmPreProcessor {
         }
     }
 
-    private void adjustRefIndex(String[] columns, Index index) {
+    private void adjustPlexRefIndex(String[] columns, Index index, int plexIdx) {
+        Index.SubplexIndex si = index.subplexIndices.get(plexIdx);
+        int channelCount = parameters.subplexes.get(plexIdx).channelCount;
         int t = 0;
         int cnum = 0;
-        int endIdx = parameters.isTmt35 ? index.abnDIndex : index.abnIndex + parameters.channelNum;
-        for (int i = index.abnIndex; i < endIdx; i++) {
+        int endIdx = si.abnIndex + channelCount;
+        for (int i = si.abnIndex; i < endIdx; i++) {
             if (notNaColumn(columns[i])) {
                 cnum++;
-            } else if (i < index.refIndex) {
+            } else if (i < si.refIndex) {
                 t++;
             }
         }
-        index.refIndex -= t;
-        index.usedChannelNum = cnum;
-    }
-
-    private void adjustRefDIndex(String[] columns, Index index) {
-        int t = 0;
-        int cnum = 0;
-        int endIdx = index.abnDIndex + 17;
-        for (int i = index.abnDIndex; i < endIdx; i++) {
-            if (notNaColumn(columns[i])) {
-                cnum++;
-            } else if (i < index.refDIndex) {
-                t++;
-            }
-        }
-        index.refDIndex -= t;
-        index.usedDChannelNum = cnum;
-        // TODO: adjust abnDIndex after reading all channels
+        si.refIndex -= t;
+        si.usedChannelNum = cnum;
     }
 
     private boolean notNaColumn(String value) {
@@ -499,9 +429,9 @@ public class PsmPreProcessor {
             throw new IllegalArgumentException(message);
         }
     }
-    // endregion==========================================================
+    // endregion
 
-    // region parseAndFilterPsmFiles helper methods==============================
+    // region parseAndFilterPsmFiles helper methods
     private double calculateTmtThreshold(int numRecords, List<Double> tmtIntensities) {
         Collections.sort(tmtIntensities);
         int tmtThresholdIndex = (int) (numRecords * parameters.minPercent);
@@ -521,7 +451,6 @@ public class PsmPreProcessor {
         if (psmRecord.isPassCriteria(tmtThreshold)) {
             psmRecord.setUsed(true);
             String key = psmRecord.generatePsmKey();
-            // update psmMap
             List<PsmRecord> psmList = psmMap.computeIfAbsent(key, k -> new ArrayList<>());
             psmList.add(psmRecord);
         } else {
@@ -559,20 +488,22 @@ public class PsmPreProcessor {
         if (bestPsmIndex < 0) {
             return;
         }
-
         for (int i = 0; i < psmList.size(); i++) {
             psmList.get(i).setUsed(i == bestPsmIndex);
         }
     }
 
     private void normalizeData(Psm psm) {
-        if (parameters.abn_type == 0) {
-            Utils.logNormalizeData(psm, parameters.isTmt35);
-        }
-        if (parameters.psmNorm) {
-            Utils.rtNormalizeData(psm, parameters.isTmt35);
+        // normalize each plex's channels independently
+        for (int i = 0; i < parameters.subplexes.size(); i++) {
+            psm.setActivePlex(i);
+            if (parameters.abn_type == 0) {
+                Utils.logNormalizeData(psm);
+            }
+            if (parameters.psmNorm) {
+                Utils.rtNormalizeData(psm);
+            }
         }
     }
-    // endregion==========================================================
-
+    // endregion
 }

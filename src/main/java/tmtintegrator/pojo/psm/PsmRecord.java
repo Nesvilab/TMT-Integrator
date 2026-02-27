@@ -25,6 +25,7 @@ import tmtintegrator.constants.GroupBy;
 import tmtintegrator.constants.ReferenceType;
 import tmtintegrator.pojo.Index;
 import tmtintegrator.pojo.Parameters;
+import tmtintegrator.pojo.Subplex;
 import tmtintegrator.utils.Utils;
 
 /**
@@ -58,14 +59,20 @@ public class PsmRecord {
     private String proteinId;
     private String gene;
     private String mappedGenes;
+    // endregion
+
+    // region per-plex channel data
+    private List<List<Double>> subplexChannels = new ArrayList<>();
+    private List<Double> subplexRefIntensities = new ArrayList<>();
+    // endregion
+
+    // region active plex fields (set by setActivePlex)
     private List<Double> channels;
-    private List<Double> dChannels;
+    private double refIntensity;
     // endregion
 
     // region extra fields
     private double sumTmtIntensity;
-    private double refIntensity;
-    private double dRefIntensity;
     private boolean isUsed;
     private boolean isExcluded;
     private int pepsIndex;
@@ -87,21 +94,18 @@ public class PsmRecord {
     private int geneCategory;
     // endregion
 
-    // region backup fields
+    // region backup fields (for groupBy re-iteration)
     private String copyPeptide;
-    private double copyRefIntensity;
-    private List<Double> copyChannels;
+    private List<List<Double>> copySubplexChannels;
     // endregion
 
 
     public PsmRecord(Parameters parameters, Index index) {
         this.parameters = parameters;
         this.index = index;
-        channels = new ArrayList<>();
-        dChannels = new ArrayList<>();
     }
 
-    // region getters and setters
+    // region getters
 
     public String getModifiedPeptide() {
         return modifiedPeptide;
@@ -139,16 +143,8 @@ public class PsmRecord {
         return refIntensity;
     }
 
-    public double getDRefIntensity() {
-        return dRefIntensity;
-    }
-
     public List<Double> getChannels() {
         return channels;
-    }
-
-    public List<Double> getDChannels() {
-        return dChannels;
     }
 
     public String getGroupKey() {
@@ -182,11 +178,16 @@ public class PsmRecord {
     // endregion
 
     /**
+     * Set the active plex. channels and refIntensity become references to the
+     * specified plex's data, so normalization modifies them in-place.
+     */
+    public void setActivePlex(int plexIdx) {
+        channels = subplexChannels.get(plexIdx);
+        refIntensity = subplexRefIntensities.get(plexIdx);
+    }
+
+    /**
      * Parse a PSM record from a line in a PSM.tsv file
-     *
-     * @param line           line in the PSM.tsv file
-     * @param tmtIntensities list of TMT intensities
-     * @param naChannels     list of NA channels indices
      */
     public void parsePsmRecord(String line, List<Double> tmtIntensities, List<Integer> naChannels) {
         String[] fields = line.split("\t");
@@ -199,37 +200,23 @@ public class PsmRecord {
     }
 
     public void backup() {
-        // backup the original values for fields that will be modified
         copyPeptide = peptide;
-        copyChannels = new ArrayList<>(channels);
+        copySubplexChannels = new ArrayList<>();
+        for (List<Double> ch : subplexChannels) {
+            copySubplexChannels.add(new ArrayList<>(ch));
+        }
     }
 
     public void reset() {
-        // reset the modified fields to the original values
         isExcluded = false;
         peptide = copyPeptide;
-        channels = new ArrayList<>(copyChannels);
-        if (parameters.isTmt35) {
-            refIntensity = copyRefIntensity;
+        for (int i = 0; i < subplexChannels.size(); i++) {
+            subplexChannels.set(i, new ArrayList<>(copySubplexChannels.get(i)));
         }
     }
 
     /**
-     * Set the deuterium channels (for 2nd round of TMT-35)
-     */
-    public void setDChannels() {
-        // backup
-        copyRefIntensity = refIntensity;
-
-        // set deuterium channels
-        channels = new ArrayList<>(dChannels);
-        refIntensity = dRefIntensity;
-    }
-
-    /**
      * Update flags for filtering
-     *
-     * @param modTags set of mod tags
      */
     public void updateFlags(Set<String> modTags) {
         labelFlag = updateLabelFlag();
@@ -241,11 +228,15 @@ public class PsmRecord {
 
     /**
      * Check if the PSM entry passes the criteria
-     *
-     * @param tmtThreshold TMT threshold
-     * @return true if the PSM entry passes the criteria
      */
     public boolean isPassCriteria(double tmtThreshold) {
+        boolean passAllRefs = true;
+        for (double ref : subplexRefIntensities) {
+            if (ref <= 0) {
+                passAllRefs = false;
+                break;
+            }
+        }
         return passResolutionSnr &&
             purity >= parameters.minPurity &&
             probability >= parameters.minPepProb &&
@@ -256,26 +247,18 @@ public class PsmRecord {
             proteinExclusionFlag &&
             geneCategory >= parameters.uniqueGene &&
             numEnzymaticTermini >= parameters.min_ntt &&
-            refIntensity > 0 &&
-            (!parameters.isTmt35 || dRefIntensity > 0);
+            passAllRefs;
     }
 
     public String generatePsmKey() {
-        // extract the filename from Spectrum
         String fileName = spectrum.substring(spectrum.lastIndexOf("_") + 1, spectrum.indexOf("."));
         return fileName + "_" + peptide + "_" + charge + "_" + calculatedPepMass;
     }
 
-    /**
-     * Analyze phospho sites in the PSM entry
-     *
-     * @param groupBy group by option
-     */
     public void analyzeByGroup(GroupBy groupBy) {
         phosphoSiteData = new PhosphoSiteData();
         groupKey = "";
 
-        // get num of phospho sites with probability > threshold and their positions
         phosphoSiteData.startIndex = pepsIndex;
         phosphoSiteData.endIndex = proteinEnd - 1;
 
@@ -285,19 +268,17 @@ public class PsmRecord {
             processSitesWithoutProbT();
         }
 
-        // generate group key
         generateGroupKey(groupBy);
 
-        // filter out psm without phospho sites
         if (groupBy != GroupBy.SINGLE_PHOSPHO_SITE && groupKey.isEmpty()) {
             isExcluded = true;
         }
     }
 
     public void useMS1Intensity() {
-        refIntensity = useMs1Intensity(refIntensity);
-        if (parameters.isTmt35) {
-            dRefIntensity = useMs1Intensity(dRefIntensity);
+        for (int i = 0; i < subplexRefIntensities.size(); i++) {
+            double ref = subplexRefIntensities.get(i);
+            subplexRefIntensities.set(i, ms1Intensity * (ref / sumTmtIntensity));
         }
     }
 
@@ -305,14 +286,12 @@ public class PsmRecord {
     private void updateRefIntensity(String[] fields) {
         ReferenceType refType = ReferenceType.fromValue(parameters.add_Ref);
         if (refType == ReferenceType.REAL || refType == ReferenceType.RAW_ABUNDANCE) {
-            refIntensity = Double.parseDouble(fields[index.refIndex]);
-            if (parameters.isTmt35) {
-                dRefIntensity = Double.parseDouble(fields[index.refDIndex]);
+            for (Index.SubplexIndex si : index.subplexIndices) {
+                subplexRefIntensities.add(Double.parseDouble(fields[si.refIndex]));
             }
         } else {
-            parameters.refTag = "Virtual_Reference";
-            if (parameters.isTmt35) {
-                parameters.refDTag = "Virtual_Reference";
+            for (Subplex s : parameters.subplexes) {
+                s.refTag = "Virtual_Reference";
             }
             computeVirtualReference(refType);
         }
@@ -321,7 +300,6 @@ public class PsmRecord {
     private void parseRegularFields(String[] fields) {
         spectrum = fields[index.spectrumIndex];
         peptide = fields[index.peptideIndex];
-//        modifiedPeptide = fields[index.modifiedPeptideIndex];
         extendedPeptide = fields[index.extpepIndex];
         charge = Integer.parseInt(fields[index.chargeIndex]);
         retention = Double.parseDouble(fields[index.rtIndex]);
@@ -347,7 +325,7 @@ public class PsmRecord {
         if (parameters.addIsobaricFilter) {
             float snrSum = 0;
             for (int i = 0; i < parameters.channelNum; ++i) {
-                if (!naChannels.contains(index.abnIndex + i)) {
+                if (!naChannels.contains(index.subplexIndices.get(0).abnIndex + i)) {
                     snrSum += Float.parseFloat(fields[index.snrOffset + i]);
                 }
             }
@@ -356,7 +334,9 @@ public class PsmRecord {
                 return false;
             } else {
                 for (int i = 0; i < parameters.channelNum; ++i) {
-                    if (!naChannels.contains(index.abnIndex + i) && Integer.parseInt(fields[index.resOffset + i]) < parameters.minResolution && Float.parseFloat(fields[index.snrOffset + i]) >= 1) {
+                    if (!naChannels.contains(index.subplexIndices.get(0).abnIndex + i)
+                            && Integer.parseInt(fields[index.resOffset + i]) < parameters.minResolution
+                            && Float.parseFloat(fields[index.snrOffset + i]) >= 1) {
                         return false;
                     }
                 }
@@ -367,32 +347,23 @@ public class PsmRecord {
 
     private void parseChannels(String[] fields, List<Double> tmtIntensities, List<Integer> naChannels) {
         double sum = 0;
-        int channelNum = parameters.isTmt35 ? 18 : parameters.channelNum;
-        for (int i = 0; i < channelNum; i++) {
-            try {
-                if (naChannels.contains(index.abnIndex + i)) {
-                    continue;
-                }
-                double intensity = Double.parseDouble(fields[index.abnIndex + i]);
-                channels.add(intensity);
-                sum += intensity;
-            } catch (NumberFormatException e) {
-                throw new IllegalArgumentException("Invalid TMT intensity value: " + fields[index.abnIndex + i]);
-            }
-        }
-        if (parameters.isTmt35) {
-            for (int i = 0; i < 17; i++) {
+        for (int p = 0; p < parameters.subplexes.size(); p++) {
+            Index.SubplexIndex si = index.subplexIndices.get(p);
+            int channelCount = parameters.subplexes.get(p).channelCount;
+            List<Double> plexChannels = new ArrayList<>();
+            for (int i = 0; i < channelCount; i++) {
                 try {
-                    if (naChannels.contains(index.abnDIndex + i)) {
+                    if (naChannels.contains(si.abnIndex + i)) {
                         continue;
                     }
-                    double intensity = Double.parseDouble(fields[index.abnDIndex + i]);
-                    dChannels.add(intensity);
+                    double intensity = Double.parseDouble(fields[si.abnIndex + i]);
+                    plexChannels.add(intensity);
                     sum += intensity;
                 } catch (NumberFormatException e) {
-                    throw new IllegalArgumentException("Invalid TMT intensity value: " + fields[index.abnDIndex + i]);
+                    throw new IllegalArgumentException("Invalid TMT intensity value: " + fields[si.abnIndex + i]);
                 }
             }
+            subplexChannels.add(plexChannels);
         }
         tmtIntensities.add(sum);
         sumTmtIntensity = sum;
@@ -402,7 +373,6 @@ public class PsmRecord {
         try {
             glycanQValue = parameters.glycoQval >= 0 ? Utils.tryParseDouble(fields[index.glycoQvalIndex]) : -1;
         } catch (IndexOutOfBoundsException ex) {
-            // non-glyco search
             System.out.println("Glycan FDR control requested but no such column found. No Glycan FDR applied.");
             parameters.glycoQval = -1;
             glycanQValue = -1;
@@ -415,8 +385,8 @@ public class PsmRecord {
             return true;
         }
 
-        if (matchLabels(assignedModifications, parameters.labels, 0.1f)) { // The input labels' masses could not be precise, such as 229.1.
-            return parameters.allow_overlabel || (!assignedModifications.contains("S(229.") && !assignedModifications.contains("S(304.")); // the overlabeling is specific for TMT
+        if (matchLabels(assignedModifications, parameters.labels, 0.1f)) {
+            return parameters.allow_overlabel || (!assignedModifications.contains("S(229.") && !assignedModifications.contains("S(304."));
         } else {
             return false;
         }
@@ -424,16 +394,12 @@ public class PsmRecord {
 
     private boolean updateModificationFlag(Set<String> modTags) {
         if (parameters.modTagSet.contains("none")) {
-            // all PSMs are valid in terms of modification
             return true;
         }
         if (assignedModifications.isEmpty()) {
-            // skip PSMs with nothing in assigned mods column if mods requested
-            // (shouldn't happen, but can if two mods are reported on same site and Philosopher can't separate them)
             return false;
         }
         for (String term : parameters.modTagSet) {
-            // skip this mod tag if psm with glycan q-value above threshold
             if (isSkipModification(term)) {
                 continue;
             }
@@ -442,7 +408,6 @@ public class PsmRecord {
                 return true;
             }
 
-            // special handling for glycan
             if (term.equalsIgnoreCase("n-glyco") || term.equalsIgnoreCase("o-glyco")) {
                 updateModAAParameter(term);
                 if (processGlycoModification(term, modTags)) {
@@ -462,7 +427,7 @@ public class PsmRecord {
 
     private String modifyTermForGlyco(String term) {
         if (!term.equalsIgnoreCase("N-glyco") && !term.equalsIgnoreCase("O-glyco")) {
-            return term.substring(0, term.indexOf(".") + 3); // TODO: use floor to cut float
+            return term.substring(0, term.indexOf(".") + 3);
         }
         return term;
     }
@@ -475,13 +440,6 @@ public class PsmRecord {
         }
     }
 
-    /**
-     * Process glycan modification
-     *
-     * @param term    N-glyco or O-glyco
-     * @param modTags list of new mod tags
-     * @return true if glycan modification is processed
-     */
     private boolean processGlycoModification(String term, Set<String> modTags) {
         String[] modifications = assignedModifications.split(",");
         boolean foundGlycan = false;
@@ -513,7 +471,6 @@ public class PsmRecord {
     }
 
     private boolean checkProteinExclusion() {
-        // exclude contaminants
         if (protein.contains("contam_")) {
             return false;
         }
@@ -538,7 +495,6 @@ public class PsmRecord {
         } else {
             return handleMultipleGenes(genes);
         }
-
     }
 
     private int handleSingleGene(String mappedGene) {
@@ -554,7 +510,6 @@ public class PsmRecord {
         for (String mappedGene : mappedGenes) {
             mappedGene = mappedGene.trim();
             if (!mappedGene.equalsIgnoreCase(gene.trim()) && parameters.allGeneSet.contains(mappedGene)) {
-                // found a gene in the list that is not the target gene
                 return 0;
             }
         }
@@ -564,43 +519,26 @@ public class PsmRecord {
     private void computeVirtualReference(ReferenceType refType) {
         switch (refType) {
             case SUMMATION:
-                summationReference();
+                for (List<Double> ch : subplexChannels) {
+                    subplexRefIntensities.add(ch.stream().mapToDouble(Double::doubleValue).sum());
+                }
                 break;
             case AVERAGE:
-                averageReference();
+                for (List<Double> ch : subplexChannels) {
+                    subplexRefIntensities.add(ch.stream().filter(v -> v > 0).mapToDouble(Double::doubleValue).average().orElse(0));
+                }
                 break;
             case MEDIAN:
-                medianReference();
+                for (List<Double> ch : subplexChannels) {
+                    List<Double> nonZero = ch.stream().filter(v -> v > 0).collect(Collectors.toList());
+                    subplexRefIntensities.add(nonZero.isEmpty() ? 0 : Utils.takeMedian(nonZero));
+                }
                 break;
             default:
-                refIntensity = 0;
-                dRefIntensity = 0;
+                for (int i = 0; i < subplexChannels.size(); i++) {
+                    subplexRefIntensities.add(0.0);
+                }
                 break;
-        }
-    }
-
-    private void summationReference() {
-        refIntensity = channels.stream().mapToDouble(Double::doubleValue).sum();
-        if (parameters.isTmt35) {
-            dRefIntensity = dChannels.stream().mapToDouble(Double::doubleValue).sum();
-        }
-    }
-
-    private void averageReference() {
-        // take average of all non zero values
-        refIntensity = channels.stream().filter(value -> value > 0).mapToDouble(Double::doubleValue).average().orElse(0);
-        if (parameters.isTmt35) {
-            dRefIntensity = dChannels.stream().filter(value -> value > 0).mapToDouble(Double::doubleValue).average().orElse(0);
-        }
-    }
-
-    private void medianReference() {
-        // take median of all non zero values
-        List<Double> nonZeroValues = channels.stream().filter(value -> value > 0).collect(Collectors.toList());
-        refIntensity = nonZeroValues.isEmpty() ? 0 : Utils.takeMedian(nonZeroValues);
-        if (parameters.isTmt35) {
-            nonZeroValues = dChannels.stream().filter(value -> value > 0).collect(Collectors.toList());
-            dRefIntensity = nonZeroValues.isEmpty() ? 0 : Utils.takeMedian(nonZeroValues);
         }
     }
 
@@ -608,7 +546,6 @@ public class PsmRecord {
         countModifiedSites();
         populateProbMap();
         extractSitePositions();
-        // update start and end index
         phosphoSiteData.startIndex = Math.max(0, phosphoSiteData.startIndex + pepsIndex);
         phosphoSiteData.endIndex = Math.max(0, phosphoSiteData.endIndex + pepsIndex);
     }
@@ -618,7 +555,6 @@ public class PsmRecord {
         Collections.sort(positions);
         for (int position : positions) {
             phosphoSiteData.probMap.put(position, 0d);
-            // extracted position is 1-based, need to convert to 0-based for peptide
             phosphoSiteData.siteLocalPos.append(peptide.charAt(position - 1)).append(pepsIndex + position);
         }
         phosphoSiteData.siteLocalCount = positions.size();
@@ -643,20 +579,17 @@ public class PsmRecord {
         boolean isFirst = true;
 
         while (leftIndex >= 0) {
-            // extract probability
             double probability = Double.parseDouble(ptmLocalization.substring(leftIndex + 1, rightIndex));
             int key;
             if (isFirst) {
-                key = leftIndex; // 1-based AA local position
+                key = leftIndex;
                 isFirst = false;
             } else {
                 key = leftIndex - gap;
             }
             phosphoSiteData.probMap.put(key, probability);
-            // record gap to locate AA in peptide sequence without probability
-            gap += (rightIndex - leftIndex + 1); // size of a probability string "(0.1234)" including parentheses
+            gap += (rightIndex - leftIndex + 1);
 
-            // update indices
             leftIndex = ptmLocalization.indexOf("(", leftIndex + 1);
             rightIndex = ptmLocalization.indexOf(")", rightIndex + 1);
         }
@@ -685,24 +618,18 @@ public class PsmRecord {
         for (String assignedMod : assignedMods) {
             String mod = Utils.getAssignedModIndex(assignedMod, glycanComposition, parameters.useGlycoComposition);
             if (Utils.isModTagMatch(mod, parameters.modTagSet)) {
-                // extract position number, ex: 11N(2569.9045) -> 11
                 int position = Integer.parseInt(assignedMod.substring(0, assignedMod.indexOf("(") - 1).trim());
                 positions.add(position);
-                updateSiteLocalMassMap(position, mod); // for multi-mass glycan
+                updateSiteLocalMassMap(position, mod);
             }
         }
         return positions;
     }
 
     private void updateSiteLocalMassMap(int position, String mod) {
-        // simplify the mod string for index: remove parentheses and first AA code
         mod = mod.replace("(", "").replace(")", "").substring(1);
         List<String> modMassList = phosphoSiteData.siteLocalMassMap.computeIfAbsent(position, k -> new ArrayList<>());
         modMassList.add(mod);
-    }
-
-    private double useMs1Intensity(double refIntensity) {
-        return ms1Intensity * (refIntensity / sumTmtIntensity);
     }
 
     private void generateGroupKey(GroupBy groupBy) {
@@ -720,7 +647,6 @@ public class PsmRecord {
                 handleMultiPhosphoSites();
                 break;
             case SINGLE_PHOSPHO_SITE:
-                //  single phospho site processing will be handled in the second round
                 break;
             case MULTI_MASS_GLYCO:
                 handleMultiMassGlyco();
@@ -747,19 +673,16 @@ public class PsmRecord {
         if (phosphoSiteData.siteCount <= 0) {
             return;
         }
-        // generate group key
         StringBuilder key = new StringBuilder(proteinId + "%" + phosphoSiteData.startIndex + "%" + phosphoSiteData.endIndex +
                 "%" + phosphoSiteData.siteCount + "%" + phosphoSiteData.siteLocalCount);
         if (phosphoSiteData.siteLocalPos.length() > 0) {
             key.append("%").append(phosphoSiteData.siteLocalPos);
         }
-        String[] peptideKeys = peptide.split("-"); // FIXME: what's the format
+        String[] peptideKeys = peptide.split("-");
         if (peptideKeys.length > 1) {
             key.append("%").append(peptideKeys[1]);
         }
-        // mark localized sites in peptide sequence
         markLocalizedSites();
-
         groupKey = key.toString();
     }
 
@@ -767,28 +690,21 @@ public class PsmRecord {
         if (phosphoSiteData.siteCount <= 0) {
             return;
         }
-        // generate site localized mass string
         StringBuilder siteLocalMass = new StringBuilder();
         for (List<String> massList : phosphoSiteData.siteLocalMassMap.values()) {
             siteLocalMass.append(String.join("_", massList)).append("_");
         }
-        siteLocalMass.deleteCharAt(siteLocalMass.length() - 1); // remove trailing '_'
-        // generate group key
+        siteLocalMass.deleteCharAt(siteLocalMass.length() - 1);
         StringBuilder key = new StringBuilder(proteinId + "%" + phosphoSiteData.startIndex + "%" + phosphoSiteData.endIndex +
                 "%" + phosphoSiteData.siteCount + "%" + phosphoSiteData.siteLocalCount);
         if (phosphoSiteData.siteLocalPos.length() > 0) {
             key.append("%").append(phosphoSiteData.siteLocalPos);
         }
         key.append("%").append(siteLocalMass);
-        // mark localized sites in peptide sequence
         markLocalizedSites();
-
         groupKey = key.toString();
     }
 
-    /**
-     * Mark localized sites in peptide sequence.
-     */
     private void markLocalizedSites() {
         StringBuilder newPeptideSeq = new StringBuilder();
         for (int i = 0; i < peptide.length(); i++) {
@@ -803,7 +719,6 @@ public class PsmRecord {
     }
 
     private String generateModifiedSequence(String sequence, String assignMods) {
-
         if (assignMods.isEmpty()) return sequence;
 
         int seqLen = sequence.length();
@@ -824,13 +739,10 @@ public class PsmRecord {
             String mass = "[" + mod.substring(openIdx + 1, closeIdx) + "]";
 
             if (site.equalsIgnoreCase("N-term")) {
-                // place N-term mod at index 0
                 modMap.put(0, mass);
             } else if (site.equalsIgnoreCase("C-term")) {
-                // place C-term mod at an index offset of 1 relative to full peptide length
-                modMap.put(seqLen+1, mass);
+                modMap.put(seqLen + 1, mass);
             } else {
-                // extract the 1-based index from other mods
                 int aaIdx = -1;
                 for (int i = 0; i < site.length(); i++) {
                     if (Character.isLetter(site.charAt(i))) {
@@ -838,7 +750,6 @@ public class PsmRecord {
                         break;
                     }
                 }
-
                 if (aaIdx != -1) {
                     int index = Integer.parseInt(site.substring(0, aaIdx));
                     modMap.put(index, mass);
@@ -850,11 +761,9 @@ public class PsmRecord {
         int sequenceLength = sequence.length();
 
         if (modMap.containsKey(0)) {
-            // use 'n' to denote N-term modification
             modifiedSequence.append("n").append(modMap.get(0));
         }
 
-        // iterate over peptide sequence and add mod mass to that aa
         for (int i = 1; i <= sequenceLength; i++) {
             modifiedSequence.append(sequence.charAt(i - 1));
             if (modMap.containsKey(i)) {
@@ -862,8 +771,7 @@ public class PsmRecord {
             }
         }
 
-        if (modMap.containsKey(seqLen+1)) {
-            // use 'c' to denote C-term modification
+        if (modMap.containsKey(seqLen + 1)) {
             modifiedSequence.append("c").append(modMap.get(0));
         }
 

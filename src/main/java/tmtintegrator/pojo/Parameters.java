@@ -23,9 +23,7 @@ public class Parameters {
     public String reportPath;
     public File combinedF;
     public int channelNum;
-    public String refTag;
-    public String refDTag; // for TMT-35
-    public boolean isTmt35;
+    public List<Subplex> subplexes = new ArrayList<>();
     public int groupBy;
     public boolean psmNorm;
     public boolean outlierRemoval;
@@ -53,7 +51,7 @@ public class Parameters {
     public boolean geneflag = false;
     public boolean glycoflag = false;
     public boolean isNglyco = false;
-    public boolean useGlycoComposition = false;    // whether to use glycan composition string or glycan mass for indexing
+    public boolean useGlycoComposition = false;
     public float glycoQval = -1;
     public boolean log2transformed = true;
     public float[] labels;

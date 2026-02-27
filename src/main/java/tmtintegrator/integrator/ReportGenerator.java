@@ -21,6 +21,7 @@ import tmtintegrator.constants.ReportType;
 import tmtintegrator.pojo.Index;
 import tmtintegrator.pojo.Parameters;
 import tmtintegrator.pojo.ReportInfo;
+import tmtintegrator.pojo.Subplex;
 import tmtintegrator.utils.ReportData;
 import tmtintegrator.utils.Utils;
 
@@ -31,42 +32,39 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 
 /**
  * Generate reports for the integrated data
  */
-
 public class ReportGenerator {
     private final Parameters parameters;
     private final ReportData reportData;
     private final GroupBy groupBy;
     private final NormType normType;
-    private final Map<String, Map<String, double[]>> groupAboundanceMap; // <groupKey, <filename, abundance[]>>
-    private final Map<String, Map<String, double[]>> dGroupAbundanceMap; // <groupKey, <filename, abundance[]>>
+    private final List<Map<String, Map<String, double[]>>> plexAbundanceMaps;
 
     public ReportGenerator(Parameters parameters, ReportData reportData, GroupBy groupBy, NormType normType,
-                           Map<String, Map<String, double[]>> groupAboundanceMap,
-                           Map<String, Map<String, double[]>> dGroupAbundanceMap) {
+                           List<Map<String, Map<String, double[]>>> plexAbundanceMaps) {
         this.parameters = parameters;
         this.reportData = reportData;
         this.groupBy = groupBy;
         this.normType = normType;
-        this.groupAboundanceMap = groupAboundanceMap;
-        this.dGroupAbundanceMap = dGroupAbundanceMap;
+        this.plexAbundanceMaps = plexAbundanceMaps;
     }
 
     public void generateReports() throws IOException {
         if (parameters.abn_type == 0) {
             if (normType == NormType.ALL_NORM || normType == NormType.SL_IRS) {
-                report(ReportType.RATIO_ABUNDANCE); // report abundances
+                report(ReportType.RATIO_ABUNDANCE);
             } else {
-                report(ReportType.RATIO); // report ratios
-                report(ReportType.RATIO_ABUNDANCE); // report abundances
+                report(ReportType.RATIO);
+                report(ReportType.RATIO_ABUNDANCE);
             }
         } else {
-            report(ReportType.RAW_ABUNDANCE); // report abundances
+            report(ReportType.RAW_ABUNDANCE);
         }
     }
 
@@ -87,37 +85,24 @@ public class ReportGenerator {
 
     private String getGroupTag() {
         switch (groupBy) {
-            case GENE:
-                return "gene";
-            case PROTEIN_ID:
-                return "protein";
-            case PEPTIDE:
-                return "peptide";
-            case MULTI_PHOSPHO_SITE:
-                return "multi-site";
-            case SINGLE_PHOSPHO_SITE:
-                return "single-site";
-            case MULTI_MASS_GLYCO:
-                return "multi-mass";
-            case MODIFIED_PEPTIDE:
-                return "modified-peptide";
-            default:
-                throw new RuntimeException("Invalid groupBy: " + groupBy);
+            case GENE: return "gene";
+            case PROTEIN_ID: return "protein";
+            case PEPTIDE: return "peptide";
+            case MULTI_PHOSPHO_SITE: return "multi-site";
+            case SINGLE_PHOSPHO_SITE: return "single-site";
+            case MULTI_MASS_GLYCO: return "multi-mass";
+            case MODIFIED_PEPTIDE: return "modified-peptide";
+            default: throw new RuntimeException("Invalid groupBy: " + groupBy);
         }
     }
 
     private String getProtNormTag() {
         switch (normType) {
-            case NONE:
-                return "None";
-            case MC:
-                return "MD";
-            case GN:
-                return "GN";
-            case SL_IRS:
-                return "SL+IRS";
-            default:
-                throw new RuntimeException("Invalid protNorm: " + normType);
+            case NONE: return "None";
+            case MC: return "MD";
+            case GN: return "GN";
+            case SL_IRS: return "SL+IRS";
+            default: throw new RuntimeException("Invalid protNorm: " + normType);
         }
     }
 
@@ -154,14 +139,15 @@ public class ReportGenerator {
             default:
                 throw new IllegalArgumentException("Invalid groupBy: " + groupBy);
         }
-        writer.write("\tReferenceIntensity"); // TODO: This is avgAbundance, choose a proper name
+        writer.write("\tReferenceIntensity");
 
         for (String fileName : parameters.fNameLi) {
             Index index = parameters.indMap.get(fileName);
             String[] titles = parameters.titleMap.get(fileName).split("\t");
-            writeChannelsTitle(writer, index.abnIndex, index.abnIndex + index.usedChannelNum, parameters.refTag, titles);
-            if (parameters.isTmt35) {
-                writeChannelsTitle(writer, index.abnDIndex, index.abnDIndex + index.usedDChannelNum, parameters.refDTag, titles);
+            for (int p = 0; p < parameters.subplexes.size(); p++) {
+                Index.SubplexIndex si = index.subplexIndices.get(p);
+                Subplex subplex = parameters.subplexes.get(p);
+                writeChannelsTitle(writer, si.abnIndex, si.abnIndex + si.usedChannelNum, subplex.refTag, titles);
             }
         }
 
@@ -171,11 +157,10 @@ public class ReportGenerator {
                 File file = new File(fileName);
                 String[] titles = parameters.titleMap.get(fileName).split("\t");
                 String parentDir = file.getParent().substring(file.getParent().lastIndexOf(File.separator) + 1);
-                writer.write("\tRefInt_" + (parameters.add_Ref < 0
-                        ? titles[index.refIndex].replace(" Abundance", "").replace("Intensity ", "") : parentDir));
-                if (parameters.isTmt35) {
-                    writer.write("\tRefDInt_" + (parameters.add_Ref < 0
-                            ? titles[index.refDIndex].replace(" Abundance", "").replace("Intensity ", "") : parentDir));
+                for (int p = 0; p < parameters.subplexes.size(); p++) {
+                    Index.SubplexIndex si = index.subplexIndices.get(p);
+                    writer.write("\tRefInt_" + (parameters.add_Ref < 0
+                            ? titles[si.refIndex].replace(" Abundance", "").replace("Intensity ", "") : parentDir));
                 }
             }
         }
@@ -191,19 +176,22 @@ public class ReportGenerator {
     }
 
     private void writeRatiosOrAbundances(BufferedWriter writer, ReportType type) throws IOException {
-        double globalMinRefInt = Utils.calculateGlobalMinRefInt(groupAboundanceMap);
-        if (parameters.isTmt35) {
-            globalMinRefInt = Math.min(globalMinRefInt, Utils.calculateGlobalMinRefInt(dGroupAbundanceMap));
+        double globalMinRefInt = Double.MAX_VALUE;
+        for (Map<String, Map<String, double[]>> plexMap : plexAbundanceMaps) {
+            globalMinRefInt = Math.min(globalMinRefInt, Utils.calculateGlobalMinRefInt(plexMap));
         }
 
-        for (Map.Entry<String, Map<String, double[]>> groupEntry : groupAboundanceMap.entrySet()) {
-            String groupKey = groupEntry.getKey();
-            Map<String, double[]> fileAbundanceMap = groupEntry.getValue();
-            Map<String, double[]> fileDAbundanceMap = parameters.isTmt35 ? dGroupAbundanceMap.get(groupKey) : null;
+        // Use first plex map as the key source (all plexes share the same group keys)
+        Map<String, Map<String, double[]>> firstPlexMap = plexAbundanceMaps.get(0);
+
+        for (String groupKey : firstPlexMap.keySet()) {
             boolean isPrint = true;
 
-            // M2: Calculate average abundance (using global minimum reference intensity)
-            double avgAbundance = Utils.calculateAvgAbundance(fileAbundanceMap, fileDAbundanceMap, globalMinRefInt, parameters);
+            double avgAbundance = Utils.calculateAvgAbundance(
+                    plexAbundanceMaps.stream()
+                            .map(m -> m.getOrDefault(groupKey, Map.of()))
+                            .collect(java.util.stream.Collectors.toList()),
+                    globalMinRefInt, parameters);
 
             String[] keyParts = groupKey.split("\t");
 
@@ -217,21 +205,21 @@ public class ReportGenerator {
                 isPrint = false;
             }
 
+            String displayKey = groupKey;
             if (groupBy == GroupBy.SINGLE_PHOSPHO_SITE) {
-                groupKey = updateGroupKeyForSingleSite(groupKey);
+                displayKey = updateGroupKeyForSingleSite(groupKey);
             } else if (groupBy == GroupBy.MULTI_PHOSPHO_SITE) {
                 keyParts[4] = keyParts[4].replace(".", "");
-                groupKey = String.join("\t", keyParts);
+                displayKey = String.join("\t", keyParts);
             }
 
             if (isPrint) {
                 if (groupBy == GroupBy.GENE) {
-                    writer.write(groupKey.replace("%", "_"));
+                    writer.write(displayKey.replace("%", "_"));
                 } else {
-                    // peptide and site level, protein level
-                    reportData.writeReportInfo(writer, groupKey, groupBy);
+                    reportData.writeReportInfo(writer, displayKey, groupBy);
                 }
-                writeData(writer, type, avgAbundance, fileAbundanceMap, fileDAbundanceMap);
+                writeData(writer, type, avgAbundance, groupKey);
                 writer.newLine();
             }
         }
@@ -242,7 +230,7 @@ public class ReportGenerator {
         Matcher matcher = Constants.KEY_PATTERN.matcher(keyParts[0]);
         int site;
         if (matcher.matches()) {
-            site = Integer.parseInt(matcher.group(3)); // Match the site number, the last match group in the PATTERN (\\d+)
+            site = Integer.parseInt(matcher.group(3));
         } else {
             throw new IllegalArgumentException("Error: cannot parse site from " + keyParts[0]);
         }
@@ -274,37 +262,26 @@ public class ReportGenerator {
         return String.join("\t", keyParts);
     }
 
-    private void writeData(BufferedWriter writer, ReportType type, double avgAbundance,
-                           Map<String, double[]> fileAbundanceMap, Map<String, double[]> fileDAbundanceMap) throws IOException {
-        // write reference intensity
+    private void writeData(BufferedWriter writer, ReportType type, double avgAbundance, String groupKey) throws IOException {
         writeRefInt(writer, type, avgAbundance);
 
         StringBuilder abnBuilder = new StringBuilder();
         for (String fileName : parameters.fNameLi) {
             Index index = parameters.indMap.get(fileName);
-            int refIndex = parameters.add_Ref < 0 ? index.refIndex - index.abnIndex : -1;
-            int refDIndex = parameters.isTmt35 && parameters.add_Ref < 0 ? index.refDIndex - index.abnDIndex : -1;
 
-            double[] nanArray = new double[index.usedChannelNum + 1];
-            double[] nanArrayD = parameters.isTmt35 ? new double[index.usedDChannelNum + 1] : null;
+            for (int p = 0; p < plexAbundanceMaps.size(); p++) {
+                Map<String, Map<String, double[]>> plexMap = plexAbundanceMaps.get(p);
+                Index.SubplexIndex si = index.subplexIndices.get(p);
+                int refIdx = parameters.add_Ref < 0 ? si.refIndex - si.abnIndex : -1;
 
-            Arrays.fill(nanArray, Double.NaN);
-            if (parameters.isTmt35) {
-                Arrays.fill(nanArrayD, Double.NaN);
-            }
+                double[] nanArray = new double[si.usedChannelNum + 1];
+                Arrays.fill(nanArray, Double.NaN);
 
-            double[] medians = fileAbundanceMap.getOrDefault(fileName, nanArray);
-            double[] mediansD = parameters.isTmt35 ? fileDAbundanceMap.getOrDefault(fileName, nanArrayD) : null;
+                Map<String, double[]> fileMap = plexMap.getOrDefault(groupKey, Map.of());
+                double[] medians = fileMap.getOrDefault(fileName, nanArray);
 
-            // record reference abundances
-            recordRefAbundances(abnBuilder, medians, type);
-            if (parameters.isTmt35 && mediansD != null) {
-                recordRefAbundances(abnBuilder, mediansD, type);
-            }
-
-            writeValues(writer, medians, refIndex, type, avgAbundance);
-            if (parameters.isTmt35 && mediansD != null) {
-                writeValues(writer, mediansD, refDIndex, type, avgAbundance);
+                recordRefAbundances(abnBuilder, medians, type);
+                writeValues(writer, medians, refIdx, type, avgAbundance);
             }
         }
 
@@ -344,7 +321,7 @@ public class ReportGenerator {
 
     private void writeValues(BufferedWriter writer, double[] medians, int refIndex,
                              ReportType type, double avgAbundance) throws IOException {
-        if (normType != NormType.SL_IRS) { // NONE, MC, GN
+        if (normType != NormType.SL_IRS) {
             switch (type) {
                 case RATIO:
                     writeRatioValues(writer, medians, refIndex);
@@ -358,13 +335,13 @@ public class ReportGenerator {
                 default:
                     throw new IllegalArgumentException("Invalid report type: " + type);
             }
-        } else { // SL, IRS, SL+IRS
+        } else {
             writeAbnValues(writer, medians, refIndex);
         }
     }
 
     private void writeRatioValues(BufferedWriter writer, double[] medians, int refIndex) throws IOException {
-        for (int i = 0; i < medians.length - 1; i++) { // exclude the last one, which is the total reference intensity
+        for (int i = 0; i < medians.length - 1; i++) {
             if (i != refIndex) {
                 if (Double.isNaN(medians[i])) {
                     writer.write("\tNA");

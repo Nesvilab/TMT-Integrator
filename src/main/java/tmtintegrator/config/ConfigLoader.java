@@ -28,6 +28,7 @@ import tmtintegrator.constants.Constants;
 import tmtintegrator.pojo.Index;
 import tmtintegrator.pojo.Parameters;
 import tmtintegrator.pojo.ProteinIndex;
+import tmtintegrator.pojo.Subplex;
 
 /**
  * Load configuration parameters from a YAML file and command line arguments.
@@ -62,8 +63,19 @@ public class ConfigLoader {
             parameters.allow_unlabeled = true;
         }
 
-        if (parameters.isTmt35 && parameters.channelNum != 35) {
-            throw new IllegalArgumentException("The channel number for TMT 35-plex must be " + 35);
+        // Validate: subplexes must be defined
+        if (parameters.subplexes.isEmpty()) {
+            throw new IllegalArgumentException("No subplexes defined. Use 'subplexes' (e.g., subplexes = 18:ref_tag) in the parameter file.");
+        }
+
+        // Validate: sum of plex channel counts must equal channelNum
+        int totalPlexChannels = 0;
+        for (Subplex s : parameters.subplexes) {
+            totalPlexChannels += s.channelCount;
+        }
+        if (totalPlexChannels != parameters.channelNum) {
+            throw new IllegalArgumentException("Sum of subplex channel counts (" + totalPlexChannels
+                    + ") must equal channel_num (" + parameters.channelNum + ")");
         }
 
         if (parameters.useGlycoComposition) {
@@ -135,14 +147,8 @@ public class ConfigLoader {
                 case "channel_num":
                     parameters.channelNum = Integer.parseInt(value);
                     break;
-                case "ref_tag":
-                    parameters.refTag = value;
-                    break;
-                case "ref_d_tag":
-                    parameters.refDTag = value;
-                    break;
-                case "is_tmt_35":
-                    parameters.isTmt35 = Boolean.parseBoolean(value);
+                case "subplexes":
+                    parseSubplexes(value);
                     break;
                 case "groupby":
                     parameters.groupBy = Integer.parseInt(value);
@@ -238,6 +244,22 @@ public class ConfigLoader {
         } catch (Exception e) {
             System.err.println("Error parsing line: " + line);
             throw new RuntimeException("Failed to parse YAML file", e);
+        }
+    }
+
+    private void parseSubplexes(String value) {
+        String[] pairs = value.split(",");
+        for (String pair : pairs) {
+            pair = pair.trim();
+            if (pair.isEmpty()) continue;
+            // format: channelCount:refTag (e.g., "17:tag_d")
+            String[] parts = pair.split(":", 2);
+            if (parts.length != 2) {
+                throw new IllegalArgumentException("Invalid subplex format: " + pair + ". Expected channelCount:refTag");
+            }
+            int channelCount = Integer.parseInt(parts[0].trim());
+            String refTag = parts[1].trim();
+            parameters.subplexes.add(new Subplex(refTag, channelCount));
         }
     }
 

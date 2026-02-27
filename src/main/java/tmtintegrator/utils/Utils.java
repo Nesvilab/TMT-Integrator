@@ -149,29 +149,23 @@ public final class Utils {
     }
 
     /**
-     * Take log and normalize PSM.
-     *
-     * @param psm     PSM file
-     * @param isTmt35 whether the experiment is TMT 35-plex
+     * Take log and normalize PSM (primary channels only).
+     * Subplex channels get normalized when swapped in during the reprocess loop.
      */
-    public static void logNormalizeData(Psm psm, boolean isTmt35) {
+    public static void logNormalizeData(Psm psm) {
         List<PsmRecord> psmRecords = psm.getPsmRecords();
-        // log normalize PSM
         for (PsmRecord psmRecord : psmRecords) {
-            logNormalizePsm(psmRecord, isTmt35);
+            logNormalizePsm(psmRecord);
         }
     }
 
     /**
-     * Normalize PSM by retention time.
-     *
-     * @param psm PSM files
+     * Normalize PSM by retention time (primary channels only).
      */
-    public static void rtNormalizeData(Psm psm, boolean isTmt35) {
+    public static void rtNormalizeData(Psm psm) {
         List<PsmRecord> psmRecords = psm.getPsmRecords();
         Index index = psm.getIndex();
-        // rt normalize PSM
-        rtNormalizePsm(psmRecords, index, isTmt35);
+        rtNormalizePsm(psmRecords, index);
     }
 
     public static String[] getLRStrings(String extPep) {
@@ -233,34 +227,38 @@ public final class Utils {
     }
 
     /**
-     * M2: Calculate average abundance (using global min reference intensity).
-     *
-     * @param fileAbundanceMap map of file to abundance values
-     * @param globalMinRefInt  global minimum reference intensity
-     * @return average abundance
+     * Calculate average abundance for a single plex (used by PsmNormalizer within a per-plex loop).
      */
-    public static double calculateAvgAbundance(Map<String, double[]> fileAbundanceMap, double globalMinRefInt, Parameters parameters) {
+    public static double calculateAvgAbundance(Map<String, double[]> fileAbundanceMap,
+                                               double globalMinRefInt, Parameters parameters) {
         double sumAbundance = 0;
         for (String filename : parameters.fNameLi) {
-            Index index = parameters.indMap.get(filename);
-            double[] medians = fileAbundanceMap.getOrDefault(filename, new double[index.usedChannelNum + 1]);
-            double totalRefInt = medians[medians.length - 1]; // total reference intensity at the end
+            double[] medians = fileAbundanceMap.getOrDefault(filename, new double[1]);
+            double totalRefInt = medians[medians.length - 1];
             sumAbundance += (totalRefInt > 0) ? totalRefInt : globalMinRefInt;
         }
         return sumAbundance / parameters.fNameLi.size();
     }
 
-    public static double calculateAvgAbundance(Map<String, double[]> fileAbundanceMap,
-                                               Map<String, double[]> fileDAbundanceMap,
+    /**
+     * Calculate average abundance across all plex maps (using global min reference intensity).
+     *
+     * @param plexAbundanceMaps list of per-plex file abundance maps
+     * @param globalMinRefInt   global minimum reference intensity
+     * @param parameters        parameters
+     * @return average abundance
+     */
+    public static double calculateAvgAbundance(List<Map<String, double[]>> plexAbundanceMaps,
                                                double globalMinRefInt, Parameters parameters) {
         double sumAbundance = 0;
         for (String filename : parameters.fNameLi) {
             Index index = parameters.indMap.get(filename);
-            double[] medians = fileAbundanceMap.getOrDefault(filename, new double[index.usedChannelNum + 1]);
-            double totalRefInt = medians[medians.length - 1]; // total reference intensity at the end
-            if (parameters.isTmt35) {
-                double[] dMedians = fileDAbundanceMap.getOrDefault(filename, new double[index.usedDChannelNum + 1]);
-                totalRefInt += dMedians[dMedians.length - 1];
+            double totalRefInt = 0;
+            for (int p = 0; p < plexAbundanceMaps.size(); p++) {
+                Map<String, double[]> plexMap = plexAbundanceMaps.get(p);
+                Index.SubplexIndex si = index.subplexIndices.get(p);
+                double[] medians = plexMap.getOrDefault(filename, new double[si.usedChannelNum + 1]);
+                totalRefInt += medians[medians.length - 1];
             }
             sumAbundance += (totalRefInt > 0) ? totalRefInt : globalMinRefInt;
         }
@@ -357,7 +355,7 @@ public final class Utils {
         return ratioList.get(ratioList.size() - 1).ratio;
     }
 
-    private static void logNormalizePsm(PsmRecord psmRecord, boolean isTmt35) {
+    private static void logNormalizePsm(PsmRecord psmRecord) {
         double refIntensity = psmRecord.getRefIntensity();
         double logRefInt = refIntensity > 0 ? Utils.log2(refIntensity) : 0;
         List<Double> channels = psmRecord.getChannels();
@@ -366,20 +364,9 @@ public final class Utils {
             intensity = intensity > 0 ? Utils.log2(intensity) - logRefInt : Double.NaN;
             channels.set(i, intensity);
         }
-
-        if (isTmt35) {
-            double refDIntensity = psmRecord.getDRefIntensity();
-            double logRefDInt = refDIntensity > 0 ? Utils.log2(refDIntensity) : 0;
-            List<Double> dChannels = psmRecord.getDChannels();
-            for (int i = 0; i < dChannels.size(); i++) {
-                double intensity = dChannels.get(i);
-                intensity = intensity > 0 ? Utils.log2(intensity) - logRefDInt : Double.NaN;
-                dChannels.set(i, intensity);
-            }
-        }
     }
 
-    private static void rtNormalizePsm(List<PsmRecord> psmRecords, Index index, boolean isTmt35) {
+    private static void rtNormalizePsm(List<PsmRecord> psmRecords, Index index) {
         double minRt = Double.MAX_VALUE;
         double maxRt = Double.MIN_VALUE;
 
@@ -406,7 +393,7 @@ public final class Utils {
         // normalize PSMs in each bin
         for (Map.Entry<Double, List<PsmRecord>> entry : binMap.entrySet()) {
             List<PsmRecord> binPsmList = entry.getValue();
-            normalizePsmList(binPsmList, index, isTmt35);
+            normalizePsmList(binPsmList, index);
         }
     }
 
@@ -430,25 +417,19 @@ public final class Utils {
         return binMap;
     }
 
-    private static void normalizePsmList(List<PsmRecord> psmRecords, Index index, boolean isTmt35) {
+    private static void normalizePsmList(List<PsmRecord> psmRecords, Index index) {
         // calculate median ratio for each channel
-        double[] medianValues = calculateMedianByChannel(psmRecords, index, false);
+        double[] medianValues = calculateMedianByChannel(psmRecords, index.usedChannelNum, false);
         // subtract median ratio from each channel
         adjustRatiosByMedian(psmRecords, medianValues, false);
-
-        if (isTmt35) {
-            double[] medianDValues = calculateMedianByChannel(psmRecords, index, true);
-            adjustRatiosByMedian(psmRecords, medianDValues, true);
-        }
     }
 
-    private static double[] calculateMedianByChannel(List<PsmRecord> psmRecords, Index index, boolean isTmt35) {
-        int size = isTmt35 ? index.usedDChannelNum : index.usedChannelNum;
+    private static double[] calculateMedianByChannel(List<PsmRecord> psmRecords, int size, boolean unused) {
         double[] medianValues = new double[size];
         for (int j = 0; j < size; j++) {
             List<Double> channelValues = new ArrayList<>();
             for (PsmRecord psmRecord : psmRecords) {
-                double intensity = isTmt35 ? psmRecord.getDChannels().get(j) : psmRecord.getChannels().get(j);
+                double intensity = psmRecord.getChannels().get(j);
                 if (!Double.isNaN(intensity)) {
                     channelValues.add(intensity);
                 }
@@ -458,9 +439,9 @@ public final class Utils {
         return medianValues;
     }
 
-    private static void adjustRatiosByMedian(List<PsmRecord> psmRecords, double[] medianValues, boolean isTmt35) {
+    private static void adjustRatiosByMedian(List<PsmRecord> psmRecords, double[] medianValues, boolean unused) {
         for (PsmRecord psmRecord : psmRecords) {
-            List<Double> channels = isTmt35 ? psmRecord.getDChannels() : psmRecord.getChannels();
+            List<Double> channels = psmRecord.getChannels();
             for (int j = 0; j < channels.size(); j++) {
                 double intensity = channels.get(j);
                 if (!Double.isNaN(intensity)) {
