@@ -29,7 +29,6 @@ import tmtintegrator.pojo.Parameters;
 /**
  * PSM class represents a PSM.tsv file
  */
-
 public class Psm {
 
     private final File psmFile;
@@ -62,14 +61,9 @@ public class Psm {
 
     /**
      * Read PSM file and record title and PSM records
-     *
-     * @param psmFile        PSM file
-     * @param tmtIntensities TMT intensities
-     * @throws IOException if an I/O error occurs
      */
     public void readPsmFile(File psmFile, List<Double> tmtIntensities) throws IOException {
         try (BufferedReader reader = new BufferedReader(new FileReader(psmFile))) {
-            // remove NA channels from title and record it
             String title = reader.readLine();
             title = removeNaChannels(title);
             parameters.titleMap.put(psmFile.getAbsolutePath(), title);
@@ -84,23 +78,24 @@ public class Psm {
     }
 
     /**
-     * Adjust deuterium channel offset for NA channels in non-deuterium channels
+     * Adjust plex channel offsets for NA channels in preceding plexes.
+     * Each plex's NA channels shift all subsequent plex offsets left.
      */
-    public void adjustDChannelOffset() {
-        if (parameters.isTmt35) {
-            int gap = 18 - index.usedChannelNum;
-            index.abnDIndex -= gap;
-            index.refDIndex -= gap;
+    public void adjustPlexChannelOffsets() {
+        int cumulativeGap = 0;
+        for (int i = 0; i < index.subplexIndices.size(); i++) {
+            Index.SubplexIndex si = index.subplexIndices.get(i);
+            si.abnIndex -= cumulativeGap;
+            si.refIndex -= cumulativeGap;
+            int expectedChannels = parameters.subplexes.get(i).channelCount;
+            cumulativeGap += expectedChannels - si.usedChannelNum;
         }
     }
 
     /**
      * Filter out PSMs that are not used in psmMap
-     *
-     * @param psmMap map of PSMs
      */
     public void filterUnUsedPsm(Map<String, List<PsmRecord>> psmMap) {
-        // Filter out PSMs that are not used in psmMap
         psmRecords.clear();
         for (List<PsmRecord> psmList : psmMap.values()) {
             for (PsmRecord psmRecord : psmList) {
@@ -125,14 +120,11 @@ public class Psm {
 
     /**
      * Analyze phospho sites
-     *
-     * @param groupBy group by option
      */
     public void analyzeByGroup(GroupBy groupBy) {
         for (PsmRecord psmRecord : psmRecords) {
             psmRecord.analyzeByGroup(groupBy);
         }
-        // exclude PSMs with isExcluded set
         psmRecords.removeIf(PsmRecord::isExcluded);
     }
 
@@ -146,32 +138,19 @@ public class Psm {
     }
 
     /**
-     * Set deuterium channels (2nd round of TMT-35)
+     * Set the active plex for processing. Sets index fields and PsmRecord active channels.
      */
-    public void setDChannels() {
-        // backup
-        index.copyUsedChannelNum = index.usedChannelNum;
-        index.allChannelOffset = index.abnIndex;
-        index.copyRefIndex = index.refIndex;
-
-        // set deuterium channels
-        index.usedChannelNum = index.usedDChannelNum;
-        index.abnIndex = index.abnDIndex;
-        index.refIndex = index.refDIndex;
+    public void setActivePlex(int plexIdx) {
+        index.setActivePlex(plexIdx);
         for (PsmRecord psmRecord : psmRecords) {
-            psmRecord.setDChannels();
+            psmRecord.setActivePlex(plexIdx);
         }
     }
 
     /**
-     * Reset all modified data for next groupBy
+     * Reset modified fields for next groupBy iteration
      */
     public void reset() {
-        if (parameters.isTmt35) {
-            index.usedChannelNum = index.copyUsedChannelNum;
-            index.abnIndex = index.allChannelOffset;
-            index.refIndex = index.copyRefIndex;
-        }
         for (PsmRecord psmRecord : psmRecords) {
             psmRecord.reset();
         }
@@ -181,7 +160,6 @@ public class Psm {
     private String removeNaChannels(String title) {
         String[] titleArr = title.split("\t");
         StringBuilder newTitle = new StringBuilder();
-        // remove NA channels from title and record NA index
         for (int i = 0; i < titleArr.length; i++) {
             if (!titleArr[i].trim().equalsIgnoreCase("Intensity NA")) {
                 newTitle.append(titleArr[i]).append("\t");
