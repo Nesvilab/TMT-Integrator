@@ -14,9 +14,11 @@
 
 package tmtintegrator.utils;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
@@ -40,10 +42,15 @@ public final class Utils {
     private static final Pattern varModPattern = Pattern.compile("([0-9]+)([A-Z])\\(([0-9.-]+)\\)");
     private static final Pattern nTermModPattern = Pattern.compile("N-term\\(([0-9.-]+)\\)");
     private static final Pattern cTermModPattern = Pattern.compile("C-term\\(([0-9.-]+)\\)");
+    private static final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
     private Utils() {
         // private constructor to prevent instantiation
         throw new AssertionError("The Utils class cannot be instantiated");
+    }
+
+    public static void myPrint(String message, String level) {
+        System.out.println(dateFormat.format(new Date(System.currentTimeMillis())) + " [" + level + "] - " + message);
     }
 
     public static boolean matchLabels(String assignedModifications, float[] labels, float tol) {

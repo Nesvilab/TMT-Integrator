@@ -27,6 +27,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import static tmtintegrator.utils.Utils.myPrint;
+
 import tmtintegrator.constants.Constants;
 import tmtintegrator.constants.GroupBy;
 import tmtintegrator.pojo.Index;
@@ -75,12 +77,15 @@ public class PsmProcessor {
 
         // compute the total reference intensity
         computeTotalRefInt();
+
+        myPrint(groupPsmMap.size() + " unique groups formed (groupBy=" + groupBy.name() + ")", "INFO");
     }
 
     /**
      * Remove outliers from PSMs.
      */
     public void removeOutlier() {
+        int outlierCount = 0;
         for (Map.Entry<String, Map<String, PsmInfo>> groupEntry : groupPsmMap.entrySet()) {
             Map<String, PsmInfo> fileMap = groupEntry.getValue();
             for (Map.Entry<String, PsmInfo> entry : fileMap.entrySet()) {
@@ -89,10 +94,11 @@ public class PsmProcessor {
                 Index index = parameters.indMap.get(filePath);
                 // Only process psmInfo with psmList over threshold for speed
                 if (psmInfo.psmRecords.size() >= Constants.PSM_NUM_THRESHOLD) {
-                    removeOutlierByChannel(psmInfo.psmRecords, index);
+                    outlierCount += removeOutlierByChannel(psmInfo.psmRecords, index);
                 }
             }
         }
+        myPrint(outlierCount + " ratio values removed as outliers", "INFO");
     }
 
     /**
@@ -138,6 +144,8 @@ public class PsmProcessor {
             groupKey = updateGroupKey(groupKey, globalGenePepSeq, maxPeptideProb, assignedModifications);
             groupAbundanceMap.put(groupKey, fileAbundanceMap);
         }
+
+        myPrint(groupAbundanceMap.size() + " entries in abundance map", "INFO");
     }
 
     /**
@@ -197,7 +205,8 @@ public class PsmProcessor {
         }
     }
 
-    private void removeOutlierByChannel(List<PsmRecord> psmRecords, Index index) {
+    private int removeOutlierByChannel(List<PsmRecord> psmRecords, Index index) {
+        int removed = 0;
         for (int j = 0; j < index.usedChannelNum; j++) {
             List<Double> ratios = new ArrayList<>();
             for (PsmRecord psmRecord : psmRecords) {
@@ -215,10 +224,12 @@ public class PsmProcessor {
                     double ratio = psmRecord.getChannels().get(j);
                     if (!Double.isNaN(ratio) && (ratio < iqrBounds[0] || ratio > iqrBounds[1])) {
                         psmRecord.getChannels().set(j, Double.NaN);
+                        removed++;
                     }
                 }
             }
         }
+        return removed;
     }
 
     private double updateMaxPepProbAndProteinMap(PsmInfo psmInfo, double maxPeptideProb,

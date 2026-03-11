@@ -15,6 +15,7 @@
 package tmtintegrator.pojo.psm;
 
 import static tmtintegrator.utils.Utils.matchLabels;
+import static tmtintegrator.utils.Utils.myPrint;
 
 import java.util.*;
 import java.util.regex.Matcher;
@@ -373,7 +374,7 @@ public class PsmRecord {
         try {
             glycanQValue = parameters.glycoQval >= 0 ? Utils.tryParseDouble(fields[index.glycoQvalIndex]) : -1;
         } catch (IndexOutOfBoundsException ex) {
-            System.out.println("Glycan FDR control requested but no such column found. No Glycan FDR applied.");
+            myPrint("Glycan FDR control requested but no such column found. No Glycan FDR applied.", "WARN");
             parameters.glycoQval = -1;
             glycanQValue = -1;
         }

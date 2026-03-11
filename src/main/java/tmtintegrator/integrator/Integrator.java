@@ -14,6 +14,8 @@
 
 package tmtintegrator.integrator;
 
+import static tmtintegrator.utils.Utils.myPrint;
+
 import tmtintegrator.constants.GroupBy;
 import tmtintegrator.constants.NormType;
 import tmtintegrator.pojo.Parameters;
@@ -31,7 +33,6 @@ import java.util.Map;
 public class Integrator {
     private final Parameters parameters;
     private final ReportData reportData;
-    private long phaseStartTime;
 
     public Integrator(Parameters parameters, ReportData reportData) {
         this.parameters = parameters;
@@ -39,8 +40,6 @@ public class Integrator {
     }
 
     public void run(int groupByVal, int protNormVal, List<Psm> psmList) throws IOException {
-        phaseStartTime = System.currentTimeMillis();
-
         GroupBy groupBy = GroupBy.fromValue(groupByVal);
         NormType protNorm = NormType.fromValue(protNormVal);
 
@@ -59,7 +58,7 @@ public class Integrator {
         // Process each plex
         List<Map<String, Map<String, double[]>>> plexAbundanceMaps = new ArrayList<>();
         for (int i = 0; i < parameters.subplexes.size(); i++) {
-            System.out.println("Processing plex " + (i + 1) + " (reference channel: " + parameters.subplexes.get(i).refTag + "):");
+            myPrint("Processing plex " + (i + 1) + " (reference channel: " + parameters.subplexes.get(i).refTag + ")", "INFO");
             for (Psm psm : psmList) {
                 psm.setActivePlex(i);
             }
@@ -75,47 +74,36 @@ public class Integrator {
             psm.reset();
         }
 
-        printTime("Analyzing by group " + groupBy.name());
+        myPrint("Analyzed by group " + groupBy.name(), "INFO");
 
         // Generate reports
         ReportGenerator reporter = new ReportGenerator(parameters, reportData, groupBy, protNorm, plexAbundanceMaps);
         reporter.generateReports();
-
-        printTime("Generate reports");
     }
 
     private Map<String, Map<String, double[]>> normAndQuantification(GroupBy groupBy, NormType protNorm, boolean secondProcess, List<Psm> psmList) {
         PsmProcessor processor = new PsmProcessor(parameters, groupBy);
         processor.groupPsm(psmList);
-        printTime("Group PSM");
 
         if (parameters.outlierRemoval) {
             processor.removeOutlier();
-            printTime("Remove outliers");
         }
 
         processor.collapse();
         Map<String, Map<String, double[]>> groupAbundanceMap = processor.getGroupAbundanceMap();
-        printTime("Collapse");
 
         if (protNorm == NormType.MC || protNorm == NormType.GN || protNorm == NormType.SL_IRS) {
             PsmNormalizer normalizer = new PsmNormalizer(parameters, protNorm);
             normalizer.setGroupAbundanceMap(groupAbundanceMap);
             normalizer.proteinNormalize();
-            printTime("Protein normalization");
+            myPrint("Protein normalization done (type=" + protNorm.name() + ")", "INFO");
         }
 
         if (secondProcess) {
             processor.generateSingleSite();
-            printTime("Second process for single-site");
+            myPrint("Single-site generation done", "INFO");
         }
 
         return groupAbundanceMap;
-    }
-
-    private void printTime(String phase) {
-        long endTime = System.currentTimeMillis();
-        System.out.println(phase + ": " + (endTime - phaseStartTime) + " ms");
-        phaseStartTime = endTime;
     }
 }

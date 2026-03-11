@@ -14,6 +14,8 @@
 
 package tmtintegrator.integrator;
 
+import static tmtintegrator.utils.Utils.myPrint;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -54,6 +56,8 @@ public class PsmPreProcessor {
         for (File psmFile : parameters.fileList) {
             checkPsmFile(psmFile);
         }
+
+        myPrint("Unique genes found across all files: " + parameters.allGeneSet.size(), "INFO");
     }
 
     public void collectProteinInfo() throws IOException {
@@ -74,6 +78,8 @@ public class PsmPreProcessor {
 
     public List<Psm> preprocessPsm() {
         List<Psm> psmList = new ArrayList<>();
+        int totalPsmRead = 0;
+        int totalPsmRetained = 0;
         for (File psmFile : parameters.fileList) {
             try {
                 Psm psm = new Psm(parameters, psmFile);
@@ -81,7 +87,8 @@ public class PsmPreProcessor {
                 psm.readPsmFile(psmFile, tmtIntensities);
                 psm.adjustPlexChannelOffsets();
 
-                double tmtThreshold = calculateTmtThreshold(psm.getPsmRecords().size(), tmtIntensities);
+                int psmReadCount = psm.getPsmRecords().size();
+                double tmtThreshold = calculateTmtThreshold(psmReadCount, tmtIntensities);
 
                 Map<String, List<PsmRecord>> psmMap = new HashMap<>();
                 psmMap.put("NotUsed", new ArrayList<>());
@@ -89,6 +96,8 @@ public class PsmPreProcessor {
 
                 selectBestPsm(psmMap);
                 psm.filterUnUsedPsm(psmMap);
+
+                int psmRetainedCount = psm.getPsmRecords().size();
 
                 // normalize each plex's channels
                 normalizeData(psm);
@@ -98,11 +107,20 @@ public class PsmPreProcessor {
                 }
 
                 psmList.add(psm);
+
+                totalPsmRead += psmReadCount;
+                totalPsmRetained += psmRetainedCount;
+                myPrint(psmFile.getName() + ": " + psmReadCount + " PSMs read, "
+                        + psmRetainedCount + " retained (" + (psmReadCount - psmRetainedCount) + " filtered)"
+                        + ", min_percent=" + parameters.minPercent
+                        + " (bottom " + String.format("%.0f", parameters.minPercent * 100) + "% TMT intensity cutoff="
+                        + String.format("%.1f", tmtThreshold) + ")", "INFO");
             } catch (IOException e) {
-                System.err.println("Error processing PSM file: " + psmFile.getAbsolutePath());
+                myPrint("Error processing PSM file: " + psmFile.getAbsolutePath(), "ERROR");
                 e.printStackTrace();
             }
         }
+        myPrint("Total: " + totalPsmRead + " PSMs read, " + totalPsmRetained + " retained across " + psmList.size() + " files", "INFO");
         return psmList;
     }
 
@@ -143,6 +161,10 @@ public class PsmPreProcessor {
 
             checkAndWarn(totalCount, ms1MissingCount, psmFile, "ms1");
             checkAndWarn(totalCount, geneMissingCount, psmFile, "gene");
+
+            myPrint(psmFile.getName() + ": " + totalCount + " PSMs"
+                    + (ms1MissingCount > 0 ? ", " + ms1MissingCount + " MS1-missing" : "")
+                    + (geneMissingCount > 0 ? ", " + geneMissingCount + " gene-missing" : ""), "INFO");
         }
     }
 
@@ -168,14 +190,14 @@ public class PsmPreProcessor {
             switch (type) {
                 case "ms1":
                     parameters.ms1Int = false;
-                    System.out.println("Warning: All MS1 Intensities in " + psmFile.getAbsolutePath() +
+                    myPrint("All MS1 Intensities in " + psmFile.getAbsolutePath() +
                             " are 0. TMT-Integrator will use summed MS2 reporter ion intensity instead of " +
-                            "MS1 ion intensity as reference intensity for abundance calculation.");
+                            "MS1 ion intensity as reference intensity for abundance calculation.", "WARN");
                     break;
                 case "gene":
                     parameters.geneflag = true;
-                    System.out.println("Warning: No gene report is generated because all gene symbols in " +
-                            psmFile.getAbsolutePath() + " are missing. The protein ID will be used as gene in other reports.");
+                    myPrint("No gene report is generated because all gene symbols in " +
+                            psmFile.getAbsolutePath() + " are missing. The protein ID will be used as gene in other reports.", "WARN");
                     break;
             }
         }
