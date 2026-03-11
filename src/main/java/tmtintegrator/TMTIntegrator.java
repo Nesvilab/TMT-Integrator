@@ -14,6 +14,8 @@
 
 package tmtintegrator;
 
+import static tmtintegrator.utils.Utils.myPrint;
+
 import java.io.IOException;
 import java.util.List;
 
@@ -39,26 +41,21 @@ public class TMTIntegrator {
 
     public static void main(String[] args) throws IOException {
 
-        System.out.println(APP_NAME + " " + APP_VERSION);
-
-        long startTime = System.currentTimeMillis();
+        myPrint(APP_NAME + " " + APP_VERSION, "INFO");
 
         // Process command line arguments
         ArgumentParser argumentParser = new ArgumentParser(args);
 
         // Load parameters from the YAML file
-        long startLoadTime = System.currentTimeMillis();
         ConfigLoader configLoader = new ConfigLoader();
         configLoader.loadParameters(argumentParser.getYamlFile());
         if (argumentParser.isValidateOnly()) {
-            System.out.println("Validating parameters only");
+            myPrint("Validating parameters only", "INFO");
             return;
         }
 
         // Load input files
         configLoader.loadFileList(argumentParser.getInputFiles());
-        long endLoadTime = System.currentTimeMillis();
-        System.out.println("Parameter Loading: " + (endLoadTime - startLoadTime) + " ms");
 
         try {
             TMTIntegrator integrator = new TMTIntegrator(configLoader.getParameters());
@@ -67,32 +64,27 @@ public class TMTIntegrator {
             e.printStackTrace();
             System.exit(1);
         }
-
-        long endTime = System.currentTimeMillis();
-        System.out.println("Execution time: " + (endTime - startTime) + " ms");
     }
 
     // region helper methods
     private void run() throws IOException {
+        param.printAllParameters();
+
         // region check PSM tables, get genes, and build index
-        long start = System.currentTimeMillis();
         PsmPreProcessor processor = new PsmPreProcessor(param, reportData);
         processor.checkPsmAndBuildIndex();
         processor.collectProteinInfo();
-        System.out.println("Check PSM tables, get genes, and build index: " + (System.currentTimeMillis() - start) + " ms");
         // endregion
 
         // region preprocess PSM files
-        start = System.currentTimeMillis();
         List<Psm> psmList = processor.preprocessPsm();
-        System.out.println("Parsing, Filtering and Normalization: " + (System.currentTimeMillis() - start) + " ms");
-        System.out.println("Preprocessing finished.\n");
+        myPrint("Preprocessing finished.", "INFO");
         // endregion
 
         // region integrate PSM files
         if (inValidAbundanceType()) {
-            System.out.println("For raw-based abundance reports, TMT-Integrator only supports " +
-                    "(1) no normlization, and (2) sample loading and internal reference scaling (SL+IRS).");
+            myPrint("For raw-based abundance reports, TMT-Integrator only supports " +
+                    "(1) no normlization, and (2) sample loading and internal reference scaling (SL+IRS).", "WARN");
             return;
         }
         // options for groupBy and protNorm
@@ -121,15 +113,14 @@ public class TMTIntegrator {
             integrator.run(param.groupBy, param.protNorm, psmList);
         } else {
             for (int i = startGroupBy; i <= endGroupBy; i++) {
-                System.out.println("Start to process GroupBy: " + i);
+                myPrint("Start to process GroupBy: " + i, "INFO");
                 integrator.run(i, param.protNorm, psmList);
-                System.out.println("-----------------------------------------------------------------------");
             }
 
             if (endGroupBy == 2 && param.modAA.isEmpty() && "none".equals(param.modTagSet.stream().findFirst().orElse(null))) {
                 // currently the modified peptide reports are only generated when on mod tags are specified because of the integral PSM filtering under multiple criteria
                 int j = 6;
-                System.out.println("Start to process GroupBy: " + j);
+                myPrint("Start to process GroupBy: " + j, "INFO");
                 integrator.run(j, param.protNorm, psmList);
             }
         }
@@ -141,24 +132,20 @@ public class TMTIntegrator {
         if (param.groupBy >= 0) {
             for (int i = 0; i <= normalizationOptions; i++) {
                 if (param.abn_type == 1 && i < 1) {
-                    System.out.println("Start to process protNorm=" + i);
+                    myPrint("Start to process protNorm=" + i, "INFO");
                     integrator.run(param.groupBy, i, psmList);
-                    System.out.println("-----------------------------------------------------------------------");
                 } else if (param.abn_type == 0) {
                     integrator.run(param.groupBy, i, psmList);
-                    System.out.println("-----------------------------------------------------------------------");
                 }
             }
         } else {
             for (int i = startGroupBy; i <= endGroupBy; i++) {
                 for (int j = 0; j <= normalizationOptions; j++) {
                     if ((param.abn_type == 1) && (i < 1 || i >= 3)) {
-                        System.out.println("Start to process GroupBy: " + i + "_protNorm=" + j);
+                        myPrint("Start to process GroupBy: " + i + "_protNorm=" + j, "INFO");
                         integrator.run(i, j, psmList);
-                        System.out.println("-----------------------------------------------------------------------");
                     } else if (param.abn_type == 0) {
                         integrator.run(i, j, psmList);
-                        System.out.println("-----------------------------------------------------------------------");
                     }
                 }
             }

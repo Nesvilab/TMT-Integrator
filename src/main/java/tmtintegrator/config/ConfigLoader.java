@@ -14,6 +14,8 @@
 
 package tmtintegrator.config;
 
+import static tmtintegrator.utils.Utils.myPrint;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -59,7 +61,7 @@ public class ConfigLoader {
         }
 
         if (parameters.labels == null || parameters.labels.length == 0 || (parameters.labels.length == 1 && parameters.labels[0] == 0)) {
-            System.out.println("Warning: The label mass is unknown. The allow_unlabeled parameter will be set to true.");
+            myPrint("The label mass is unknown. The allow_unlabeled parameter will be set to true.", "WARN");
             parameters.allow_unlabeled = true;
         }
 
@@ -80,13 +82,13 @@ public class ConfigLoader {
 
         if (parameters.useGlycoComposition) {
             if (!parameters.isNglyco) {
-                System.out.println("Warning: Indexing on glycan composition is only supported for N-glycans, but O-glyco analysis requested. Switching to mass-based indexing.");
+                myPrint("Indexing on glycan composition is only supported for N-glycans, but O-glyco analysis requested. Switching to mass-based indexing.", "WARN");
                 parameters.useGlycoComposition = false;
             }
         }
 
         if (parameters.minSiteProb < 0 && parameters.modTagSet.stream().noneMatch("none"::equalsIgnoreCase)) {
-            System.out.println("Warning: min_site_prob is ignored (<0) but modification analysis is requested (a mod_tag is specified). Setting min_site_prob to 0. To generate global (non-PTM) reports, set the mod tag to 'none'.");
+            myPrint("min_site_prob is ignored (<0) but modification analysis is requested (a mod_tag is specified). Setting min_site_prob to 0. To generate global (non-PTM) reports, set the mod tag to 'none'.", "WARN");
             parameters.minSiteProb = 0;
         }
     }
@@ -108,7 +110,7 @@ public class ConfigLoader {
             if (proteinFile.exists()) {
                 parameters.proteinFileList.add(proteinFile);
             } else {
-                System.out.println("Protein file not found: " + proteinPath);
+                myPrint("Protein file not found: " + proteinPath, "WARN");
             }
 
             Index index = new Index();
@@ -129,7 +131,7 @@ public class ConfigLoader {
         // Split the line into key and value
         String[] parts = line.split(":", 2);
         if (parts.length < 2) {
-            System.out.println("Error parsing line: " + line + ". Ignore it.");
+            myPrint("Error parsing line: " + line + ". Ignore it.", "WARN");
             return;
         }
 

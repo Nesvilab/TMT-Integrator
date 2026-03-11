@@ -14,6 +14,8 @@
 
 package tmtintegrator.integrator;
 
+import static tmtintegrator.utils.Utils.myPrint;
+
 import tmtintegrator.constants.Constants;
 import tmtintegrator.constants.GroupBy;
 import tmtintegrator.constants.NormType;
@@ -77,10 +79,17 @@ public class ReportGenerator {
 
         String reportPath = generateReportPath(type, groupTag, protNormTag);
 
+        int rowsWritten;
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(reportPath))) {
             writeTitle(writer);
-            writeRatiosOrAbundances(writer, type);
+            rowsWritten = writeRatiosOrAbundances(writer, type);
         }
+
+        Map<String, Map<String, double[]>> firstPlexMap = plexAbundanceMaps.get(0);
+        int totalEntries = firstPlexMap.size();
+        int filtered = totalEntries - rowsWritten;
+        myPrint(reportPath, "INFO");
+        myPrint(rowsWritten + " rows written (" + filtered + " filtered from " + totalEntries + " total)", "INFO");
     }
 
     private String getGroupTag() {
@@ -175,7 +184,7 @@ public class ReportGenerator {
         }
     }
 
-    private void writeRatiosOrAbundances(BufferedWriter writer, ReportType type) throws IOException {
+    private int writeRatiosOrAbundances(BufferedWriter writer, ReportType type) throws IOException {
         double globalMinRefInt = Double.MAX_VALUE;
         for (Map<String, Map<String, double[]>> plexMap : plexAbundanceMaps) {
             globalMinRefInt = Math.min(globalMinRefInt, Utils.calculateGlobalMinRefInt(plexMap));
@@ -184,6 +193,7 @@ public class ReportGenerator {
         // Use first plex map as the key source (all plexes share the same group keys)
         Map<String, Map<String, double[]>> firstPlexMap = plexAbundanceMaps.get(0);
 
+        int rowsWritten = 0;
         for (String groupKey : firstPlexMap.keySet()) {
             boolean isPrint = true;
 
@@ -221,8 +231,10 @@ public class ReportGenerator {
                 }
                 writeData(writer, type, avgAbundance, groupKey);
                 writer.newLine();
+                rowsWritten++;
             }
         }
+        return rowsWritten;
     }
 
     private String updateGroupKeyForSingleSite(String groupKey) {
