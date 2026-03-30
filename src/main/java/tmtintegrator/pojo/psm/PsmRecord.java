@@ -305,9 +305,9 @@ public class PsmRecord {
     private void updateRefIntensity(String[] fields) {
         ReferenceType refType = ReferenceType.fromValue(parameters.add_Ref);
         if (refType == ReferenceType.REAL || refType == ReferenceType.RAW_ABUNDANCE) {
-            refIntensity = Double.parseDouble(fields[index.refIndex]);
+            refIntensity = Double.parseDouble(fields[index.rawRefIndex]);
             if (parameters.isTmt35) {
-                dRefIntensity = Double.parseDouble(fields[index.refDIndex]);
+                dRefIntensity = Double.parseDouble(fields[index.rawRefDIndex]);
             }
         } else {
             parameters.refTag = "Virtual_Reference";

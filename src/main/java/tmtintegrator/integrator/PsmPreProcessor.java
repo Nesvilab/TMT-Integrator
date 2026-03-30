@@ -445,6 +445,7 @@ public class PsmPreProcessor {
                 t++;
             }
         }
+        index.rawRefIndex = index.refIndex; // preserve raw index for reading from unadjusted PSM fields
         index.refIndex -= t;
         index.usedChannelNum = cnum;
     }
@@ -460,6 +461,7 @@ public class PsmPreProcessor {
                 t++;
             }
         }
+        index.rawRefDIndex = index.refDIndex; // preserve raw index for reading from unadjusted PSM fields
         index.refDIndex -= t;
         index.usedDChannelNum = cnum;
         // TODO: adjust abnDIndex after reading all channels

@@ -47,7 +47,9 @@ public class Index {
     public int usedDChannelNum = -1; // number of used deuterium channels
     public int copyUsedChannelNum = -1; // for 2 rounds TMT-35 resetting
     public int refIndex = -1;
+    public int rawRefIndex = -1; // original refIndex before NA-channel adjustment, for reading raw PSM fields
     public int refDIndex = -1; // index of deuterium reference channel
+    public int rawRefDIndex = -1; // original refDIndex before NA-channel adjustment, for reading raw PSM fields
     public int copyRefIndex = -1; // for 2 rounds TMT-35 resetting
     public int abnIndex = -1; // offset for channel intensity
     public int abnDIndex = -1; // offset for deuterium channel intensity
