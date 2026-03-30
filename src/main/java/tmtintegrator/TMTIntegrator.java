@@ -28,7 +28,7 @@ import tmtintegrator.utils.ReportData;
 public class TMTIntegrator {
 
     private final static String APP_NAME = "TMT Integrator";
-    private final static String APP_VERSION = "6.1.3";
+    private final static String APP_VERSION = "6.1.4";
     private final Parameters param;
     private final ReportData reportData;
 
