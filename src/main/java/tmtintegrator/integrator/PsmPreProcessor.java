@@ -57,6 +57,10 @@ public class PsmPreProcessor {
             checkPsmFile(psmFile);
         }
 
+        if (parameters.isHyperplexing) {
+            readCompanionPsmFiles();
+        }
+
         myPrint("Unique genes found across all files: " + parameters.allGeneSet.size(), "INFO");
     }
 
@@ -125,15 +129,51 @@ public class PsmPreProcessor {
     }
 
     // region checkPsmAndBuildIndex helper methods
+
+    /**
+     * For hyperplexing, read companion psm.tsv files to populate extra report columns
+     * (Entry Name, Protein Description, Mapped Genes, Mapped Proteins) that are absent from psm_pair.tsv.
+     */
+    private void readCompanionPsmFiles() throws IOException {
+        for (File psmPairFile : parameters.fileList) {
+            String psmPath = psmPairFile.getAbsolutePath().replace("psm_pair.tsv", "psm.tsv");
+            File psmFile = new File(psmPath);
+            if (!psmFile.exists()) {
+                myPrint("Companion psm.tsv not found: " + psmPath, "WARN");
+                continue;
+            }
+            try (BufferedReader reader = new BufferedReader(new FileReader(psmFile))) {
+                String title = reader.readLine();
+                Index tempIndex = new Index();
+                mapColumnIndex(title.split("\t"), tempIndex);
+
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    String[] fields = line.split("\t", -1);
+                    reportData.updateExtraColumnsFromCompanionPsm(fields, tempIndex);
+                }
+            }
+        }
+    }
     private void checkPsmFile(File psmFile) throws IOException {
         try (BufferedReader reader = new BufferedReader(new FileReader(psmFile))) {
             String title = reader.readLine();
 
-            if (title.contains("Resolution ") && title.contains("SNR ")) {
-                parameters.addIsobaricFilter = true;
-            } else if (title.contains("Resolution ") || title.contains("SNR ")) {
-                System.err.println("Error: Both Resolution and SNR columns should be present in the PSM file.");
-                System.exit(1);
+            if (parameters.isHyperplexing) {
+                // Validate that expected label columns exist
+                for (String label : parameters.hyperplexLabelNames) {
+                    if (!title.contains(label + " Intensity ")) {
+                        throw new IllegalArgumentException("Hyperplexing label '" + label + "' configured but PSM file '"
+                                + psmFile.getName() + "' lacks '" + label + " Intensity' columns.");
+                    }
+                }
+            } else {
+                if (title.contains("Resolution ") && title.contains("SNR ")) {
+                    parameters.addIsobaricFilter = true;
+                } else if (title.contains("Resolution ") || title.contains("SNR ")) {
+                    myPrint("Both Resolution and SNR columns should be present in the PSM file.", "ERROR");
+                    System.exit(1);
+                }
             }
 
             getColumnIndex(title, psmFile);
@@ -171,11 +211,20 @@ public class PsmPreProcessor {
     private boolean isFieldMissing(String[] fields, Index index, String type) {
         switch (type) {
             case "ms1":
-                return Double.parseDouble(fields[index.ms1IntIndex]) == 0;
+                double sum = 0;
+                for (int idx : index.labelMs1IntIndices) {
+                    if (idx >= 0 && idx < fields.length) {
+                        String val = fields[idx].trim();
+                        if (!val.isEmpty()) {
+                            sum += Double.parseDouble(val);
+                        }
+                    }
+                }
+                return sum == 0;
             case "gene":
                 return fields[index.genecIndex].trim().isEmpty();
             default:
-                System.err.println("Invalid type: " + type);
+                myPrint("Invalid type: " + type, "ERROR");
                 return false;
         }
     }
@@ -208,6 +257,18 @@ public class PsmPreProcessor {
         Index index = parameters.indMap.getOrDefault(psmFile.getAbsolutePath(), new Index());
 
         mapColumnIndex(columns, index);
+
+        // For hyperplexing, map standard indices to their hyperplexing equivalents
+        if (parameters.isHyperplexing) {
+            index.pepcIndex = index.labelFreeModifiedPeptideIndex;
+            for (int idx : index.labelSpectrumIndices) {
+                if (idx >= 0) {
+                    index.spectrumIndex = idx;
+                    break;
+                }
+            }
+        }
+
         findChannels(columns, index);
 
         // check reference columns for each plex
@@ -299,7 +360,7 @@ public class PsmPreProcessor {
                     index.proteIndex = i;
                     break;
                 case "Intensity":
-                    index.ms1IntIndex = i;
+                    index.labelMs1IntIndices[0] = i;
                     break;
                 case "Assigned Modifications":
                     index.assignedModcIndex = i;
@@ -343,6 +404,36 @@ public class PsmPreProcessor {
                 case "Glycan q-value":
                     index.glycoQvalIndex = i;
                     break;
+                case "Label Free Modified Peptide":
+                    index.labelFreeModifiedPeptideIndex = i;
+                    break;
+                case "Light Spectrum":
+                    index.labelSpectrumIndices[0] = i;
+                    break;
+                case "Medium Spectrum":
+                    index.labelSpectrumIndices[1] = i;
+                    break;
+                case "Heavy Spectrum":
+                    index.labelSpectrumIndices[2] = i;
+                    break;
+                case "Light Assigned Modifications":
+                    index.labelAssignedModIndices[0] = i;
+                    break;
+                case "Medium Assigned Modifications":
+                    index.labelAssignedModIndices[1] = i;
+                    break;
+                case "Heavy Assigned Modifications":
+                    index.labelAssignedModIndices[2] = i;
+                    break;
+                case "Light Intensity":
+                    index.labelMs1IntIndices[0] = i;
+                    break;
+                case "Medium Intensity":
+                    index.labelMs1IntIndices[1] = i;
+                    break;
+                case "Heavy Intensity":
+                    index.labelMs1IntIndices[2] = i;
+                    break;
                 default:
                     handleComplexCases(column, i, index);
             }
@@ -374,9 +465,22 @@ public class PsmPreProcessor {
     }
 
     private void findChannels(String[] columns, Index index) {
+        if (parameters.isHyperplexing) {
+            findHyperplexingChannels(columns, index);
+        } else {
+            findStandardChannels(columns, index);
+        }
+
+        if (parameters.geneflag) {
+            index.genecIndex = index.proteincIndex;
+        }
+    }
+
+    private void findStandardChannels(String[] columns, Index index) {
+        int resOffset = -1;
+        int snrOffset = -1;
         for (int i = 0; i < columns.length; i++) {
             if (columns[i].startsWith("Intensity ") && index.subplexIndices.isEmpty()) {
-                // compute abnIndex for each plex cumulatively
                 int offset = i;
                 for (Subplex subplex : parameters.subplexes) {
                     Index.SubplexIndex si = new Index.SubplexIndex();
@@ -386,17 +490,66 @@ public class PsmPreProcessor {
                 }
             }
             if (parameters.addIsobaricFilter) {
-                if (index.resOffset < 0 && columns[i].startsWith("Resolution ")) {
-                    index.resOffset = i;
+                if (resOffset < 0 && columns[i].startsWith("Resolution ")) {
+                    resOffset = i;
                 }
-                if (index.snrOffset < 0 && columns[i].startsWith("SNR ")) {
-                    index.snrOffset = i;
+                if (snrOffset < 0 && columns[i].startsWith("SNR ")) {
+                    snrOffset = i;
                 }
             }
         }
 
-        if (parameters.geneflag) {
-            index.genecIndex = index.proteincIndex;
+        for (Index.SubplexIndex si : index.subplexIndices) {
+            si.resOffset = resOffset;
+            si.snrOffset = snrOffset;
+        }
+    }
+
+    private void findHyperplexingChannels(String[] columns, Index index) {
+        int subplexOffset = 0;
+        for (int labelIdx = 0; labelIdx < parameters.hyperplexLabelNames.size(); labelIdx++) {
+            String label = parameters.hyperplexLabelNames.get(labelIdx);
+            int numSubplexes = parameters.hyperplexLabelSubplexCounts.get(labelIdx);
+
+            // Find base column offsets for this label
+            String intensityPrefix = label + " Intensity ";
+            String resPrefix = label + " Resolution ";
+            String snrPrefix = label + " SNR ";
+
+            int abnBase = -1, resBase = -1, snrBase = -1;
+            for (int i = 0; i < columns.length; i++) {
+                String col = columns[i].trim();
+                if (abnBase < 0 && col.startsWith(intensityPrefix) && col.length() > intensityPrefix.length()) {
+                    abnBase = i;
+                }
+                if (resBase < 0 && col.startsWith(resPrefix)) {
+                    resBase = i;
+                }
+                if (snrBase < 0 && col.startsWith(snrPrefix)) {
+                    snrBase = i;
+                }
+            }
+
+            if (abnBase < 0) {
+                throw new IllegalArgumentException("No '" + intensityPrefix + "' columns found for configured label '" + label + "'.");
+            }
+
+            // Create SubplexIndex entries with cumulative offsets within this label
+            int channelOffset = 0;
+            for (int s = 0; s < numSubplexes; s++) {
+                Index.SubplexIndex si = new Index.SubplexIndex();
+                si.abnIndex = abnBase + channelOffset;
+                si.resOffset = resBase >= 0 ? resBase + channelOffset : -1;
+                si.snrOffset = snrBase >= 0 ? snrBase + channelOffset : -1;
+                index.subplexIndices.add(si);
+                channelOffset += parameters.subplexes.get(subplexOffset + s).channelCount;
+            }
+            subplexOffset += numSubplexes;
+        }
+
+        // detect isobaric filter from per-label Resolution/SNR
+        if (index.subplexIndices.stream().anyMatch(si -> si.resOffset >= 0 && si.snrOffset >= 0)) {
+            parameters.addIsobaricFilter = true;
         }
     }
 
@@ -407,7 +560,7 @@ public class PsmPreProcessor {
         int cnum = 0;
         int endIdx = si.abnIndex + channelCount;
         for (int i = si.abnIndex; i < endIdx; i++) {
-            if (notNaColumn(columns[i])) {
+            if (!Psm.isNaChannel(columns[i])) {
                 cnum++;
             } else if (i < si.refIndex) {
                 t++;
@@ -418,11 +571,15 @@ public class PsmPreProcessor {
         si.usedChannelNum = cnum;
     }
 
-    private boolean notNaColumn(String value) {
-        return !value.trim().equalsIgnoreCase("Intensity NA");
+    private void validateColumns(Index index) {
+        if (parameters.isHyperplexing) {
+            validateHyperplexingColumns(index);
+        } else {
+            validateStandardColumns(index);
+        }
     }
 
-    private void validateColumns(Index index) {
+    private void validateStandardColumns(Index index) {
         checkIndex(index.pepcIndex, "Peptide");
         checkIndex(index.pepProbcIndex, "Probability");
         checkIndex(index.assignedModcIndex, "Assigned Modifications");
@@ -433,13 +590,37 @@ public class PsmPreProcessor {
         checkIndex(index.genecIndex, "Gene");
         checkIndex(index.isUniquecIndex, "Is Unique");
         checkIndex(index.rtIndex, "Retention");
-        checkIndex(index.ms1IntIndex, "Intensity");
+        checkIndex(index.labelMs1IntIndices[0], "Intensity");
         checkIndex(index.purityIndex, "Purity");
-        checkIndex(index.peptideIndex, "Peptide");
         checkIndex(index.chargeIndex, "Charge");
         checkIndex(index.observedMzIndex, "Observed M/Z");
         checkIndex(index.pepMassIndex, "Calculated Peptide Mass");
         checkIndex(index.modifiedPeptideIndex, "Modified Peptide");
+    }
+
+    private void validateHyperplexingColumns(Index index) {
+        checkIndex(index.labelFreeModifiedPeptideIndex, "Label Free Modified Peptide");
+        boolean hasAnyLabelSpectrum = false;
+        for (int idx : index.labelSpectrumIndices) {
+            if (idx >= 0) {
+                hasAnyLabelSpectrum = true;
+                break;
+            }
+        }
+        if (!hasAnyLabelSpectrum) {
+            throw new IllegalArgumentException("Missing Light/Medium/Heavy Spectrum columns for hyperplexing format.");
+        }
+        checkIndex(index.pepProbcIndex, "Probability");
+        if (parameters.minSiteProb > 0) {
+            checkIndex(index.ptmLocalcIndex, parameters.columntag);
+        }
+        checkIndex(index.proteinIDcIndex, "Protein");
+        checkIndex(index.genecIndex, "Gene");
+        checkIndex(index.isUniquecIndex, "Is Unique");
+        checkIndex(index.rtIndex, "Retention");
+        checkIndex(index.purityIndex, "Purity");
+        checkIndex(index.observedMzIndex, "Observed M/Z");
+        checkIndex(index.pepMassIndex, "Calculated Peptide Mass");
     }
 
     private void checkIndex(int index, String columnName) {

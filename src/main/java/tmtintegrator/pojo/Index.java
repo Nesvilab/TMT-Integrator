@@ -31,7 +31,6 @@ public class Index {
     public int numEnzyTermi = -1;
     public int protsIndex = -1;
     public int proteIndex = -1;
-    public int ms1IntIndex = -1;
     public int assignedModcIndex = -1;
     public int observedModIndex = -1;
     public int purityIndex = -1;
@@ -46,8 +45,11 @@ public class Index {
     public int ptmLocalcIndex = -1;
     public int glycoCompositionIndex = -1;
     public int glycoQvalIndex = -1;
-    public int resOffset = -1; // offset for channel resolution
-    public int snrOffset = -1; // offset for channel SNR
+    // Hyperplexing specific indices
+    public int labelFreeModifiedPeptideIndex = -1;
+    public int[] labelSpectrumIndices = {-1, -1, -1}; // Light=0, Medium=1, Heavy=2
+    public int[] labelAssignedModIndices = {-1, -1, -1};
+    public int[] labelMs1IntIndices = {-1, -1, -1};
 
     // active plex fields (set by setActivePlex)
     public int usedChannelNum = -1;
@@ -69,5 +71,7 @@ public class Index {
         public int refIndex = -1;
         public int rawRefIndex = -1; // original refIndex before NA-channel adjustment, for reading raw PSM fields
         public int abnIndex = -1;
+        public int resOffset = -1;
+        public int snrOffset = -1;
     }
 }

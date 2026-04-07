@@ -391,7 +391,7 @@ public class PsmProcessor {
 
     static String[] ff(String s1, String s2, String s3, int indexStart, int indexEnd, int indexFirstDot, int indexSecondDot) {
         if (indexStart - indexFirstDot - 1 < 0 || indexSecondDot - indexEnd < 0) {
-            System.err.printf("Error in ff: %s %s %s %d %d %d %d\n", s1, s2, s3, indexStart, indexEnd, indexFirstDot, indexSecondDot);
+            myPrint("Error in ff: " + s1 + " " + s2 + " " + s3 + " " + indexStart + " " + indexEnd + " " + indexFirstDot + " " + indexSecondDot, "ERROR");
         }
 
         String a = "________" + s1;

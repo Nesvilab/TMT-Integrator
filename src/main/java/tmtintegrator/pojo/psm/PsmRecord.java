@@ -51,7 +51,8 @@ public class PsmRecord {
     private int numEnzymaticTermini;
     private int proteinStart;
     private int proteinEnd;
-    private double ms1Intensity;
+    private double totalMs1Intensity; // total MS1 intensity (used as weight for weighted median)
+    private double[] subplexMs1Intensities; // per-subplex MS1 intensities (used by useMS1Intensity)
     private String assignedModifications;
     private String ptmLocalization;
     private double purity;
@@ -65,6 +66,7 @@ public class PsmRecord {
     // region per-plex channel data
     private List<List<Double>> subplexChannels = new ArrayList<>();
     private List<Double> subplexRefIntensities = new ArrayList<>();
+    private double[] subplexTmtSums; // per-subplex raw TMT intensity sums, stored at parse time
     // endregion
 
     // region active plex fields (set by setActivePlex)
@@ -173,7 +175,7 @@ public class PsmRecord {
     }
 
     public double getMs1Intensity() {
-        return ms1Intensity;
+        return totalMs1Intensity;
     }
 
     // endregion
@@ -191,11 +193,16 @@ public class PsmRecord {
      * Parse a PSM record from a line in a PSM.tsv file
      */
     public void parsePsmRecord(String line, List<Double> tmtIntensities, List<Integer> naChannels) {
-        String[] fields = line.split("\t");
-        parseRegularFields(fields);
+        String[] fields = line.split("\t", -1);
+        if (parameters.isHyperplexing) {
+            parseHyperplexingFields(fields);
+        } else {
+            parseStandardFields(fields);
+        }
         pepsIndex = proteinStart - 1;
         passResolutionSnr = passResolutionSnr(fields, naChannels);
         parseChannels(fields, tmtIntensities, naChannels);
+        apportionMs1Intensities(fields);
         updateRefIntensity(fields);
         extractGlycanInfo(fields);
     }
@@ -279,11 +286,92 @@ public class PsmRecord {
     public void useMS1Intensity() {
         for (int i = 0; i < subplexRefIntensities.size(); i++) {
             double ref = subplexRefIntensities.get(i);
-            subplexRefIntensities.set(i, ms1Intensity * (ref / sumTmtIntensity));
+            if (subplexTmtSums[i] > 0) {
+                subplexRefIntensities.set(i, subplexMs1Intensities[i] * (ref / subplexTmtSums[i]));
+            }
         }
     }
 
+    // region Hyperplexing helper methods
+
+    /**
+     * Strip bracket modifications from a modified peptide string.
+     * Removes n[...], c[...], and [...] patterns, leaving only the bare amino acid sequence.
+     */
+    public static String stripBracketMods(String modPeptide) {
+        if (modPeptide == null || modPeptide.isEmpty()) return modPeptide;
+        return modPeptide.replaceAll("n\\[[^\\]]*\\]", "")
+                         .replaceAll("c\\[[^\\]]*\\]", "")
+                         .replaceAll("\\[[^\\]]*\\]", "");
+    }
+
+    /**
+     * Parse charge from a spectrum string. The charge is in the last segment after '.'.
+     * e.g. "file.00123.00123.3" → 3
+     */
+    static int parseChargeFromSpectrum(String spectrum) {
+        if (spectrum == null || spectrum.isEmpty()) {
+            throw new IllegalArgumentException("Spectrum string is null or empty.");
+        }
+        int lastDot = spectrum.lastIndexOf('.');
+        if (lastDot < 0 || lastDot >= spectrum.length() - 1) {
+            throw new IllegalArgumentException("Spectrum string does not contain a charge segment after '.': " + spectrum);
+        }
+        try {
+            return Integer.parseInt(spectrum.substring(lastDot + 1));
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Could not parse charge from spectrum: " + spectrum, e);
+        }
+    }
+
+    // endregion
+
     // region helper methods
+    private void apportionMs1Intensities(String[] fields) {
+        int subplexCount = parameters.subplexes.size();
+        subplexMs1Intensities = new double[subplexCount];
+
+        if (parameters.isHyperplexing) {
+            // Read per-label MS1 and apportion within each label's subplexes by TMT ratio
+            totalMs1Intensity = 0;
+            int subplexOffset = 0;
+            for (int li = 0; li < parameters.hyperplexLabelNames.size(); li++) {
+                int numSubplexes = parameters.hyperplexLabelSubplexCounts.get(li);
+                int arrayIdx = Parameters.labelArrayIndex(parameters.hyperplexLabelNames.get(li));
+                int ms1ColIdx = index.labelMs1IntIndices[arrayIdx];
+                double labelMs1 = 0;
+                if (ms1ColIdx >= 0 && ms1ColIdx < fields.length) {
+                    String val = fields[ms1ColIdx].trim();
+                    if (!val.isEmpty()) {
+                        labelMs1 = Double.parseDouble(val);
+                    }
+                }
+                totalMs1Intensity += labelMs1;
+
+                // Apportion among subplexes within this label
+                double labelTmtSum = 0;
+                for (int s = 0; s < numSubplexes; s++) {
+                    labelTmtSum += subplexTmtSums[subplexOffset + s];
+                }
+                if (labelTmtSum > 0) {
+                    for (int s = 0; s < numSubplexes; s++) {
+                        subplexMs1Intensities[subplexOffset + s] = labelMs1 * (subplexTmtSums[subplexOffset + s] / labelTmtSum);
+                    }
+                }
+                subplexOffset += numSubplexes;
+            }
+        } else {
+            // Standard: apportion total MS1 to each subplex by its share of sumTmtIntensity
+            double totalMs1 = Double.parseDouble(fields[index.labelMs1IntIndices[0]]);
+            totalMs1Intensity = totalMs1;
+            if (sumTmtIntensity > 0) {
+                for (int i = 0; i < subplexCount; i++) {
+                    subplexMs1Intensities[i] = totalMs1 * (subplexTmtSums[i] / sumTmtIntensity);
+                }
+            }
+        }
+    }
+
     private void updateRefIntensity(String[] fields) {
         ReferenceType refType = ReferenceType.fromValue(parameters.add_Ref);
         if (refType == ReferenceType.REAL || refType == ReferenceType.RAW_ABUNDANCE) {
@@ -298,7 +386,7 @@ public class PsmRecord {
         }
     }
 
-    private void parseRegularFields(String[] fields) {
+    private void parseStandardFields(String[] fields) {
         spectrum = fields[index.spectrumIndex];
         peptide = fields[index.peptideIndex];
         extendedPeptide = fields[index.extpepIndex];
@@ -309,7 +397,7 @@ public class PsmRecord {
         numEnzymaticTermini = Integer.parseInt(fields[index.numEnzyTermi]);
         proteinStart = Integer.parseInt(fields[index.protsIndex]);
         proteinEnd = Integer.parseInt(fields[index.proteIndex]);
-        ms1Intensity = Double.parseDouble(fields[index.ms1IntIndex]);
+        subplexMs1Intensities = null; // apportioned after channels are parsed
         assignedModifications = fields[index.assignedModcIndex];
         ptmLocalization = index.ptmLocalcIndex == -1 ? "" : fields[index.ptmLocalcIndex];
         purity = Double.parseDouble(fields[index.purityIndex]);
@@ -322,24 +410,102 @@ public class PsmRecord {
         modifiedPeptide = generateModifiedSequence(peptide, assignedModifications);
     }
 
-    private boolean passResolutionSnr(String[] fields, List<Integer> naChannels) {
-        if (parameters.addIsobaricFilter) {
-            float snrSum = 0;
-            for (int i = 0; i < parameters.channelNum; ++i) {
-                if (!naChannels.contains(index.subplexIndices.get(0).abnIndex + i)) {
-                    snrSum += Float.parseFloat(fields[index.snrOffset + i]);
+    private void parseHyperplexingFields(String[] fields) {
+        // spectrum: first non-empty from label spectrum indices
+        spectrum = "";
+        for (int idx : index.labelSpectrumIndices) {
+            if (idx >= 0 && idx < fields.length) {
+                String val = fields[idx].trim();
+                if (!val.isEmpty()) {
+                    spectrum = val;
+                    break;
                 }
             }
+        }
 
-            if (snrSum < parameters.minSNR) {
+        // Label Free Modified Peptide is the basis for peptide and modifiedPeptide
+        String labelFreeModPep = fields[index.labelFreeModifiedPeptideIndex].trim();
+        peptide = stripBracketMods(labelFreeModPep);
+        modifiedPeptide = labelFreeModPep;
+
+        // Use Light Assigned Modifications (base TMT-labeled form without SILAC mass shifts)
+        assignedModifications = index.labelAssignedModIndices[0] >= 0
+                ? fields[index.labelAssignedModIndices[0]].trim()
+                : "";
+
+        charge = parseChargeFromSpectrum(spectrum);
+
+        // MS1 intensities are apportioned per-label after channels are parsed
+        subplexMs1Intensities = null;
+
+        // fields read identically to standard format
+        extendedPeptide = index.extpepIndex >= 0 ? fields[index.extpepIndex] : "";
+        retention = Double.parseDouble(fields[index.rtIndex]);
+        calculatedPepMass = Double.parseDouble(fields[index.pepMassIndex]);
+        probability = Double.parseDouble(fields[index.pepProbcIndex]);
+        numEnzymaticTermini = index.numEnzyTermi >= 0 ? Integer.parseInt(fields[index.numEnzyTermi]) : 2;
+        proteinStart = index.protsIndex >= 0 ? Integer.parseInt(fields[index.protsIndex]) : 0;
+        proteinEnd = index.proteIndex >= 0 ? Integer.parseInt(fields[index.proteIndex]) : 0;
+        ptmLocalization = index.ptmLocalcIndex == -1 ? "" : fields[index.ptmLocalcIndex];
+        purity = Double.parseDouble(fields[index.purityIndex]);
+        isUnique = Boolean.parseBoolean(fields[index.isUniquecIndex]);
+        protein = fields[index.proteincIndex];
+        proteinId = fields[index.proteinIDcIndex];
+        gene = fields[index.genecIndex];
+        mappedGenes = index.mapGeneIndex == -1 ? "" : fields[index.mapGeneIndex];
+    }
+
+    private boolean passResolutionSnr(String[] fields, List<Integer> naChannels) {
+        if (!parameters.addIsobaricFilter) {
+            return true;
+        }
+        if (parameters.isHyperplexing) {
+            // Check each sub-plex separately
+            for (int p = 0; p < parameters.subplexes.size(); p++) {
+                Index.SubplexIndex si = index.subplexIndices.get(p);
+                if (si.snrOffset < 0 || si.resOffset < 0) {
+                    continue;
+                }
+                int channelCount = parameters.subplexes.get(p).channelCount;
+                if (!passResSnrRange(fields, naChannels, si.abnIndex, si.resOffset, si.snrOffset, channelCount)) {
+                    return false;
+                }
+            }
+        } else {
+            // Standard: check all channels together using the shared offsets
+            Index.SubplexIndex first = index.subplexIndices.get(0);
+            if (first.snrOffset < 0 || first.resOffset < 0) {
+                return true;
+            }
+            int totalChannels = parameters.subplexes.stream().mapToInt(s -> s.channelCount).sum();
+            if (!passResSnrRange(fields, naChannels, first.abnIndex, first.resOffset, first.snrOffset, totalChannels)) {
                 return false;
-            } else {
-                for (int i = 0; i < parameters.channelNum; ++i) {
-                    if (!naChannels.contains(index.subplexIndices.get(0).abnIndex + i)
-                            && Integer.parseInt(fields[index.resOffset + i]) < parameters.minResolution
-                            && Float.parseFloat(fields[index.snrOffset + i]) >= 1) {
-                        return false;
-                    }
+            }
+        }
+        return true;
+    }
+
+    private boolean passResSnrRange(String[] fields, List<Integer> naChannels, int abnIndex, int resOffset, int snrOffset, int channelCount) {
+        float snrSum = 0;
+        for (int i = 0; i < channelCount; ++i) {
+            if (!naChannels.contains(abnIndex + i)) {
+                String snrVal = fields[snrOffset + i].trim();
+                if (!snrVal.isEmpty()) {
+                    snrSum += Float.parseFloat(snrVal);
+                }
+            }
+        }
+        if (snrSum < parameters.minSNR) {
+            return false;
+        }
+        for (int i = 0; i < channelCount; ++i) {
+            if (!naChannels.contains(abnIndex + i)) {
+                String snrVal = fields[snrOffset + i].trim();
+                String resVal = fields[resOffset + i].trim();
+                if (!snrVal.isEmpty() && !resVal.isEmpty()
+                        && Integer.parseInt(resVal) < parameters.minResolution
+                        && Float.parseFloat(snrVal) >= 1) {
+                    return false;
                 }
             }
         }
@@ -348,23 +514,25 @@ public class PsmRecord {
 
     private void parseChannels(String[] fields, List<Double> tmtIntensities, List<Integer> naChannels) {
         double sum = 0;
-        for (int p = 0; p < parameters.subplexes.size(); p++) {
+        int subplexCount = parameters.subplexes.size();
+        subplexTmtSums = new double[subplexCount];
+        for (int p = 0; p < subplexCount; p++) {
             Index.SubplexIndex si = index.subplexIndices.get(p);
             int channelCount = parameters.subplexes.get(p).channelCount;
             List<Double> plexChannels = new ArrayList<>();
+            double plexSum = 0;
             for (int i = 0; i < channelCount; i++) {
-                try {
-                    if (naChannels.contains(si.abnIndex + i)) {
-                        continue;
-                    }
-                    double intensity = Double.parseDouble(fields[si.abnIndex + i]);
-                    plexChannels.add(intensity);
-                    sum += intensity;
-                } catch (NumberFormatException e) {
-                    throw new IllegalArgumentException("Invalid TMT intensity value: " + fields[si.abnIndex + i]);
+                if (naChannels.contains(si.abnIndex + i)) {
+                    continue;
                 }
+                String val = fields[si.abnIndex + i].trim();
+                double intensity = val.isEmpty() ? 0 : Double.parseDouble(val);
+                plexChannels.add(intensity);
+                plexSum += intensity;
             }
             subplexChannels.add(plexChannels);
+            subplexTmtSums[p] = plexSum;
+            sum += plexSum;
         }
         tmtIntensities.add(sum);
         sumTmtIntensity = sum;
@@ -732,7 +900,7 @@ public class PsmRecord {
             int closeIdx = mod.indexOf(')');
 
             if (openIdx == -1 || closeIdx == -1 || closeIdx < openIdx) {
-                System.err.println("Warning: Could not parse assigned modification: " + mod + " for spectrum " + spectrum);
+                myPrint("Could not parse assigned modification: " + mod + " for spectrum " + spectrum, "ERROR");
                 System.exit(1);
             }
 
@@ -773,7 +941,7 @@ public class PsmRecord {
         }
 
         if (modMap.containsKey(seqLen + 1)) {
-            modifiedSequence.append("c").append(modMap.get(0));
+            modifiedSequence.append("c").append(modMap.get(seqLen + 1));
         }
 
         return modifiedSequence.toString();

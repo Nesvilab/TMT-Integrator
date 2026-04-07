@@ -19,6 +19,7 @@ import tmtintegrator.pojo.ExtraPsmInfo;
 import tmtintegrator.pojo.Index;
 import tmtintegrator.pojo.ProteinIndex;
 import tmtintegrator.pojo.ReportInfo;
+import tmtintegrator.pojo.psm.PsmRecord;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -84,9 +85,22 @@ public class ReportData {
         }
     }
 
+    /**
+     * Populate extra report columns from companion psm.tsv for hyperplexing.
+     * Always overwrites extra fields since psm_pair.tsv lacks these columns.
+     */
+    public void updateExtraColumnsFromCompanionPsm(String[] fields, Index index) {
+        String peptide = PsmRecord.stripBracketMods(fields[index.pepcIndex]);
+        ExtraPsmInfo extraPsmInfo = extraPsmInfoMap.computeIfAbsent(peptide, k -> new ExtraPsmInfo());
+        extraPsmInfo.setEntryName(getFieldOrEmpty(fields, index.entryNameIndex));
+        extraPsmInfo.setProteinDesc(getFieldOrEmpty(fields, index.proteinDescIndex));
+        extraPsmInfo.setMappedGenes(getFieldOrEmpty(fields, index.mapGeneIndex));
+        extraPsmInfo.setMappedProteins(getFieldOrEmpty(fields, index.mappedProteinsIndex));
+    }
+
     // region helper methods
     private void updateExtraPsmInfoMap(String[] fields, Index index) {
-        String peptide = fields[index.pepcIndex];
+        String peptide = PsmRecord.stripBracketMods(fields[index.pepcIndex]);
         ExtraPsmInfo extraPsmInfo = extraPsmInfoMap.computeIfAbsent(peptide, k -> new ExtraPsmInfo());
 
         extraPsmInfo.addSpectrum(fields[index.spectrumIndex]);
@@ -94,12 +108,16 @@ public class ReportData {
         if (extraPsmInfo.getSpectrums().size() == 1) {
             // Only update the first time
             extraPsmInfo.setProtein(fields[index.proteincIndex]);
-            extraPsmInfo.setEntryName(fields[index.entryNameIndex]);
+            extraPsmInfo.setEntryName(getFieldOrEmpty(fields, index.entryNameIndex));
             extraPsmInfo.setGene(fields[index.genecIndex]);
-            extraPsmInfo.setProteinDesc(fields[index.proteinDescIndex]);
-            extraPsmInfo.setMappedGenes(fields[index.mapGeneIndex]);
-            extraPsmInfo.setMappedProteins(fields[index.mappedProteinsIndex]);
+            extraPsmInfo.setProteinDesc(getFieldOrEmpty(fields, index.proteinDescIndex));
+            extraPsmInfo.setMappedGenes(getFieldOrEmpty(fields, index.mapGeneIndex));
+            extraPsmInfo.setMappedProteins(getFieldOrEmpty(fields, index.mappedProteinsIndex));
         }
+    }
+
+    private static String getFieldOrEmpty(String[] fields, int index) {
+        return index >= 0 && index < fields.length ? fields[index] : "";
     }
 
     private void updateProteinMap(String[] fields, Index index) {
@@ -108,9 +126,9 @@ public class ReportData {
 
         // Assume these fields are unique for each protein ID
         extraPsmInfo.setProtein(fields[index.proteincIndex]);
-        extraPsmInfo.setEntryName(fields[index.entryNameIndex]);
+        extraPsmInfo.setEntryName(getFieldOrEmpty(fields, index.entryNameIndex));
         extraPsmInfo.setGene(fields[index.genecIndex]);
-        extraPsmInfo.setProteinDesc(fields[index.proteinDescIndex]);
+        extraPsmInfo.setProteinDesc(getFieldOrEmpty(fields, index.proteinDescIndex));
     }
     // endregion
 }

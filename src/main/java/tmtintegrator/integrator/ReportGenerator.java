@@ -179,7 +179,12 @@ public class ReportGenerator {
     private void writeChannelsTitle(BufferedWriter writer, int startIdx, int endIdx, String refTag, String[] titles) throws IOException {
         for (int i = startIdx; i < endIdx; i++) {
             if (!titles[i].contains(refTag)) {
-                writer.write("\t" + titles[i].replace(" Abundance", "").replace("Intensity ", ""));
+                String header = titles[i].replace(" Abundance", "");
+                header = header.replace("Light Intensity ", "")
+                               .replace("Medium Intensity ", "")
+                               .replace("Heavy Intensity ", "")
+                               .replace("Intensity ", "");
+                writer.write("\t" + header);
             }
         }
     }

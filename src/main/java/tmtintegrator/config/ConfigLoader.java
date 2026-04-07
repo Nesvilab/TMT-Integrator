@@ -21,7 +21,10 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.stream.Collectors;
@@ -36,7 +39,10 @@ import tmtintegrator.pojo.Subplex;
  * Load configuration parameters from a YAML file and command line arguments.
  */
 public class ConfigLoader {
+    private static final String[] CANONICAL_LABEL_ORDER = {"Light", "Medium", "Heavy"};
+
     private final Parameters parameters;
+    private final Map<String, List<Subplex>> labelSubplexMap = new LinkedHashMap<>();
 
     public ConfigLoader() {
         this.parameters = new Parameters();
@@ -65,19 +71,20 @@ public class ConfigLoader {
             parameters.allow_unlabeled = true;
         }
 
-        // Validate: subplexes must be defined
-        if (parameters.subplexes.isEmpty()) {
-            throw new IllegalArgumentException("No subplexes defined. Use 'subplexes' (e.g., subplexes = 18:ref_tag) in the parameter file.");
+        // Build flat subplex list from label keys
+        if (labelSubplexMap.isEmpty()) {
+            throw new IllegalArgumentException("No subplexes defined. Use 'light_subplex' (e.g., light_subplex = 18:ref_tag) in the parameter file.");
         }
-
-        // Validate: sum of plex channel counts must equal channelNum
-        int totalPlexChannels = 0;
-        for (Subplex s : parameters.subplexes) {
-            totalPlexChannels += s.channelCount;
+        for (String label : CANONICAL_LABEL_ORDER) {
+            if (labelSubplexMap.containsKey(label)) {
+                List<Subplex> subs = labelSubplexMap.get(label);
+                parameters.hyperplexLabelNames.add(label);
+                parameters.hyperplexLabelSubplexCounts.add(subs.size());
+                parameters.subplexes.addAll(subs);
+            }
         }
-        if (totalPlexChannels != parameters.channelNum) {
-            throw new IllegalArgumentException("Sum of subplex channel counts (" + totalPlexChannels
-                    + ") must equal channel_num (" + parameters.channelNum + ")");
+        if (labelSubplexMap.size() > 1) {
+            parameters.isHyperplexing = true;
         }
 
         if (parameters.useGlycoComposition) {
@@ -105,7 +112,8 @@ public class ConfigLoader {
             String absolutePath = file.getAbsolutePath();
             parameters.fNameLi.add(absolutePath);
             // Check existence of protein.tsv file in the same folder and record if exists
-            String proteinPath = absolutePath.replace("psm.tsv", "protein.tsv");
+            String proteinPath = absolutePath.replace("psm_pair.tsv", "protein.tsv")
+                    .replace("psm.tsv", "protein.tsv");
             File proteinFile = new File(proteinPath);
             if (proteinFile.exists()) {
                 parameters.proteinFileList.add(proteinFile);
@@ -146,11 +154,15 @@ public class ConfigLoader {
                 case "combined_protein":
                     parameters.combinedF = new File(value);
                     break;
-                case "channel_num":
-                    parameters.channelNum = Integer.parseInt(value);
-                    break;
-                case "subplexes":
-                    parseSubplexes(value);
+                case "light_subplex":
+                case "medium_subplex":
+                case "heavy_subplex":
+                    String labelName = key.split("_")[0];
+                    labelName = labelName.substring(0, 1).toUpperCase() + labelName.substring(1);
+                    if (labelSubplexMap.containsKey(labelName)) {
+                        throw new IllegalArgumentException("Duplicate label key: " + key);
+                    }
+                    labelSubplexMap.put(labelName, parseSubplexPairs(value));
                     break;
                 case "groupby":
                     parameters.groupBy = Integer.parseInt(value);
@@ -244,12 +256,13 @@ public class ConfigLoader {
                     break;
             }
         } catch (Exception e) {
-            System.err.println("Error parsing line: " + line);
+            myPrint("Error parsing line: " + line, "ERROR");
             throw new RuntimeException("Failed to parse YAML file", e);
         }
     }
 
-    private void parseSubplexes(String value) {
+    private List<Subplex> parseSubplexPairs(String value) {
+        List<Subplex> result = new ArrayList<>();
         String[] pairs = value.split(",");
         for (String pair : pairs) {
             pair = pair.trim();
@@ -261,8 +274,9 @@ public class ConfigLoader {
             }
             int channelCount = Integer.parseInt(parts[0].trim());
             String refTag = parts[1].trim();
-            parameters.subplexes.add(new Subplex(refTag, channelCount));
+            result.add(new Subplex(refTag, channelCount));
         }
+        return result;
     }
 
     private void handleModTag(String value) {

@@ -24,7 +24,6 @@ import java.util.*;
 public class Parameters {
     public String reportPath;
     public File combinedF;
-    public int channelNum;
     public List<Subplex> subplexes = new ArrayList<>();
     public int groupBy;
     public boolean psmNorm;
@@ -60,6 +59,9 @@ public class Parameters {
     public int minResolution = Constants.DEFAULT_MIN_RESOLUTION;
     public float minSNR = Constants.DEFAULT_MIN_SNR;
     public boolean addIsobaricFilter = false;
+    public boolean isHyperplexing = false;
+    public List<String> hyperplexLabelNames = new ArrayList<>(); // e.g. ["Light", "Heavy"]
+    public List<Integer> hyperplexLabelSubplexCounts = new ArrayList<>(); // e.g. [2, 2] for TMT-35
 
     public List<File> fileList = new ArrayList<>();
     public List<File> proteinFileList = new ArrayList<>();
@@ -72,10 +74,23 @@ public class Parameters {
     public void printAllParameters() {
         myPrint("=== Parameters ===", "INFO");
         myPrint("  output: " + reportPath, "INFO");
-        myPrint("  channel_num: " + channelNum, "INFO");
-        for (int i = 0; i < subplexes.size(); i++) {
-            Subplex s = subplexes.get(i);
-            myPrint("  subplex " + (i + 1) + ": " + s.channelCount + " channels, ref_tag=" + s.refTag, "INFO");
+        myPrint("  channel_num: " + subplexes.stream().mapToInt(s -> s.channelCount).sum(), "INFO");
+        myPrint("  is_hyperplexing: " + isHyperplexing, "INFO");
+        if (isHyperplexing) {
+            int offset = 0;
+            for (int li = 0; li < hyperplexLabelNames.size(); li++) {
+                int count = hyperplexLabelSubplexCounts.get(li);
+                for (int si = 0; si < count; si++) {
+                    Subplex s = subplexes.get(offset + si);
+                    myPrint("  " + hyperplexLabelNames.get(li) + " subplex " + (si + 1) + ": " + s.channelCount + " channels, ref_tag=" + s.refTag, "INFO");
+                }
+                offset += count;
+            }
+        } else {
+            for (int i = 0; i < subplexes.size(); i++) {
+                Subplex s = subplexes.get(i);
+                myPrint("  subplex " + (i + 1) + ": " + s.channelCount + " channels, ref_tag=" + s.refTag, "INFO");
+            }
         }
         myPrint("  groupby: " + groupBy, "INFO");
         myPrint("  psm_norm: " + psmNorm, "INFO");
@@ -117,5 +132,17 @@ public class Parameters {
         myPrint("  min_snr: " + minSNR, "INFO");
         myPrint("  input files: " + fileList.size(), "INFO");
         myPrint("==================", "INFO");
+    }
+
+    /**
+     * Map a SILAC label name to its fixed array index in Index.labelMs1IntIndices / labelSpectrumIndices / etc.
+     */
+    public static int labelArrayIndex(String labelName) {
+        switch (labelName) {
+            case "Light": return 0;
+            case "Medium": return 1;
+            case "Heavy": return 2;
+            default: throw new IllegalArgumentException("Unknown hyperplexing label: " + labelName);
+        }
     }
 }

@@ -161,13 +161,21 @@ public class Psm {
         String[] titleArr = title.split("\t");
         StringBuilder newTitle = new StringBuilder();
         for (int i = 0; i < titleArr.length; i++) {
-            if (!titleArr[i].trim().equalsIgnoreCase("Intensity NA")) {
+            if (!isNaChannel(titleArr[i])) {
                 newTitle.append(titleArr[i]).append("\t");
             } else {
                 naChannels.add(i);
             }
         }
         return newTitle.toString().trim();
+    }
+
+    public static boolean isNaChannel(String columnName) {
+        String trimmed = columnName.trim().toLowerCase();
+        return trimmed.equals("intensity na")
+                || trimmed.equals("light intensity na")
+                || trimmed.equals("medium intensity na")
+                || trimmed.equals("heavy intensity na");
     }
     // endregion
 }
