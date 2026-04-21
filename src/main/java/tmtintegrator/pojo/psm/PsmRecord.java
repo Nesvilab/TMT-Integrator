@@ -376,7 +376,8 @@ public class PsmRecord {
         ReferenceType refType = ReferenceType.fromValue(parameters.add_Ref);
         if (refType == ReferenceType.REAL || refType == ReferenceType.RAW_ABUNDANCE) {
             for (Index.SubplexIndex si : index.subplexIndices) {
-                subplexRefIntensities.add(Double.parseDouble(fields[si.rawRefIndex]));
+                String val = fields[si.rawRefIndex].trim();
+                subplexRefIntensities.add(val.isEmpty() ? 0.0 : Double.parseDouble(val));
             }
         } else {
             for (Subplex s : parameters.subplexes) {
