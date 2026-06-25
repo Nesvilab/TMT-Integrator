@@ -364,8 +364,16 @@ public final class Utils {
 
     private static void logNormalizePsm(PsmRecord psmRecord) {
         double refIntensity = psmRecord.getRefIntensity();
-        double logRefInt = refIntensity > 0 ? Utils.log2(refIntensity) : 0;
         List<Double> channels = psmRecord.getChannels();
+        if (refIntensity <= 0) {
+            // No reference for this plex: channel ratios are undefined, so this plex contributes
+            // no values for the PSM. (A PSM reaching here has a valid reference in another plex.)
+            for (int i = 0; i < channels.size(); i++) {
+                channels.set(i, Double.NaN);
+            }
+            return;
+        }
+        double logRefInt = Utils.log2(refIntensity);
         for (int i = 0; i < channels.size(); i++) {
             double intensity = channels.get(i);
             intensity = intensity > 0 ? Utils.log2(intensity) - logRefInt : Double.NaN;

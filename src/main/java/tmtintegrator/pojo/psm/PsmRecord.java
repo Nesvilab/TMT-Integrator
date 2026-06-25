@@ -238,13 +238,6 @@ public class PsmRecord {
      * Check if the PSM entry passes the criteria
      */
     public boolean isPassCriteria(double tmtThreshold) {
-        boolean passAllRefs = true;
-        for (double ref : subplexRefIntensities) {
-            if (ref <= 0) {
-                passAllRefs = false;
-                break;
-            }
-        }
         return passResolutionSnr &&
             purity >= parameters.minPurity &&
             probability >= parameters.minPepProb &&
@@ -255,7 +248,36 @@ public class PsmRecord {
             proteinExclusionFlag &&
             geneCategory >= parameters.uniqueGene &&
             numEnzymaticTermini >= parameters.min_ntt &&
-            passAllRefs;
+            passReferenceCriteria();
+    }
+
+    /**
+     * Whether the PSM has acceptable sub-plex reference intensities.
+     *
+     * <p>For hyperplexing (SILAC light/medium/heavy), the labels are separate labelings and a
+     * peptide is routinely detected in only a subset of them, so the PSM is kept if ANY sub-plex
+     * has a usable reference; it is quantified in the labels where it has one and contributes NaN
+     * elsewhere (see {@link tmtintegrator.utils.Utils} {@code logNormalizePsm}).
+     *
+     * <p>Otherwise (standard TMT, including multi-sub-plex TMT-35), every configured sub-plex shares
+     * the same pooled reference, so ALL sub-plex references are required to be positive. For a single
+     * plex both rules reduce to requiring the one reference {@code > 0}.
+     */
+    private boolean passReferenceCriteria() {
+        if (parameters.isHyperplexing) {
+            for (double ref : subplexRefIntensities) {
+                if (ref > 0) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        for (double ref : subplexRefIntensities) {
+            if (ref <= 0) {
+                return false;
+            }
+        }
+        return true;
     }
 
     public String generatePsmKey() {
@@ -384,6 +406,38 @@ public class PsmRecord {
                 s.refTag = "Virtual_Reference";
             }
             computeVirtualReference(refType);
+        }
+        if (parameters.isHyperplexing) {
+            maskIncompleteLabels();
+        }
+    }
+
+    /**
+     * For hyperplexing, a label (light/medium/heavy) may itself contain several sub-plexes
+     * (e.g. TMT-35 = an "aaa" and a "ddd" set) that share one pooled reference. Such a label is
+     * quantifiable only if ALL of its sub-plexes have a reference; if any is missing, the whole
+     * label is unusable. Zero out the references of every incomplete label so that (a) the
+     * any-reference keep-check in {@link #passReferenceCriteria()} counts only fully-referenced
+     * labels and (b) the incomplete label's channels are dropped to NaN during log-normalization
+     * (its reference is now 0). Labels with a single sub-plex (e.g. plain light/medium/heavy) and
+     * fully-referenced labels are left unchanged.
+     */
+    private void maskIncompleteLabels() {
+        int offset = 0;
+        for (int count : parameters.hyperplexLabelSubplexCounts) {
+            boolean labelComplete = true;
+            for (int s = 0; s < count; s++) {
+                if (subplexRefIntensities.get(offset + s) <= 0) {
+                    labelComplete = false;
+                    break;
+                }
+            }
+            if (!labelComplete) {
+                for (int s = 0; s < count; s++) {
+                    subplexRefIntensities.set(offset + s, 0.0);
+                }
+            }
+            offset += count;
         }
     }
 

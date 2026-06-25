@@ -11,6 +11,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -790,6 +791,241 @@ class PsmRecordTest {
             record.parsePsmRecord(String.join("\t", fields), new ArrayList<>(), new ArrayList<>());
 
             assertTrue((boolean) getField(record, "passResolutionSnr"));
+        }
+    }
+
+    @Nested
+    class IsPassCriteriaTest {
+
+        /**
+         * Build a hyperplexing record (Light + Heavy plexes, summation reference) that passes every
+         * non-reference criterion, with the given channel intensities so each plex's summation
+         * reference can be controlled (a plex with all-zero channels has a zero reference).
+         */
+        private PsmRecord buildHyperplexRecord(String light1, String light2, String light3,
+                                               String heavy1, String heavy2, String heavy3) {
+            Parameters params = buildHyperplexingParams();
+            params.modTagSet.add("none"); // make modificationFlag pass
+            Index index = buildHyperplexingIndex();
+            PsmRecord record = new PsmRecord(params, index);
+            String[] fields = buildHyperplexingFields();
+            fields[15] = light1;
+            fields[16] = light2;
+            fields[17] = light3;
+            fields[18] = heavy1;
+            fields[19] = heavy2;
+            fields[20] = heavy3;
+            record.parsePsmRecord(String.join("\t", fields), new ArrayList<>(), new ArrayList<>());
+            record.updateFlags(new HashSet<>());
+            return record;
+        }
+
+        private PsmRecord buildStandardRecord(String... channelValues) {
+            Parameters params = buildStandardParams();
+            params.modTagSet.add("none");
+            Index index = buildStandardIndex();
+            PsmRecord record = new PsmRecord(params, index);
+            String[] fields = buildStandardFields();
+            for (int i = 0; i < channelValues.length; i++) {
+                fields[17 + i] = channelValues[i];
+            }
+            record.parsePsmRecord(String.join("\t", fields), new ArrayList<>(), new ArrayList<>());
+            record.updateFlags(new HashSet<>());
+            return record;
+        }
+
+        @Test
+        void keepsHyperplexPsmWhenOnlyOnePlexReferenceMissing() {
+            // Light plex reference (summation) = 0, Heavy reference > 0. A peptide quantified only in
+            // the Heavy label must be retained — it is recoverable in the Heavy plex.
+            PsmRecord record = buildHyperplexRecord("0", "0", "0", "4000", "5000", "6000");
+            assertTrue(record.isPassCriteria(0));
+        }
+
+        @Test
+        void dropsHyperplexPsmWhenAllPlexReferencesMissing() {
+            // No plex has a usable reference -> nothing to quantify anywhere -> drop the PSM.
+            PsmRecord record = buildHyperplexRecord("0", "0", "0", "0", "0", "0");
+            assertFalse(record.isPassCriteria(0));
+        }
+
+        @Test
+        void keepsHyperplexPsmWhenAllPlexReferencesPresent() {
+            PsmRecord record = buildHyperplexRecord("1000", "2000", "3000", "4000", "5000", "6000");
+            assertTrue(record.isPassCriteria(0));
+        }
+
+        @Test
+        void dropsStandardPsmWhenReferenceMissing() {
+            // Standard single-plex: a zero reference must still drop the PSM (unchanged behavior).
+            PsmRecord record = buildStandardRecord("0", "0", "0", "0", "0", "0");
+            assertFalse(record.isPassCriteria(0));
+        }
+
+        @Test
+        void keepsStandardPsmWhenReferencePresent() {
+            PsmRecord record = buildStandardRecord("1000", "2000", "3000", "4000", "5000", "6000");
+            assertTrue(record.isPassCriteria(0));
+        }
+
+        /**
+         * Build a non-hyperplexing record with two sub-plexes (e.g. TMT-35: an 18-channel and a
+         * 17-channel set, here simplified to 3 + 3). Each sub-plex's summation reference is the sum
+         * of its own channels, so a sub-plex with all-zero channels has a zero reference.
+         */
+        private PsmRecord buildTwoSubplexStandardRecord(String s1c1, String s1c2, String s1c3,
+                                                        String s2c1, String s2c2, String s2c3) {
+            Parameters params = new Parameters();
+            params.isHyperplexing = false;
+            params.addIsobaricFilter = false;
+            params.add_Ref = 0; // summation virtual reference
+            params.glycoQval = -1;
+            params.allow_unlabeled = true;
+            params.modTagSet.add("none");
+            params.subplexes.add(new Subplex("ref_126", 3));
+            params.subplexes.add(new Subplex("ref_131", 3));
+
+            Index index = buildStandardIndex();
+            Index.SubplexIndex si2 = new Index.SubplexIndex();
+            si2.abnIndex = 20;
+            si2.refIndex = 20;
+            index.subplexIndices.add(si2);
+
+            PsmRecord record = new PsmRecord(params, index);
+            String[] fields = buildStandardFields();
+            fields[17] = s1c1;
+            fields[18] = s1c2;
+            fields[19] = s1c3;
+            fields[20] = s2c1;
+            fields[21] = s2c2;
+            fields[22] = s2c3;
+            record.parsePsmRecord(String.join("\t", fields), new ArrayList<>(), new ArrayList<>());
+            record.updateFlags(new HashSet<>());
+            return record;
+        }
+
+        @Test
+        void dropsStandardMultiSubplexPsmWhenOneSubplexReferenceMissing() {
+            // Non-hyperplexing multi-sub-plex (e.g. TMT-35): the sub-plexes share one pooled
+            // reference, so a peptide must be referenced in EVERY sub-plex. A zero reference in one
+            // sub-plex drops the PSM. This preserves the pre-existing TMT-35 behavior; the
+            // any-reference relaxation applies to hyperplexing (SILAC) only.
+            PsmRecord record = buildTwoSubplexStandardRecord("0", "0", "0", "4000", "5000", "6000");
+            assertFalse(record.isPassCriteria(0));
+        }
+
+        @Test
+        void keepsStandardMultiSubplexPsmWhenAllSubplexReferencesPresent() {
+            PsmRecord record = buildTwoSubplexStandardRecord("1000", "2000", "3000", "4000", "5000", "6000");
+            assertTrue(record.isPassCriteria(0));
+        }
+    }
+
+    @Nested
+    class HyperplexMultiSubplexReferenceTest {
+
+        /**
+         * Build a hyperplexing record with two labels (Light, Heavy), each itself a TMT-35-style pair
+         * of sub-plexes (a 2-channel and a 1-channel sub-plex). Each boolean selects whether that
+         * sub-plex carries signal; with summation references a sub-plex with all-zero channels has a
+         * zero reference. Sub-plex order is label-major: [Light-1, Light-2, Heavy-1, Heavy-2].
+         */
+        private PsmRecord buildHyperplexTmt35Record(boolean light1, boolean light2,
+                                                    boolean heavy1, boolean heavy2) {
+            Parameters params = new Parameters();
+            params.isHyperplexing = true;
+            params.addIsobaricFilter = false;
+            params.add_Ref = 0; // summation virtual reference
+            params.glycoQval = -1;
+            params.allow_unlabeled = true;
+            params.modTagSet.add("none");
+            params.subplexes.add(new Subplex("ref_126", 2));
+            params.subplexes.add(new Subplex("ref_128", 1));
+            params.subplexes.add(new Subplex("ref_126", 2));
+            params.subplexes.add(new Subplex("ref_128", 1));
+            params.hyperplexLabelNames.add("Light");
+            params.hyperplexLabelNames.add("Heavy");
+            params.hyperplexLabelSubplexCounts.add(2);
+            params.hyperplexLabelSubplexCounts.add(2);
+
+            Index index = new Index();
+            index.labelFreeModifiedPeptideIndex = 0;
+            index.labelSpectrumIndices[0] = 1;
+            index.labelSpectrumIndices[2] = 2;
+            index.labelAssignedModIndices[0] = 3;
+            index.labelMs1IntIndices[0] = 4;
+            index.labelMs1IntIndices[2] = 5;
+            index.pepcIndex = 0;
+            index.spectrumIndex = 1;
+            index.rtIndex = 6;
+            index.pepMassIndex = 7;
+            index.pepProbcIndex = 8;
+            index.purityIndex = 9;
+            index.isUniquecIndex = 10;
+            index.proteincIndex = 11;
+            index.proteinIDcIndex = 12;
+            index.genecIndex = 13;
+            index.observedMzIndex = 14;
+
+            Index.SubplexIndex l1 = new Index.SubplexIndex();
+            l1.abnIndex = 15;
+            l1.refIndex = 15;
+            index.subplexIndices.add(l1);
+            Index.SubplexIndex l2 = new Index.SubplexIndex();
+            l2.abnIndex = 17;
+            l2.refIndex = 17;
+            index.subplexIndices.add(l2);
+            Index.SubplexIndex h1 = new Index.SubplexIndex();
+            h1.abnIndex = 18;
+            h1.refIndex = 18;
+            index.subplexIndices.add(h1);
+            Index.SubplexIndex h2 = new Index.SubplexIndex();
+            h2.abnIndex = 20;
+            h2.refIndex = 20;
+            index.subplexIndices.add(h2);
+
+            String[] fields = {
+                "n[229.16]PEPTIDE", "run1.00100.00100.3", "run1.00100.00100.3", "1K(229.1629)",
+                "20000", "30000", "25.5", "850.4", "0.98", "0.92", "true",
+                "sp|P12345|PROT_HUMAN", "P12345", "GENE1", "425.2",
+                light1 ? "1000" : "0", light1 ? "2000" : "0", // 15,16 Light-1
+                light2 ? "3000" : "0",                        // 17    Light-2
+                heavy1 ? "4000" : "0", heavy1 ? "5000" : "0", // 18,19 Heavy-1
+                heavy2 ? "6000" : "0",                        // 20    Heavy-2
+            };
+
+            PsmRecord record = new PsmRecord(params, index);
+            record.parsePsmRecord(String.join("\t", fields), new ArrayList<>(), new ArrayList<>());
+            record.updateFlags(new HashSet<>());
+            return record;
+        }
+
+        @Test
+        void keepsWhenAtLeastOneLabelFullyReferenced() {
+            // Light fully referenced (both sub-plexes), Heavy only partially -> keep (Light is usable).
+            PsmRecord record = buildHyperplexTmt35Record(true, true, true, false);
+            assertTrue(record.isPassCriteria(0));
+        }
+
+        @Test
+        void dropsWhenNoLabelFullyReferenced() {
+            // Each label is missing one of its two sub-plex references, so no label is quantifiable
+            // as a TMT-35 unit -> drop, even though individual sub-plexes carry a reference.
+            PsmRecord record = buildHyperplexTmt35Record(true, false, true, false);
+            assertFalse(record.isPassCriteria(0));
+        }
+
+        @Test
+        void masksReferencesOfPartiallyReferencedLabel() throws Exception {
+            // Light fully referenced, Heavy partial (Heavy-2 missing). The whole Heavy label must be
+            // treated as unquantifiable: every Heavy reference is zeroed, including Heavy-1 which had
+            // signal. Light references are preserved. Order: [Light-1, Light-2, Heavy-1, Heavy-2].
+            PsmRecord record = buildHyperplexTmt35Record(true, true, true, false);
+            List<Double> refs = getField(record, "subplexRefIntensities");
+            assertTrue(refs.get(0) > 0, "Light-1 reference should be preserved");
+            assertTrue(refs.get(1) > 0, "Light-2 reference should be preserved");
+            assertEquals(0.0, refs.get(2), 1e-9, "Heavy-1 reference should be masked (Heavy incomplete)");
+            assertEquals(0.0, refs.get(3), 1e-9, "Heavy-2 reference is absent");
         }
     }
 }
