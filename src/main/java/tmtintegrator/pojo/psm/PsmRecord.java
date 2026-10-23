@@ -54,6 +54,7 @@ public class PsmRecord {
     private double totalMs1Intensity; // total MS1 intensity (used as weight for weighted median)
     private double[] subplexMs1Intensities; // per-subplex MS1 intensities (used by useMS1Intensity)
     private String assignedModifications;
+    private String[] labelAssignedModifications; // hyperplexing only: Light, Medium, Heavy Assigned Modifications
     private String ptmLocalization;
     private double purity;
     private boolean isUnique;
@@ -483,10 +484,19 @@ public class PsmRecord {
         peptide = stripBracketMods(labelFreeModPep);
         modifiedPeptide = labelFreeModPep;
 
-        // Use Light Assigned Modifications (base TMT-labeled form without SILAC mass shifts)
-        assignedModifications = index.labelAssignedModIndices[0] >= 0
-                ? fields[index.labelAssignedModIndices[0]].trim()
-                : "";
+        // Prefer Light Assigned Modifications (base TMT-labeled form without SILAC mass shifts).
+        // A pair row lacks the labels that were not detected, so fall back to the first non-empty
+        // label in the same order as spectrum (Light, Medium, Heavy). The label masses are those of
+        // the chosen label, so a mod_tag on a label mass (e.g. a cysteine probe) must list every label's mass.
+        labelAssignedModifications = new String[index.labelAssignedModIndices.length];
+        assignedModifications = "";
+        for (int i = 0; i < index.labelAssignedModIndices.length; i++) {
+            int idx = index.labelAssignedModIndices[i];
+            labelAssignedModifications[i] = idx >= 0 && idx < fields.length ? fields[idx].trim() : "";
+            if (assignedModifications.isEmpty()) {
+                assignedModifications = labelAssignedModifications[i];
+            }
+        }
 
         charge = parseChargeFromSpectrum(spectrum);
 
@@ -609,8 +619,22 @@ public class PsmRecord {
             return true;
         }
 
-        if (matchLabels(assignedModifications, parameters.labels, 0.1f)) {
-            return parameters.allow_overlabel || (!assignedModifications.contains("S(229.") && !assignedModifications.contains("S(304."));
+        if (parameters.isHyperplexing) {
+            // A pair row may lack some labels (e.g. no light PSM), so it passes if any present label is labeled
+            for (String labelMods : labelAssignedModifications) {
+                if (!labelMods.isEmpty() && isLabeled(labelMods)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        return isLabeled(assignedModifications);
+    }
+
+    private boolean isLabeled(String mods) {
+        if (matchLabels(mods, parameters.labels, 0.1f)) {
+            return parameters.allow_overlabel || (!mods.contains("S(229.") && !mods.contains("S(304."));
         } else {
             return false;
         }

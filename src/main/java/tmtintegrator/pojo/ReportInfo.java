@@ -99,7 +99,7 @@ public class ReportInfo {
                 proteinID + "\t" +
                 peptide + "\t";
 
-        if (!assignedMods.isEmpty()) {
+        if (assignedMods != null) { // modified peptide report only, may be empty
             result += assignedMods + "\t";
         }
 

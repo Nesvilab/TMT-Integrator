@@ -208,7 +208,7 @@ public class ReportGenerator {
                             .collect(java.util.stream.Collectors.toList()),
                     globalMinRefInt, parameters);
 
-            String[] keyParts = groupKey.split("\t");
+            String[] keyParts = groupKey.split("\t", -1); // keep an empty trailing Assigned Modifications
 
             double maxPepProb;
             if (groupBy == GroupBy.MODIFIED_PEPTIDE) {

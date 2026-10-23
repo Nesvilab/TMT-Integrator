@@ -71,7 +71,7 @@ public class ReportData {
     }
 
     public void writeReportInfo(BufferedWriter writer, String infoString, GroupBy groupBy) throws IOException {
-        String[] parts = infoString.split("\t");
+        String[] parts = infoString.split("\t", -1); // keep an empty trailing Assigned Modifications
         // extract report info
         ReportInfo reportInfo = new ReportInfo(parts, groupBy);
 
@@ -81,7 +81,7 @@ public class ReportData {
         } else if (groupBy == GroupBy.MODIFIED_PEPTIDE) {
             reportInfo.propagateExtraInfo(extraPsmInfoMap, writer, parts[parts.length - 1]);
         } else {
-            reportInfo.propagateExtraInfo(extraPsmInfoMap, writer, "");
+            reportInfo.propagateExtraInfo(extraPsmInfoMap, writer, null);
         }
     }
 

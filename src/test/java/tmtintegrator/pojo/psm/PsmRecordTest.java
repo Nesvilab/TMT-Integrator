@@ -1028,4 +1028,201 @@ class PsmRecordTest {
             assertEquals(0.0, refs.get(3), 1e-9, "Heavy-2 reference is absent");
         }
     }
+
+    // TMTpro plus the light/medium/heavy cysteine probe, as FragPipe writes label_masses
+    private static final float[] PROBE_LABEL_MASSES = {304.2071f, 826.535f, 831.5455f, 836.5559f};
+
+    @Nested
+    class HyperplexLabelTest {
+
+        /**
+         * Build a Light/Medium/Heavy hyperplexing record laid out like psm_pair.tsv: per-label
+         * Spectrum and Assigned Modifications columns, each label with one 2-channel sub-plex. An
+         * empty {@code mods} argument marks that label as not detected in the pair row (its spectrum,
+         * MS1 intensity and channels are empty too).
+         */
+        private PsmRecord buildRecord(Parameters params, String lightMods, String mediumMods, String heavyMods) {
+            params.isHyperplexing = true;
+            params.addIsobaricFilter = false;
+            params.add_Ref = 0; // summation virtual reference
+            params.glycoQval = -1;
+            params.labels = PROBE_LABEL_MASSES;
+            params.subplexes.add(new Subplex("ref_126", 2));
+            params.subplexes.add(new Subplex("ref_126", 2));
+            params.subplexes.add(new Subplex("ref_126", 2));
+            params.hyperplexLabelNames.add("Light");
+            params.hyperplexLabelNames.add("Medium");
+            params.hyperplexLabelNames.add("Heavy");
+            params.hyperplexLabelSubplexCounts.add(1);
+            params.hyperplexLabelSubplexCounts.add(1);
+            params.hyperplexLabelSubplexCounts.add(1);
+
+            Index index = new Index();
+            index.labelFreeModifiedPeptideIndex = 0;
+            index.labelSpectrumIndices[0] = 1;
+            index.labelAssignedModIndices[0] = 2;
+            index.labelSpectrumIndices[1] = 3;
+            index.labelAssignedModIndices[1] = 4;
+            index.labelSpectrumIndices[2] = 5;
+            index.labelAssignedModIndices[2] = 6;
+            index.labelMs1IntIndices[0] = 7;
+            index.labelMs1IntIndices[1] = 8;
+            index.labelMs1IntIndices[2] = 9;
+            index.rtIndex = 10;
+            index.pepMassIndex = 11;
+            index.pepProbcIndex = 12;
+            index.purityIndex = 13;
+            index.isUniquecIndex = 14;
+            index.proteincIndex = 15;
+            index.proteinIDcIndex = 16;
+            index.genecIndex = 17;
+            index.observedMzIndex = 18;
+            for (int abnIndex : new int[]{19, 21, 23}) {
+                Index.SubplexIndex si = new Index.SubplexIndex();
+                si.abnIndex = abnIndex;
+                si.refIndex = abnIndex;
+                index.subplexIndices.add(si);
+            }
+
+            boolean light = !lightMods.isEmpty();
+            boolean medium = !mediumMods.isEmpty();
+            boolean heavy = !heavyMods.isEmpty();
+            String[] fields = {
+                "PESCTIDEK",                                  // 0: Label Free Modified Peptide
+                light ? "run1.00100.00100.3" : "", lightMods,   // 1-2: Light Spectrum, Assigned Mods
+                medium ? "run1.00110.00110.3" : "", mediumMods, // 3-4: Medium Spectrum, Assigned Mods
+                heavy ? "run1.00120.00120.3" : "", heavyMods,   // 5-6: Heavy Spectrum, Assigned Mods
+                light ? "20000" : "", medium ? "30000" : "", heavy ? "40000" : "", // 7-9: MS1 intensities
+                "25.5", "850.4", "0.98", "0.92", "true",       // 10-14
+                "sp|P12345|PROT_HUMAN", "P12345", "GENE1", "425.2", // 15-18
+                light ? "1000" : "", light ? "2000" : "",       // 19-20: Light channels
+                medium ? "3000" : "", medium ? "4000" : "",     // 21-22: Medium channels
+                heavy ? "5000" : "", heavy ? "6000" : "",       // 23-24: Heavy channels
+            };
+
+            PsmRecord record = new PsmRecord(params, index);
+            record.parsePsmRecord(String.join("\t", fields), new ArrayList<>(), new ArrayList<>());
+            record.updateFlags(new HashSet<>());
+            return record;
+        }
+
+        private Parameters labeledParams() {
+            Parameters params = new Parameters();
+            params.allow_unlabeled = false;
+            params.modTagSet.add("none");
+            return params;
+        }
+
+        @Test
+        void keepsRowWithoutLightWhenHeavyIsProbeLabeled() throws Exception {
+            // No light PSM in the pair group: the label check must use the heavy PSM
+            PsmRecord record = buildRecord(labeledParams(), "", "", "4C(836.5559)");
+
+            assertTrue((boolean) getField(record, "labelFlag"));
+            assertTrue(record.isPassCriteria(0));
+            assertEquals("4C(836.5559)", record.getAssignedModifications());
+            assertEquals("run1.00120.00120.3", getField(record, "spectrum"));
+        }
+
+        @Test
+        void keepsRowWithoutLightWhenMediumIsProbeLabeled() throws Exception {
+            PsmRecord record = buildRecord(labeledParams(), "", "4C(831.5455)", "");
+
+            assertTrue((boolean) getField(record, "labelFlag"));
+            assertTrue(record.isPassCriteria(0));
+            assertEquals("4C(831.5455)", record.getAssignedModifications());
+        }
+
+        @Test
+        void fallsBackToMediumBeforeHeavy() {
+            PsmRecord record = buildRecord(labeledParams(), "", "4C(831.5455)", "4C(836.5559)");
+
+            assertEquals("4C(831.5455)", record.getAssignedModifications());
+        }
+
+        @Test
+        void prefersLightAssignedModifications() throws Exception {
+            PsmRecord record = buildRecord(labeledParams(), "4C(826.5350)", "4C(831.5455)", "4C(836.5559)");
+
+            assertEquals("4C(826.5350)", record.getAssignedModifications());
+            assertTrue((boolean) getField(record, "labelFlag"));
+        }
+
+        @Test
+        void dropsRowWhenNoPresentLabelIsLabeled() throws Exception {
+            PsmRecord record = buildRecord(labeledParams(), "", "4C(57.0215)", "4C(57.0215)");
+
+            assertFalse((boolean) getField(record, "labelFlag"));
+            assertFalse(record.isPassCriteria(0));
+        }
+
+        @Test
+        void appliesOverlabelRuleToFallbackLabel() throws Exception {
+            Parameters params = labeledParams();
+            params.allow_overlabel = false;
+            PsmRecord record = buildRecord(params, "", "", "3S(304.2071), 4C(836.5559)");
+            assertFalse((boolean) getField(record, "labelFlag"));
+
+            params = labeledParams();
+            params.allow_overlabel = true;
+            record = buildRecord(params, "", "", "3S(304.2071), 4C(836.5559)");
+            assertTrue((boolean) getField(record, "labelFlag"));
+        }
+
+        @Test
+        void modTagMatchesFallbackLabel() throws Exception {
+            // Without the fallback, assignedModifications was empty and every mod_tag rejected the row
+            Parameters params = new Parameters();
+            params.allow_unlabeled = false;
+            params.modTagSet.add("C(836.5559)");
+            PsmRecord record = buildRecord(params, "", "", "4C(836.5559)");
+
+            assertTrue((boolean) getField(record, "modficationFlag"));
+        }
+    }
+
+    @Nested
+    class StandardLabelTest {
+
+        private PsmRecord buildRecord(String assignedMods, boolean allowOverlabel) {
+            Parameters params = buildStandardParams();
+            params.allow_unlabeled = false;
+            params.allow_overlabel = allowOverlabel;
+            params.labels = PROBE_LABEL_MASSES;
+            params.modTagSet.add("none");
+            PsmRecord record = new PsmRecord(params, buildStandardIndex());
+            String[] fields = buildStandardFields();
+            fields[1] = "PESCTIDE";
+            fields[11] = assignedMods;
+            record.parsePsmRecord(String.join("\t", fields), new ArrayList<>(), new ArrayList<>());
+            record.updateFlags(new HashSet<>());
+            return record;
+        }
+
+        @Test
+        void usesAssignedModificationsColumn() throws Exception {
+            PsmRecord record = buildRecord("N-term(304.2071), 4C(826.5350)", false);
+
+            assertEquals("N-term(304.2071), 4C(826.5350)", record.getAssignedModifications());
+            assertEquals("n[304.2071]PESC[826.5350]TIDE", record.getModifiedPeptide());
+            assertTrue((boolean) getField(record, "labelFlag"));
+        }
+
+        @Test
+        void probeLabelAlonePassesLabelCheck() throws Exception {
+            assertTrue((boolean) getField(buildRecord("4C(826.5350)", false), "labelFlag"));
+        }
+
+        @Test
+        void unlabeledFailsLabelCheck() throws Exception {
+            assertFalse((boolean) getField(buildRecord("", false), "labelFlag"));
+            assertFalse((boolean) getField(buildRecord("4C(57.0215)", false), "labelFlag"));
+        }
+
+        @Test
+        void overlabelRuleUnchanged() throws Exception {
+            assertFalse((boolean) getField(buildRecord("N-term(304.2071), 3S(304.2071)", false), "labelFlag"));
+            assertTrue((boolean) getField(buildRecord("N-term(304.2071), 3S(304.2071)", true), "labelFlag"));
+        }
+    }
 }
