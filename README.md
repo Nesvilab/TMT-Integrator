@@ -39,6 +39,10 @@ PSMs are grouped (by gene, protein, peptide, or modified site). Within these gro
 There are two protein level normalization options: median centering or global normalization. With median centering, median normalized log2 intensity of the ith sample (m<sub>0</sub>) is subtracted from each channel so that the median ratio of each becomes 0. If global normalization is used, median centering is first performed, then the median deviation and median absolute deviation of centered values (m<sub>1</sub> and m<sub>2</sub>) is calculated and used to scale all values: y<sub>ij</sub>'=(y<sub>ij</sub>/m<sub>2</sub>)xm<sub>1</sub>+m<sub>0</sub>, where y<sub>ij</sub> is the log2 ratio in the ith group of the jth sample.
 
 
+## How to cite
+Chang, H. Y., Deng, Y., Li, R., Avtonomov, D., Wen, B., Haynes, S. E., da Veiga Leprevost, F., Zhang, B., Yu, F., & Nesvizhskii, A. I. (2026). Analysis of isobaric quantitative proteomic data using TMT-Integrator and FragPipe computational platform. Nature Communications, 17, 4010. doi: [10.1038/s41467-026-70118-7](https://doi.org/10.1038/s41467-026-70118-7)
+
+
 ## Download
 TMT-Integrator is included in [FragPipe](https://fragpipe.nesvilab.org/). The latest standalone version can be downloaded [here](https://github.com/Nesvilab/TMT-Integrator/releases/latest).
 
